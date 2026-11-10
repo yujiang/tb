@@ -1,21 +1,24 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Recommended",
   "compilerOptions": {
     "target": "ES2021",
-    "module": "Node16",
-    "moduleResolution": "Node16",
-    "lib": ["ES2021", "DOM"],
-    "types": [],
+    "lib": ["ES2021"],
+    "module": "NodeNext",
+    "moduleDetection": "force",
     "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
+    "strictNullChecks": false,
+    "useDefineForClassFields": false,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true,
-    "declaration": true,
+    "importHelpers": true,
+    "skipLibCheck": true,
     "sourceMap": true,
     "noEmitOnError": true,
-    "rootDir": ".",
-    "outDir": "lib"
+    "rootDir": "src",
+    "outDir": "bin-debug"
   },
-  "include": ["src/**/*.ts", "examples/**/*.ts"]
+  "include": ["src"],
+  "exclude": ["lib", "node_modules"]
 }
