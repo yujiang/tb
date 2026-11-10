@@ -28,14 +28,10 @@
       "sourceMaps": true,
       "name": "调试当前测试文件",
       "program": "${workspaceFolder}/.test-build/${relativeFileDirname}/${fileBasenameNoExtension}.js",
-      "runtimeArgs": [
-        "--test"
-      ],
       "preLaunchTask": "build tests",
       "outFiles": [
         "${workspaceFolder}/.test-build/**/*.js"
-      ],
-      "autoAttachChildProcesses": true
+      ]
     },
     {
       "type": "node",

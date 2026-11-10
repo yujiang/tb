@@ -33,10 +33,10 @@ class Fight {
     createMap(nx, ny) {
         this.map = new FightMap_1.FightMap(this, nx, ny);
     }
-    selectTargets(attack, des, die, sel) {
+    selectTargets(attack, des, sel) {
         //const attacks = this.getSideUnits(0).filter(u => u.isFillterDie(die));
         //const dess = this.getSideUnits(1).filter(u => u.isFillterDie(die));
-        return this.map.selectTargets(attack, des, die, sel);
+        return this.map.selectTargets(attack, des, sel);
     }
 }
 exports.Fight = Fight;

@@ -2,7 +2,7 @@
 
 import { Fight } from "./Fight";
 import { FightUnit } from "./FightUnit";
-import { DesSide, DiedSelectEnum, FightSideEnum, is_duiwei, MapSelectEnum, TargetSelectEnum } from "./struct";
+import { DesSide, DiedSelectEnum, MapShapeEnum, SelectParam, TargetSelectEnum } from "./struct";
 import { strict as assert } from "node:assert";
 
 export class FightMap {
@@ -39,81 +39,55 @@ export class FightMap {
         return [index % this.nx, Math.floor(index / this.nx)];
     }
 
-    selectTargets(attack: FightUnit, des: FightUnit, die: DiedSelectEnum, sel: TargetSelectEnum) : FightUnit[]|undefined {
-        switch(sel) {
+    selectTargets(attack: FightUnit, des: FightUnit, sel:SelectParam) : FightUnit[]|undefined {
+        switch(sel.target) {
             case TargetSelectEnum.self:
                 return [attack];
             case TargetSelectEnum.des:
                 assert(des);
                 return [des];
-            case TargetSelectEnum.this_all:
-                return this.fight.getSideUnitsDie(attack.side, die);
-            case TargetSelectEnum.des_all:
-                return this.fight.getSideUnitsDie(DesSide(attack.side), die);
         }
 
-        if (is_duiwei(sel)){
-            return this.selectTargetDuiwei(attack, die, sel);
+        if (sel.target === TargetSelectEnum.duiwei){
+            return this.selectTargetDuiwei(attack, sel);
         }
-        return this.selectTargetsPos(attack, des, die, sel);
+        return this.selectTargetsPos(attack, des, sel);
     }
 
     // 以unit为中心来计算
-    private selectTargetsMap(unit: FightUnit, die: DiedSelectEnum, sel: MapSelectEnum) {        
+    private selectTargetsShape(unit: FightUnit, sel:SelectParam) {        
         const side = unit.side;
         const pos = unit.pos;
         const [x,y] = this.getPosByIndex(pos);
         let poses : number[];
-        switch(sel) {
-            case MapSelectEnum.x_line:
+        switch(sel.shape) {
+            case MapShapeEnum.x_line:
                 poses = this.xLine(x);
                 break;
-            case MapSelectEnum.y_line:
+            case MapShapeEnum.y_line:
                 poses = this.yLine(y);
                 break;
             default:
                 assert(false);
                 return;
         }
-        return this.fight.getSideUnitsByPos(side, poses, die);
+        return this.fight.getSideUnitsByPos(side, poses, sel.die);
     }
 
-    selectTargetsPos(attack: FightUnit, des: FightUnit, die: DiedSelectEnum, sel: TargetSelectEnum)  {        
-        let v1 : FightUnit
-        let mapsel = MapSelectEnum.none;
-        switch(sel) {
-            case TargetSelectEnum.this_x_line:
-                v1 = attack;
-                mapsel = MapSelectEnum.x_line;
-                break;
-            case TargetSelectEnum.this_y_line:
-                v1 = attack;
-                mapsel = MapSelectEnum.y_line;
-                break;
-            case TargetSelectEnum.this_cross:
-                v1 = attack;
-                mapsel = MapSelectEnum.cross;
-                break;
-
-            case TargetSelectEnum.des_x_line:
-                v1 = des;
-                mapsel = MapSelectEnum.x_line;
-                break;
-            case TargetSelectEnum.des_y_line:
-                v1 = des;
-                mapsel = MapSelectEnum.y_line;
-                break;
-            case TargetSelectEnum.des_cross:
-                v1 = des;
-                mapsel = MapSelectEnum.cross;
-                break;
-        }
-        if (mapsel) {
-            return this.selectTargetsMap(des, die, MapSelectEnum.x_line);
+    selectTargetsPos(attack: FightUnit, des: FightUnit, sel:SelectParam)  {        
+        let v1 : FightUnit = sel.target === TargetSelectEnum.attackside ? attack : des;
+        if (v1) {
+            if (sel.shape == MapShapeEnum.one){
+                return [v1];
+            }
+            if (sel.shape == MapShapeEnum.all){
+                return this.fight.getSideUnitsDie(DesSide(v1.side), sel.die);
+            }
+            return this.selectTargetsShape(v1, sel);
         }
     }
 
-    genMap() {
+    private genMap() {
         const maps: (FightUnit|undefined)[][] = [];
         for (let y = 0; y < this.ny; y++) {
             const lines: (FightUnit|undefined)[] = []
@@ -160,27 +134,12 @@ export class FightMap {
         }
     }
 
-    selectTargetDuiwei(attack: FightUnit, die: DiedSelectEnum, sel: TargetSelectEnum){
-        const des = this.findDuiwei(attack, die);
+    selectTargetDuiwei(attack: FightUnit, sel: SelectParam){
+        const des = this.findDuiwei(attack, sel.die);
         if (!des) {
             return;
         }
-        let mapsel = MapSelectEnum.none;
-        switch(sel) {
-            case TargetSelectEnum.duiwei:
-                return [des];
-            case TargetSelectEnum.duiwei_xline:
-                mapsel = MapSelectEnum.x_line;
-                break;
-            case TargetSelectEnum.duiwei_yline:
-                mapsel = MapSelectEnum.y_line;
-                break;                            
-            case TargetSelectEnum.duiwei_cross:
-                mapsel = MapSelectEnum.cross;
-                break;                            
-        }
-        if (mapsel) {
-            return this.selectTargetsMap(des, die, mapsel);
-        }
+        const sel2 = {...sel, target: TargetSelectEnum.defendside};
+        return this.selectTargetsPos(attack, des, sel2);
     }    
 }

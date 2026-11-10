@@ -2,7 +2,7 @@
 import { FightMap } from "./FightMap";
 import { FightSide } from "./FightSide";
 import { FightUnit } from "./FightUnit";
-import { DiedSelectEnum, FightSideEnum, TargetSelectEnum } from "./struct";
+import { DiedSelectEnum, FightSideEnum, SelectParam, TargetSelectEnum } from "./struct";
 export type AllUnitType = [FightUnit[], FightUnit[]];
 
 export class Fight {
@@ -47,10 +47,10 @@ export class Fight {
         this.map = new FightMap(this, nx, ny);
     }
 
-    selectTargets(attack: FightUnit, des: FightUnit|null, die: DiedSelectEnum, sel: TargetSelectEnum) : FightUnit[]|undefined {
+    selectTargets(attack: FightUnit, des: FightUnit|null, sel:SelectParam) : FightUnit[]|undefined {
         //const attacks = this.getSideUnits(0).filter(u => u.isFillterDie(die));
         //const dess = this.getSideUnits(1).filter(u => u.isFillterDie(die));
-        return this.map.selectTargets(attack, des, die, sel);
+        return this.map.selectTargets(attack, des, sel);
     }
 }
 

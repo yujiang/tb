@@ -9,7 +9,7 @@ export interface simpleData {
 
 export class FightSide {
     side: FightSideEnum;
-    units: FightUnit[];    
+    units: FightUnit[] = [];
     createSimpleUnits(datas: simpleData[]): void {
         for (const data of datas){
             const u = new FightUnit(data.name, data.id)

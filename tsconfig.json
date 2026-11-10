@@ -5,6 +5,7 @@
     "target": "ES2021",
     "lib": ["ES2021"],
     "module": "NodeNext",
+    "types": ["node"],
     "moduleDetection": "force",
     "strict": true,
     "strictNullChecks": false,

@@ -3,6 +3,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.FightSide = void 0;
 const FightUnit_1 = require("./FightUnit");
 class FightSide {
+    constructor() {
+        this.units = [];
+    }
     createSimpleUnits(datas) {
         for (const data of datas) {
             const u = new FightUnit_1.FightUnit(data.name, data.id);
