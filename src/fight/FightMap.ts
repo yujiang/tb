@@ -23,6 +23,23 @@ export class FightMap {
         return y * this.nx + x;
     }
 
+    // 前位，y前x不变
+    beforePos(pos: number) {
+        const [x, y] = this.getPosByIndex(pos);
+        if (y > 0) {
+            return this.getPos(x, y - 1);
+        }
+        return -1;
+    }
+    // 后位，y后x不变, -1表示没有
+    afterPos(pos: number) {
+        const [x, y] = this.getPosByIndex(pos);
+        if (y < this.ny - 1) {
+            return this.getPos(x, y + 1);
+        }
+        return -1;
+    }
+
     getDuiwei(x: number){
         return (this.ny  - 1) - x;
     }
@@ -39,23 +56,8 @@ export class FightMap {
         return [index % this.nx, Math.floor(index / this.nx)];
     }
 
-    selectTargets(attack: FightUnit, des: FightUnit, sel:SelectParam) : FightUnit[]|undefined {
-        switch(sel.target) {
-            case TargetSelectEnum.self:
-                return [attack];
-            case TargetSelectEnum.des:
-                assert(des);
-                return [des];
-        }
-
-        if (sel.target === TargetSelectEnum.duiwei){
-            return this.selectTargetDuiwei(attack, sel);
-        }
-        return this.selectTargetsPos(attack, des, sel);
-    }
-
     // 以unit为中心来计算
-    private selectTargetsShape(unit: FightUnit, sel:SelectParam) {        
+    selectTargetsShape(unit: FightUnit, sel:SelectParam) {        
         const side = unit.side;
         const pos = unit.pos;
         const [x,y] = this.getPosByIndex(pos);
@@ -84,19 +86,6 @@ export class FightMap {
                 return;
         }
         return this.fight.getSideUnitsByPos(side, poses, sel.die);
-    }
-
-    selectTargetsPos(attack: FightUnit, des: FightUnit, sel:SelectParam)  {        
-        let v1 : FightUnit = sel.target === TargetSelectEnum.attackside ? attack : des;
-        if (v1) {
-            if (sel.shape == MapShapeEnum.one){
-                return [v1];
-            }
-            if (sel.shape == MapShapeEnum.all){
-                return this.fight.getSideUnitsDie(v1.side, sel.die);
-            }
-            return this.selectTargetsShape(v1, sel);
-        }
     }
 
     private genMap() {
@@ -146,12 +135,5 @@ export class FightMap {
         }
     }
 
-    selectTargetDuiwei(attack: FightUnit, sel: SelectParam){
-        const des = this.findDuiwei(attack, sel.die);
-        if (!des) {
-            return;
-        }
-        const sel2 = {...sel, target: TargetSelectEnum.defendside};
-        return this.selectTargetsPos(attack, des, sel2);
-    }    
+
 }

@@ -1,13 +1,25 @@
 import { Fight } from "./Fight";
-import { DiedSelectEnum, FightSideEnum } from "./struct";
+import { FightAttr } from "./FightAttr";
+import { DiedSelectEnum, FightDisplay, FightSideEnum } from "./struct";
 
 // 战斗单元
 export class FightUnit {
-    name: string;
     id: number;
-    constructor(name: string, id: number) {
-        this.name = name;
+    attr: FightAttr; 
+    display: FightDisplay;
+    
+   constructor(id: number, attr: FightAttr, display: FightDisplay) {
         this.id = id;
+        this.attr = attr;
+        this.display = display;
+    }
+
+    getName() {
+        return this.display.name;
+    }
+
+    getAttr(key: string){
+        return this.attr.getAttr(key);
     }
 
     side: FightSideEnum;
@@ -42,4 +54,5 @@ export class FightUnit {
             return this.dead;
         }
     }
+
 }

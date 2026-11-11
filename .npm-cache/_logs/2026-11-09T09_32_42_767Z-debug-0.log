@@ -1,0 +1,22 @@
+0 verbose cli C:\Program Files\nodejs\node.exe C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js
+1 info using npm@11.20.0
+2 info using node@v26.13.0
+3 silly config load:file:C:\Program Files\nodejs\node_modules\npm\npmrc
+4 silly config load:file:D:\coding\dao_download\dao\server\libs\tb\.npmrc
+5 silly config load:file:C:\Users\mos\.npmrc
+6 silly config load:file:C:\Users\mos\AppData\Roaming\npm\etc\npmrc
+7 verbose title npm install
+8 verbose argv "install" "--package-lock-only" "--offline" "--ignore-scripts" "--no-audit" "--no-fund" "--cache" ".npm-cache"
+9 verbose logfile logs-max:10 dir:D:\coding\dao_download\dao\server\libs\tb\.npm-cache\_logs\2026-11-09T09_32_42_767Z-
+10 verbose logfile D:\coding\dao_download\dao\server\libs\tb\.npm-cache\_logs\2026-11-09T09_32_42_767Z-debug-0.log
+11 warn Unknown user config "sharp_binary_host". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+12 warn Unknown user config "sharp_libvips_binary_host". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+13 silly logfile done cleaning log files
+14 silly packumentCache heap:4395630592 maxSize:1098907648 maxEntrySize:549453824
+15 silly idealTree buildDeps
+16 verbose cwd D:\coding\dao_download\dao\server\libs\tb
+17 verbose os Windows_NT 10.0.22631
+18 verbose node v26.13.0
+19 verbose npm  v11.20.0
+20 verbose exit 0
+21 info ok

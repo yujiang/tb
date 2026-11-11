@@ -1,10 +1,11 @@
+import { FightAttr } from "./FightAttr";
 import { FightUnit } from "./FightUnit";
 import { FightSideEnum } from "./struct";
 
 export interface simpleData {
     name: string;
     id: number;
-    pos: number
+    pos: number;
 }
 
 export class FightSide {
@@ -12,7 +13,14 @@ export class FightSide {
     units: FightUnit[] = [];
     createSimpleUnits(datas: simpleData[]): void {
         for (const data of datas){
-            const u = new FightUnit(data.name, data.id)
+            const attr = new FightAttr()
+            attr.hp = 100;
+            attr.hpMax = 100;
+            const u = new FightUnit(
+                data.id,
+                attr,
+                {name:data.name},
+            )
             this.units.push(u);
             u.setSidePos(this.side, data.pos);
         }
