@@ -1,5 +1,9 @@
 node_modules/
-.npm-cache/
+.pnpm-store/
+.test-build/
+.example-build/
 lib/
-coverage/
-*.tsbuildinfo
+bin-debug/
+!example/lib/
+!example/lib/**
+

@@ -67,6 +67,18 @@ export class FightMap {
             case MapShapeEnum.y_line:
                 poses = this.yLine(y);
                 break;
+            case MapShapeEnum.cross: {
+                poses = [
+                    [x, y],
+                    [x - 1, y],
+                    [x + 1, y],
+                    [x, y - 1],
+                    [x, y + 1],
+                ]
+                    .filter(([crossX, crossY]) => crossX >= 0 && crossX < this.nx && crossY >= 0 && crossY < this.ny)
+                    .map(([crossX, crossY]) => this.getPos(crossX, crossY));
+                break;
+            }
             default:
                 assert(false);
                 return;
@@ -81,7 +93,7 @@ export class FightMap {
                 return [v1];
             }
             if (sel.shape == MapShapeEnum.all){
-                return this.fight.getSideUnitsDie(DesSide(v1.side), sel.die);
+                return this.fight.getSideUnitsDie(v1.side, sel.die);
             }
             return this.selectTargetsShape(v1, sel);
         }
