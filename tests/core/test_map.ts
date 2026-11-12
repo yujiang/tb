@@ -1,7 +1,7 @@
 
 import {Fight} from '../../src/fight/Fight';
 import { FightSide } from '../../src/fight/FightSide';
-import { DiedSelectEnum, MapShapeEnum, TargetSelectEnum } from '../../src/fight/struct';
+import { SelectMainParam, TargetSelectEnum } from '../../src/fight/struct';
 
 function run(){
     const fight = new Fight(100);
@@ -27,10 +27,11 @@ function run(){
     const u2 = s2.units[2];
     u2.die();
     
-    const param = {die:DiedSelectEnum.alive, target:TargetSelectEnum.duiwei, shape:MapShapeEnum.one};
-    const t1 = fight.selectTargets(s1.units[2],null, param);
+    const param1:SelectMainParam = { target:TargetSelectEnum.duiwei, };
+    const t1 = fight.selectMainTarget(s1.units[2],null, param1);
     console.log("t1",t1);
-    const t2 = fight.selectTargets(s2.units[2],null, param);
+    const param2:SelectMainParam = { target:TargetSelectEnum.des_or_random, };
+    const t2 = fight.selectMainTarget(s2.units[2],null, param2);
     console.log("t2",t2);
 }
 

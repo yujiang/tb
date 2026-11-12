@@ -2,7 +2,7 @@
 import { randArray, shuffleArray, removeArray } from "../public/Array";
 import { FightMap } from "./FightMap";
 import { FightSide } from "./FightSide";
-import { FightUnit } from "./FightUnit";
+import { FightUnit, sortByAttr } from "./FightUnit";
 import { DesSide, DiedSelectEnum, FightSideEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "./struct";
 import { strict as assert } from "node:assert";
 
@@ -16,6 +16,20 @@ export class Fight {
         this.id = id;
     }
 
+    turn = 0; // 当前回合数
+    nextTurn() {
+        this.turn++;
+        if (this.turn >= 100) {
+            this.end = true;
+        }
+    }
+
+    end: boolean = false;
+    isEnd() {
+        return this.end;
+    }
+
+    // ***units start
     Sides: FightSide[];
     AllUnits: AllUnitType;
     createSide(attack: FightSide, des: FightSide) {
@@ -43,9 +57,10 @@ export class Fight {
     getSideUnitByPos(side:FightSideEnum, pos: number) : FightUnit {
         return this.getSideUnits(side).find(u => u.pos == pos)!;
     }
+    // ***units end
 
 
-
+    // ***map start
     map: FightMap;
     createMap(nx: number, ny: number) {
         this.map = new FightMap(this, nx, ny);
@@ -53,7 +68,7 @@ export class Fight {
 
     // 主目标只有一个，通常的做法是先打主目标，命中之后，才产生后续的子目标！
     selectMainTarget(attack: FightUnit, des: FightUnit|null, sel:SelectMainParam) : FightUnit {
-        assert(attack);
+        assert(!attack?.isDied());
 
         if (sel.target == TargetSelectEnum.duiwei) {
             return this.map.findDuiwei(attack, sel.die);    
@@ -64,12 +79,12 @@ export class Fight {
         
         // des_or_random
         if (!des) {
-            const side = sel.attackSide ? attack.side : DesSide(attack.side);
-            const except = sel.includeAttack ? null : attack;
-            const units = this.getSideUnitsDie(side, sel.die, except);
+            const side = sel.target == TargetSelectEnum.friend ? attack.side : DesSide(attack.side);
+            //const except = sel.includeAttack ? null : attack;
+            const units = this.getSideUnitsDie(side, sel.die);
             if (!units.length) return null;
-            if (sel.sort){
-                units.sort((a, b) => a.getAttr(sel.sort) - b.getAttr(sel.sort));
+            if (sel.sortAttr){
+                sortByAttr(units, sel.sortAttr);
                 des = sel.max ? units[units.length-1] : units[0]; //最小值？
             }
             else {
@@ -83,8 +98,8 @@ export class Fight {
         const side = main.side;
         const units = this.getSideUnitsDie(side,sel.die, main);
         if (!units.length) return;
-        if (sel.sort){
-            units.sort((a, b) => a.getAttr(sel.sort) - b.getAttr(sel.sort));
+        if (sel.sortAttr){
+            sortByAttr(units, sel.sortAttr);
         }
         else {
             shuffleArray(units);
@@ -98,7 +113,7 @@ export class Fight {
     selectTargets(main: FightUnit, sel:SelectParam) : FightUnit[]|undefined {
         assert(main);
         // 
-        if (!sel.shape){
+        if (sel.shape === undefined){
             const num = sel.num || 1;
             return this.selectTargetsNum(main, sel, num);
         }
@@ -109,5 +124,6 @@ export class Fight {
         }
         return units;
     }
+    // ***map end
 }
 

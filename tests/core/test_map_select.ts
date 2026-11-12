@@ -2,7 +2,8 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight } from "../../src/fight/Fight";
 import { FightSide } from "../../src/fight/FightSide";
-import { DiedSelectEnum, MapShapeEnum, SelectParam, TargetSelectEnum } from "../../src/fight/struct";
+import { FightUnit } from "../../src/fight/FightUnit";
+import { DiedSelectEnum, MapShapeEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "../../src/fight/struct";
 
 const fight = new Fight(100);
 fight.createMap(5, 5);
@@ -37,84 +38,108 @@ defendSide.createSimpleUnits([
 
 const a00 = attackSide.units[0];
 const a10 = attackSide.units[1];
+const a01 = attackSide.units[2];
+const a11 = attackSide.units[3];
+const a22 = attackSide.units[4];
+const a02 = attackSide.units[6];
 const b40 = defendSide.units[0];
 const b30 = defendSide.units[1];
+const b41 = defendSide.units[2];
+const b32 = defendSide.units[3];
 a10.die();
 b30.die();
 
-function names(units: ReturnType<Fight["selectTargets"]>): string[] | undefined {
-    return units?.map(unit => unit.name);
+function names(units: FightUnit[] | undefined): string[] | undefined {
+    return units?.map(unit => unit.getName());
 }
 
-function check(
-    label: string,
-    attacker: typeof a00,
-    defender: typeof b40 | null,
-    target: TargetSelectEnum,
-    shape: MapShapeEnum,
-    die: DiedSelectEnum,
-    expected: string[] | undefined,
-): void {
-    const param: SelectParam = { target, shape, die };
-    assert.deepEqual(
-        names(fight.selectTargets(attacker, defender, param)),
-        expected,
-        label,
+function secondaryTargets(main: FightUnit, shape: MapShapeEnum, die = DiedSelectEnum.alive): string[] | undefined {
+    const param: SelectParam = {
+        target: TargetSelectEnum.des_or_random,
+        die,
+        num: 1,
+        shape,
+    };
+    return names(fight.selectTargets(main, param));
+}
+
+test("main target selection and secondary shape selection are separate stages", () => {
+    const mainParam: SelectMainParam = {
+        target: TargetSelectEnum.duiwei,
+        die: DiedSelectEnum.alive,
+    };
+    const main = fight.selectMainTarget(a00, null, mainParam);
+
+    assert.equal(main, b40);
+    assert.deepEqual(secondaryTargets(main, MapShapeEnum.x_line), ["b41"]);
+});
+
+test("self selects the attacker as the main target", () => {
+    assert.equal(
+        fight.selectMainTarget(a00, null, { target: TargetSelectEnum.self }),
+        a00,
     );
-}
-
-const shapeCases: Array<[MapShapeEnum, string[], string[], string[]]> = [
-    [MapShapeEnum.one, ["a00"], ["b40"], ["b40"]],
-    [MapShapeEnum.x_line, ["a00", "a01", "a20"], ["b40", "b41"], ["b40", "b41"]],
-    [MapShapeEnum.y_line, ["a00", "a02"], ["b40"], ["b40"]],
-    [MapShapeEnum.cross, ["a00", "a01"], ["b40", "b41"], ["b40", "b41"]],
-    [MapShapeEnum.all, ["a00", "a01", "a11", "a22", "a44", "a02", "a20", "a12", "a21", "a23", "a32", "a33"], ["b40", "b41", "b32", "b22", "b04"], ["b40", "b41", "b32", "b22", "b04"]],
-];
-
-for (const [shape, attackExpected, defendExpected, duiweiExpected] of shapeCases) {
-    test(`attackside shape ${MapShapeEnum[shape]}`, () => {
-        check(`attackside shape ${MapShapeEnum[shape]}`, a00, b40, TargetSelectEnum.attackside, shape, DiedSelectEnum.alive, attackExpected);
-    });
-    test(`defendside shape ${MapShapeEnum[shape]}`, () => {
-        check(`defendside shape ${MapShapeEnum[shape]}`, a00, b40, TargetSelectEnum.defendside, shape, DiedSelectEnum.alive, defendExpected);
-    });
-    test(`duiwei shape ${MapShapeEnum[shape]}`, () => {
-        check(`duiwei shape ${MapShapeEnum[shape]}`, a00, null, TargetSelectEnum.duiwei, shape, DiedSelectEnum.alive, duiweiExpected);
-    });
-}
-
-test("self ignores shape", () => {
-    check("self ignores shape", a00, null, TargetSelectEnum.self, MapShapeEnum.all, DiedSelectEnum.alive, ["a00"]);
-});
-test("des selects the explicit target", () => {
-    check("des selects the explicit target", a00, b30, TargetSelectEnum.des, MapShapeEnum.all, DiedSelectEnum.alive, ["b30"]);
-});
-test("cross selects only adjacent horizontal and vertical units", () => {
-    check("cross selects only adjacent horizontal and vertical units", attackSide.units[4], null, TargetSelectEnum.attackside, MapShapeEnum.cross, DiedSelectEnum.alive, ["a22", "a12", "a21", "a23", "a32"]);
-});
-test("attackside filters dead units", () => {
-    check("attackside filters dead units", a00, b40, TargetSelectEnum.attackside, MapShapeEnum.all, DiedSelectEnum.die, ["a10"]);
-});
-test("defendside filters dead units", () => {
-    check("defendside filters dead units", a00, b40, TargetSelectEnum.defendside, MapShapeEnum.all, DiedSelectEnum.die, ["b30"]);
-});
-test("shape selection filters dead units", () => {
-    check("shape selection filters dead units", a00, b40, TargetSelectEnum.attackside, MapShapeEnum.y_line, DiedSelectEnum.die, ["a10"]);
-});
-test("duiwei can select a dead opposing unit", () => {
-    check("duiwei can select a dead opposing unit", a10, null, TargetSelectEnum.duiwei, MapShapeEnum.one, DiedSelectEnum.die, ["b30"]);
-});
-test("duiwei skips dead units and selects the nearest alive column", () => {
-    check("duiwei skips dead units and selects the nearest alive column", a10, null, TargetSelectEnum.duiwei, MapShapeEnum.one, DiedSelectEnum.alive, ["b32"]);
-});
-test("duiwei all selects the chosen opposing side", () => {
-    check("duiwei all selects the chosen opposing side", a10, null, TargetSelectEnum.duiwei, MapShapeEnum.all, DiedSelectEnum.alive, ["b40", "b41", "b32", "b22", "b04"]);
 });
 
-for (const target of [TargetSelectEnum.attackside, TargetSelectEnum.defendside, TargetSelectEnum.duiwei]) {
-    test(`${TargetSelectEnum[target]} rejects the none shape`, () => {
-        assert.throws(
-            () => fight.selectTargets(a00, b40, { target, shape: MapShapeEnum.none, die: DiedSelectEnum.alive }),
-        );
+test("an explicit main target is preserved", () => {
+    assert.equal(
+        fight.selectMainTarget(a00, b40, { target: TargetSelectEnum.des_or_random }),
+        b40,
+    );
+});
+
+test("duiwei can select dead units or skip them according to the die filter", () => {
+    assert.equal(
+        fight.selectMainTarget(a10, null, { target: TargetSelectEnum.duiwei, die: DiedSelectEnum.all }),
+        b30,
+    );
+    assert.equal(
+        fight.selectMainTarget(a10, null, { target: TargetSelectEnum.duiwei, die: DiedSelectEnum.alive }),
+        b32,
+    );
+});
+
+test("main-target selection filters dead units and honors sorting", () => {
+    b40.attr.hp = 80;
+    b41.attr.hp = 50;
+
+    assert.equal(
+        fight.selectMainTarget(a00, null, {
+            target: TargetSelectEnum.des_or_random,
+            die: DiedSelectEnum.alive,
+            sortAttr: "hp",
+        }),
+        b41,
+    );
+});
+
+test("secondary x-line targets exclude the main target", () => {
+    assert.deepEqual(secondaryTargets(a00, MapShapeEnum.x_line), ["a01", "a20"]);
+});
+
+test("secondary y-line targets filter dead units", () => {
+    assert.deepEqual(secondaryTargets(a00, MapShapeEnum.y_line), ["a02"]);
+    assert.deepEqual(secondaryTargets(a00, MapShapeEnum.y_line, DiedSelectEnum.die), ["a10"]);
+});
+
+test("secondary cross targets include adjacent units but exclude the main target", () => {
+    assert.deepEqual(
+        secondaryTargets(a22, MapShapeEnum.cross),
+        ["a12", "a21", "a23", "a32"],
+    );
+});
+
+test("numeric secondary selection chooses sorted allies and excludes the main target", () => {
+    a01.attr.hp = 90;
+    a11.attr.hp = 40;
+    a02.attr.hp = 60;
+
+    const selected = fight.selectTargets(a00, {
+        target: TargetSelectEnum.des_or_random,
+        die: DiedSelectEnum.alive,
+        num: 2,
+        sortAttr: "hp",
     });
-}
+
+    assert.deepEqual(names(selected), ["a11", "a02"]);
+});

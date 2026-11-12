@@ -4,9 +4,13 @@ export class FightAttr {
     hpMax: number;  // 最大血量
     
     getAttr(key: string){
-        if (key === "hplp"){ //失血hp-lost-percent
-            return (this.hpMax - this.hp) / this.hpMax ;
+        switch(key){
+            case "hpp":
+                return this.hp / this.hpMax;
+            case "hplp":
+                return (this.hpMax - this.hp) / this.hpMax ;
         }
         return (this as any)[key] || 0;        
     }
 }
+

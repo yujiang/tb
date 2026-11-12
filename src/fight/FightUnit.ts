@@ -56,3 +56,7 @@ export class FightUnit {
     }
 
 }
+
+export function sortByAttr(a: FightUnit[], key: string){
+    return a.sort((a, b) => b.getAttr(key) - a.getAttr(key));
+}

@@ -3,11 +3,9 @@ export enum FightSideEnum {
     defend = 1,
 }
 
-
 export function DesSide(side: FightSideEnum) : FightSideEnum{
     return 1 - side;
 }
-
 
 export enum DiedSelectEnum {
     alive,
@@ -15,12 +13,11 @@ export enum DiedSelectEnum {
     all,
 }
 
-// 比如攻击前排, 攻击后排, 攻击对位... ?
-
 export enum TargetSelectEnum {
     self,
-    duiwei,        
-    des_or_random, //如果没有指定目标, 则随机一个
+    duiwei,     // 对位  
+    friend,     // 己方：加血，buff
+    enmey,      // 敌方：伤害, debuff
 }
 
 export enum MapShapeEnum {
@@ -32,19 +29,16 @@ export enum MapShapeEnum {
 
 export interface SelectMainParam{
     target: TargetSelectEnum;   //默认 des 0
-    die: DiedSelectEnum;        //默认 alive 0
-
-    attackSide: boolean;        //默认 false，对方
-    includeAttack: boolean;     //默认 false，如果是己方不包括自己
-    sort?: string;              //用attr的key排序, 否则随机选
-    max?: boolean;              //默认 false，取最小
+    die?: DiedSelectEnum;       //默认 alive 0
+   
+    sortAttr?: string;           //用attr的key排序, 否则随机选
+    max?: boolean;               //默认 false，取最小
 }
 
 export interface SelectParam extends SelectMainParam { 
     num: number;
-    shape: MapShapeEnum; // shape and num 一般只取其一
-
-    custom?: any;
+    shape?: MapShapeEnum; // shape and num 一般只取其一
+    //custom?: any;
 }
 
 
