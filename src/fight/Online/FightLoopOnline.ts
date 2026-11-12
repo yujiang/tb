@@ -1,3 +1,4 @@
+import { fightMsg } from "../FightAttack";
 import { FightLoop } from "../FightLoop";
 import { FightUnit, sortByAttr } from "../FightUnit";
 import { FightInput } from "../struct";
@@ -33,10 +34,20 @@ export class FightLoopWest extends FightLoopOnline {
         const all = this.fight.getAllUnits();
         sortByAttr(all, "speed", true);
         this.loopUnits = all; //但是如果有插队,降速会扰乱出手表?
+        let index = 0;
         while (all.length) {
             const u = all.shift();
-            u.processOneTurn(); 
+            let ctx = u.processOneTurn(); 
+            if (ctx){
+                this.bcMsg(index, ctx.msgs);
+            }
+            index++;
         }
+    }
+
+    bcMsg(index: number, msgs: fightMsg[]){
+        // 暂时没有发消息, 直接打印
+        console.log("index", index, msgs);
     }
 
     input = 0;

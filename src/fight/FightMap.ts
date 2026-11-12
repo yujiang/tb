@@ -2,7 +2,7 @@
 
 import { Fight } from "./Fight";
 import { FightUnit } from "./FightUnit";
-import { DesSide, DiedSelectEnum, MapShapeEnum, SelectParam, TargetSelectEnum } from "./struct";
+import { EnemySide, DiedSelectEnum, MapShapeEnum, SelectParam, TargetSelectEnum } from "./struct";
 import { strict as assert } from "node:assert";
 
 export class FightMap {
@@ -105,7 +105,7 @@ export class FightMap {
         const maps = this.genMap();
 
         // 先铺满地图.
-        const deses = this.fight.getSideUnitsDie(DesSide(attack.side), die);
+        const deses = this.fight.getSideUnitsDie(EnemySide(attack.side), die);
         if (deses.length === 0) return;
 
         for (const des of deses) {

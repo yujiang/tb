@@ -3,7 +3,7 @@ export enum FightSideEnum {
     defend = 1,
 }
 
-export function DesSide(side: FightSideEnum) : FightSideEnum{
+export function EnemySide(side: FightSideEnum) : FightSideEnum{
     return 1 - side;
 }
 

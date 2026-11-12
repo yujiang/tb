@@ -1,5 +1,5 @@
 import { Fight } from "./Fight";
-import { calcAttack } from "./FightAttack";
+import { attackFirst, FightContex, fightMsg } from "./FightAttack";
 import { FightAttr } from "./FightAttr";
 import { DiedSelectEnum, FightCmdEnum, FightDisplay, FightInput, FightSideEnum } from "./struct";
 
@@ -23,11 +23,13 @@ export abstract class FightUnit {
     getAttr(key: string){
         return this.attr.getAttr(key);
     }
-    onHurt(attacker: FightUnit, hp: number){
-        console.log(attacker.uid, "attack", this.uid, "hp", hp)
+    
+    onHurt(attacker: FightUnit, hp: number, ctx:FightContex){
+        // console.log(attacker.uid, "attack", this.uid, "hp", hp)
+        ctx.msgs.push(["onHurt",this.uid, hp, this.attr.hp])
         this.attr.hp -= hp;
         if(this.attr.hp <= 0){  
-            console.log(this.uid, "die")
+            ctx.msgs.push(["die",this.uid])
             this.die();
             this.fight.onDie(this)
         }
@@ -78,7 +80,7 @@ export abstract class FightUnit {
     processAfterTurn(){}
     processOneTurn(){
         const input = this.input || {cmd: FightCmdEnum.none};
-        this.fight.processUnit(this, this.input);
+        return this.fight.processUnit(this, this.input);
     }
 
 
@@ -92,11 +94,6 @@ export abstract class FightUnit {
         return true;
     }
 
-    attack(target: FightUnit){
-        // send msg to client...
-        calcAttack(this, target);
-        // send result to client...
-    }
 }
 
 export class FightUnitUser extends FightUnit {

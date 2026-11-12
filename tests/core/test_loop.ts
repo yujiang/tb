@@ -2,7 +2,6 @@
 import {Fight} from '../../src/fight/Fight';
 import {FightLoopWest} from '../../src/fight/Online/FightLoopOnline';
 import { FightSide } from '../../src/fight/FightSide';
-import { SelectMainParam, TargetSelectEnum } from '../../src/fight/struct';
 
 async function run(){
     const fight = new Fight(100);
@@ -10,7 +9,7 @@ async function run(){
     const s1 = new FightSide();
     const s2 = new FightSide();
 
-    s1.createSimpleMonster([
+    s1.createSimpleMonster(fight,[
         {name: 'a1', id: 1, pos: 1},
         {name: 'a2', id: 2, pos: 3},
         {name: 'a3', id: 3, pos: 5},
@@ -19,7 +18,7 @@ async function run(){
     const u1 = s1.units[1];
     u1.die();
 
-    s2.createSimpleMonster([
+    s2.createSimpleMonster(fight,[
         {name: 'b1', id: 11, pos: 1},
         {name: 'b2', id: 12, pos: 3},
         {name: 'b3', id: 13, pos: 5},

@@ -1,19 +1,21 @@
 // 核心的战斗对象
-import { randArray, shuffleArray, removeArray } from "../public/Array";
+import { removeArray } from "../public/Array";
+import { attackFirst, FightContex } from "./FightAttack";
 import { FightMap } from "./FightMap";
 import { FightSide } from "./FightSide";
 import { FightUnit, sortByAttr } from "./FightUnit";
-import { DesSide, DiedSelectEnum, FightCmdEnum, FightInput, FightSideEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "./struct";
+import { EnemySide, DiedSelectEnum, FightCmdEnum, FightInput, FightSideEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "./struct";
 import { strict as assert } from "node:assert";
 
 export type AllUnitType = [FightUnit[], FightUnit[]];
 
-
 export class Fight {
     fid: number;
-    constructor(id: number) {
-        // TODO
+    // seed为随机数种子
+    seed: number;
+    constructor(id: number, seed = 0) {
         this.fid = id;
+        this.seed = seed;
     }
 
     turn = 0; // 当前回合数
@@ -37,7 +39,7 @@ export class Fight {
             if (!u.isDied()) return;
         }
         this.end = true;
-        this.win = DesSide(side);
+        this.win = EnemySide(side);
     }
 
     // ***units start
@@ -99,7 +101,7 @@ export class Fight {
         
         // des_or_random
         if (!des) {
-            const side = sel.target == TargetSelectEnum.friend ? attack.side : DesSide(attack.side);
+            const side = sel.target == TargetSelectEnum.friend ? attack.side : EnemySide(attack.side);
             //const except = sel.includeAttack ? null : attack;
             const units = this.getSideUnitsDie(side, sel.die);
             if (!units.length) return null;
@@ -108,7 +110,7 @@ export class Fight {
                 des = units[0]; //最小值？
             }
             else {
-                des = randArray(units);
+                des = this.randArray(units);
             }
         }
         return des;
@@ -122,7 +124,7 @@ export class Fight {
             sortByAttr(units, sel.sortAttr, sel.sortDescend);
         }
         else {
-            shuffleArray(units);
+            this.shuffleArray(units);
         }
         return units.slice(0, num);
     }
@@ -146,6 +148,12 @@ export class Fight {
     }
     // ***map end
 
+    randomEnemyAlive(side: number){
+        const list = this.getSideUnitsDie(EnemySide(side), DiedSelectEnum.alive);
+        if (!list.length) return;
+        return this.randArray(list);
+    }
+
 
     processUnit(unit: FightUnit, input: FightInput){
         let cmd = input.cmd;
@@ -154,16 +162,37 @@ export class Fight {
         // 预处理,没有来得及发指令的单位.
         if (cmd == FightCmdEnum.none){
             cmd = FightCmdEnum.attack;
-            const list = this.getSideUnitsDie(DesSide(unit.side), DiedSelectEnum.alive);
-            if (!list.length) return;
-            let des = randArray(list);
+            const des = this.randomEnemyAlive(unit.side);
+            if (!des) return;
             tid = des.uid;
         }
+
 
         if (cmd == FightCmdEnum.attack){
             const des = this.getUnitById(tid);
             if (!des || des.isDied()) return;              
-            unit.attack(des);
+
+            const ctx: FightContex = { fight: this, attack: unit, defend: des, msgs: [] };
+            return attackFirst(unit,des,ctx);
         }
+    }
+
+
+    // 保持随机数, 以便重建战斗保持一致~
+    randArray<T>(items: T[]) : T {
+        return items[Math.floor(this.random() * items.length)];
+    }
+
+    // 洗牌打乱
+    shuffleArray<T>(items: T[]) : T[] {
+        for (let i = items.length - 1; i > 0; i--) {
+            const j = Math.floor(this.random() * (i + 1));
+            [items[i], items[j]] = [items[j], items[i]];
+        }
+        return items;
+    }
+
+    random() {
+        return Math.random();
     }
 }

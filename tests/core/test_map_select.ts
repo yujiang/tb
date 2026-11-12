@@ -12,7 +12,7 @@ const attackSide = new FightSide();
 const defendSide = new FightSide();
 fight.createSide(attackSide, defendSide);
 
-attackSide.createSimpleMonster([
+attackSide.createSimpleMonster(fight,[
     { name: "a00", id: 1, pos: 0 },
     { name: "a10", id: 2, pos: 1 },
     { name: "a01", id: 3, pos: 5 },
@@ -27,7 +27,7 @@ attackSide.createSimpleMonster([
     { name: "a32", id: 18, pos: 17 },
     { name: "a33", id: 19, pos: 18 },
 ]);
-defendSide.createSimpleMonster([
+defendSide.createSimpleMonster(fight,[
     { name: "b40", id: 11, pos: 4 },
     { name: "b30", id: 12, pos: 3 },
     { name: "b41", id: 13, pos: 9 },
