@@ -1,15 +1,17 @@
 import { Fight } from "./Fight";
+import { calcAttack } from "./FightAttack";
 import { FightAttr } from "./FightAttr";
-import { DiedSelectEnum, FightDisplay, FightSideEnum } from "./struct";
+import { DiedSelectEnum, FightCmdEnum, FightDisplay, FightInput, FightSideEnum } from "./struct";
+
 
 // 战斗单元
-export class FightUnit {
-    id: number;
+export abstract class FightUnit {
+    uid: number;
     attr: FightAttr; 
     display: FightDisplay;
     
    constructor(id: number, attr: FightAttr, display: FightDisplay) {
-        this.id = id;
+        this.uid = id;
         this.attr = attr;
         this.display = display;
     }
@@ -21,17 +23,26 @@ export class FightUnit {
     getAttr(key: string){
         return this.attr.getAttr(key);
     }
+    onHurt(attacker: FightUnit, hp: number){
+        console.log(attacker.uid, "attack", this.uid, "hp", hp)
+        this.attr.hp -= hp;
+        if(this.attr.hp <= 0){  
+            console.log(this.uid, "die")
+            this.die();
+            this.fight.onDie(this)
+        }
+    }
 
-    side: FightSideEnum;
     pos: number;
-    setSidePos(side: FightSideEnum, pos: number) {
-        this.side = side;
+    setPos(pos: number) {
         this.pos = pos;
     }
 
     fight: Fight;
-    setFight(fight: Fight) {
+    side: FightSideEnum;
+    setFight(fight: Fight, side: FightSideEnum) {
         this.fight = fight;
+        this.side = side;
     }
 
     dead = false;
@@ -55,8 +66,67 @@ export class FightUnit {
         }
     }
 
+    isUser() {return false;}
+    isUserSummon() {return false;}
+    isMonster() {return false;}
+    needInput() {return this.isUser() || this.isUserSummon();}
+
+    input: FightInput;
+    // 回合前处理, buff
+    processBeforeTurn(){}
+    // 回合后处理, dead...
+    processAfterTurn(){}
+    processOneTurn(){
+        const input = this.input || {cmd: FightCmdEnum.none};
+        this.fight.processUnit(this, this.input);
+    }
+
+
+    abstract inputStart(): void
+
+    onInput(input: FightInput){
+        this.input = input;
+        if (input.cmd == FightCmdEnum.cancel){
+            this.input = null;
+        }
+        return true;
+    }
+
+    attack(target: FightUnit){
+        // send msg to client...
+        calcAttack(this, target);
+        // send result to client...
+    }
 }
 
-export function sortByAttr(a: FightUnit[], key: string){
-    return a.sort((a, b) => b.getAttr(key) - a.getAttr(key));
+export class FightUnitUser extends FightUnit {
+    override isUser() {return true;}
+    inputStart(){
+        this.input = null;        
+        // send msg to client ...
+    }    
+}
+
+export class FightUnitSummon extends FightUnit {
+    override isUserSummon() {return true;}
+    inputStart(){
+        this.input = null;        
+        // send msg to client ...
+    }    
+}
+
+export class FightUnitMonster extends FightUnit {
+    override isMonster() {return true;}
+    inputStart(){
+        // ai来做选择
+        this.input = {cmd: FightCmdEnum.none};
+    }
+}
+
+// descend降序
+export function sortByAttr(a: FightUnit[], key: string, descend = false){
+    if (descend) {
+        return a.sort((a, b) => -b.getAttr(key) + a.getAttr(key));
+    }
+    return a.sort((a, b) => a.getAttr(key) - b.getAttr(key));
 }

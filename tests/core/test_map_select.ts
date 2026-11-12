@@ -12,7 +12,7 @@ const attackSide = new FightSide();
 const defendSide = new FightSide();
 fight.createSide(attackSide, defendSide);
 
-attackSide.createSimpleUnits([
+attackSide.createSimpleMonster([
     { name: "a00", id: 1, pos: 0 },
     { name: "a10", id: 2, pos: 1 },
     { name: "a01", id: 3, pos: 5 },
@@ -27,7 +27,7 @@ attackSide.createSimpleUnits([
     { name: "a32", id: 18, pos: 17 },
     { name: "a33", id: 19, pos: 18 },
 ]);
-defendSide.createSimpleUnits([
+defendSide.createSimpleMonster([
     { name: "b40", id: 11, pos: 4 },
     { name: "b30", id: 12, pos: 3 },
     { name: "b41", id: 13, pos: 9 },
@@ -55,7 +55,7 @@ function names(units: FightUnit[] | undefined): string[] | undefined {
 
 function secondaryTargets(main: FightUnit, shape: MapShapeEnum, die = DiedSelectEnum.alive): string[] | undefined {
     const param: SelectParam = {
-        target: TargetSelectEnum.des_or_random,
+        target: TargetSelectEnum.enmey,
         die,
         num: 1,
         shape,
@@ -83,7 +83,7 @@ test("self selects the attacker as the main target", () => {
 
 test("an explicit main target is preserved", () => {
     assert.equal(
-        fight.selectMainTarget(a00, b40, { target: TargetSelectEnum.des_or_random }),
+        fight.selectMainTarget(a00, b40, { target: TargetSelectEnum.enmey }),
         b40,
     );
 });
@@ -105,7 +105,7 @@ test("main-target selection filters dead units and honors sorting", () => {
 
     assert.equal(
         fight.selectMainTarget(a00, null, {
-            target: TargetSelectEnum.des_or_random,
+            target: TargetSelectEnum.enmey,
             die: DiedSelectEnum.alive,
             sortAttr: "hp",
         }),
@@ -135,7 +135,7 @@ test("numeric secondary selection chooses sorted allies and excludes the main ta
     a02.attr.hp = 60;
 
     const selected = fight.selectTargets(a00, {
-        target: TargetSelectEnum.des_or_random,
+        target: TargetSelectEnum.enmey,
         die: DiedSelectEnum.alive,
         num: 2,
         sortAttr: "hp",

@@ -3,22 +3,23 @@ import { randArray, shuffleArray, removeArray } from "../public/Array";
 import { FightMap } from "./FightMap";
 import { FightSide } from "./FightSide";
 import { FightUnit, sortByAttr } from "./FightUnit";
-import { DesSide, DiedSelectEnum, FightSideEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "./struct";
+import { DesSide, DiedSelectEnum, FightCmdEnum, FightInput, FightSideEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "./struct";
 import { strict as assert } from "node:assert";
 
 export type AllUnitType = [FightUnit[], FightUnit[]];
 
 
 export class Fight {
-    id: number;
+    fid: number;
     constructor(id: number) {
         // TODO
-        this.id = id;
+        this.fid = id;
     }
 
     turn = 0; // 当前回合数
     nextTurn() {
         this.turn++;
+        console.log(this.fid, "this.turn", this.turn);
         if (this.turn >= 100) {
             this.end = true;
         }
@@ -28,15 +29,34 @@ export class Fight {
     isEnd() {
         return this.end;
     }
+    win: number = -1;
+    onDie(unit: FightUnit) {
+        if (this.end) return;
+        const side = unit.side;
+        for (const u of this.getSideUnits(side)) {
+            if (!u.isDied()) return;
+        }
+        this.end = true;
+        this.win = DesSide(side);
+    }
 
     // ***units start
     Sides: FightSide[];
     AllUnits: AllUnitType;
     createSide(attack: FightSide, des: FightSide) {
-        attack.side = FightSideEnum.attack;
-        des.side = FightSideEnum.defend;
         this.Sides = [attack, des];
         this.AllUnits = [attack.units, des.units];
+        console.log(this.fid, "attack", attack.units.length, "des", des.units.length)
+        for (const u of attack.units) {
+            u.setFight(this, FightSideEnum.attack);
+        }
+        for (const u of des.units) {
+            u.setFight(this, FightSideEnum.defend);
+        }
+    }
+
+    getUnitById(id: number) : FightUnit {
+        return this.getAllUnits().find(u => u.uid == id)!;
     }
 
 
@@ -84,8 +104,8 @@ export class Fight {
             const units = this.getSideUnitsDie(side, sel.die);
             if (!units.length) return null;
             if (sel.sortAttr){
-                sortByAttr(units, sel.sortAttr);
-                des = sel.max ? units[units.length-1] : units[0]; //最小值？
+                sortByAttr(units, sel.sortAttr, sel.sortDescend);
+                des = units[0]; //最小值？
             }
             else {
                 des = randArray(units);
@@ -99,7 +119,7 @@ export class Fight {
         const units = this.getSideUnitsDie(side,sel.die, main);
         if (!units.length) return;
         if (sel.sortAttr){
-            sortByAttr(units, sel.sortAttr);
+            sortByAttr(units, sel.sortAttr, sel.sortDescend);
         }
         else {
             shuffleArray(units);
@@ -125,5 +145,25 @@ export class Fight {
         return units;
     }
     // ***map end
-}
 
+
+    processUnit(unit: FightUnit, input: FightInput){
+        let cmd = input.cmd;
+        let tid = input.target;
+
+        // 预处理,没有来得及发指令的单位.
+        if (cmd == FightCmdEnum.none){
+            cmd = FightCmdEnum.attack;
+            const list = this.getSideUnitsDie(DesSide(unit.side), DiedSelectEnum.alive);
+            if (!list.length) return;
+            let des = randArray(list);
+            tid = des.uid;
+        }
+
+        if (cmd == FightCmdEnum.attack){
+            const des = this.getUnitById(tid);
+            if (!des || des.isDied()) return;              
+            unit.attack(des);
+        }
+    }
+}
