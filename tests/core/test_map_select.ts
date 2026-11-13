@@ -14,7 +14,6 @@ fight.createMap(5, 5);
 
 const attackSide = new FightSide();
 const defendSide = new FightSide();
-fight.createSide(attackSide, defendSide);
 
 attackSide.createSimpleMonster(fight,[
     { name: "a00", id: 1, pos: 0 },
@@ -39,6 +38,8 @@ defendSide.createSimpleMonster(fight,[
     { name: "b22", id: 15, pos: 12 },
     { name: "b04", id: 16, pos: 20 },
 ]);
+fight.createSide(attackSide, defendSide);
+fight.random = () => 0;
 
 const a00 = attackSide.units[0];
 const a10 = attackSide.units[1];
@@ -49,7 +50,6 @@ const a02 = attackSide.units[6];
 const b40 = defendSide.units[0];
 const b30 = defendSide.units[1];
 const b41 = defendSide.units[2];
-const b32 = defendSide.units[3];
 a10.die();
 b30.die();
 
@@ -93,14 +93,16 @@ test("an explicit main target is preserved", () => {
 });
 
 test("duiwei can select dead units or skip them according to the die filter", () => {
+    b40.die();
     assert.equal(
-        fight.selectMainTarget(a10, { target: TargetSelectEnum.duiwei, die: DiedSelectEnum.all }),
-        b30,
+        fight.selectMainTarget(a00, { target: TargetSelectEnum.duiwei, die: DiedSelectEnum.all }),
+        b40,
     );
     assert.equal(
-        fight.selectMainTarget(a10, { target: TargetSelectEnum.duiwei, die: DiedSelectEnum.alive }),
-        b32,
+        fight.selectMainTarget(a00, { target: TargetSelectEnum.duiwei, die: DiedSelectEnum.alive }),
+        b41,
     );
+    b40.relife();
 });
 
 test("main-target selection filters dead units and honors sorting", () => {

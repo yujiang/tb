@@ -80,7 +80,7 @@ export abstract class FightUnit {
     onHeal(attacker: FightUnit, hp: number, crit:boolean, ctx:FightContex){
         ctx.msgs.push(["heal", this.uid, hp, crit ? 1 : 0, this.attr.hp])
         this.addFriend(attacker, hp);
-        this.attr.hp = Math.max(this.attr.hp + hp, this.attr.hpMax);
+        this.attr.hp = Math.min(this.attr.hp + hp, this.attr.hpMax);
         this.emit("heal", attacker, hp, crit);
     }
 

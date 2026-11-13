@@ -94,6 +94,6 @@ function skillDamageBack(attacker: FightUnit, defender: FightUnit, skill:FightSk
     if (!a.damageBack) return false;
 
     ctx.dbackNum = (ctx.dbackNum || 0) + 1;
-    attacker.onHurt("skilldb", defender, a.damageBack, false, ctx);    
+    defender.onHurt("skilldb", attacker, a.damageBack, false, ctx);
     return true;
 }
