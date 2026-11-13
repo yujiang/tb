@@ -3,8 +3,14 @@ export class FightAttr {
     hp: number;         // 当前血量
     hpMax: number;      // 最大血量
     speed: number;      // 速度
+    
+    // 物理攻击
     attack: number;
     defend: number;
+
+    // 魔法攻击
+    mattack: number;
+    mdefend: number;
     
     getAttr(key: string){
         switch(key){
@@ -14,6 +20,10 @@ export class FightAttr {
                 return (this.hpMax - this.hp) / this.hpMax ;
         }
         return (this as any)[key] || 0;        
+    }
+
+    getSpeed() {
+        return this.getAttr("speed");
     }
 }
 

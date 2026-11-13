@@ -1,4 +1,5 @@
 import { Fight } from "./Fight";
+import { FightUnit, sortByAttr } from "./FightUnit";
 import { FightInput } from "./struct";
 
 export abstract class FightLoop {
@@ -16,7 +17,7 @@ export abstract class FightLoop {
     async run() {
         const f = this.fight;
         while(!f.isEnd()){
-            f.nextTurn();
+            this.nextTurn();
             //console.log(f);
             if (f.isEnd()) {
                 break;
@@ -33,6 +34,10 @@ export abstract class FightLoop {
         return this.fight.win;
     }
 
+    nextTurn() {
+        this.fight.nextTurn();
+    }
+
     // return 0: 超时, 1: 正常结束
     async waitInput(): Promise<number>{
         return 1;
@@ -40,5 +45,18 @@ export abstract class FightLoop {
     abstract onInput(id: number, input: FightInput): void;
 
     async waitDrawOver(){}
+
+    processUnits: FightUnit[];
+    sortUnitsByProcess(){
+        const all = this.fight.getAllUnits();
+        sortByAttr(all, "speed", true);
+        this.processUnits = all; //但是如果有插队,降速会扰乱出手表?
+
+        //const debug = all.map(u => `${u.getName()} ${u.getSpeed()}`);
+        //console.log("sortUnitsByProcess", debug);
+
+        return all;
+    }
+    
 }
 

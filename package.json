@@ -3,19 +3,29 @@
   "version": "0.1.0",
   "private": true,
   "description": "Deterministic turn-based battle logic without rendering or transport",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "main": "lib/src/index.js",
   "types": "lib/src/index.d.ts",
-  "files": ["lib/src", "README.MD", "DESIGN.md", "API.md"],
+  "files": [
+    "lib/src",
+    "README.MD",
+    "DESIGN.md",
+    "API.md"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && npm run test:build && node --test tests/*.test.cjs .test-build/tests/core/test_map_select.js",
     "test:build": "node -e \"require('node:fs').rmSync('.test-build', { recursive: true, force: true })\" && tsc -p tsconfig.test.json",
     "example": "npm run build && node lib/examples/simple/main.js"
   },
-  "devDependencies": { 
-    "typescript": "~7.0.2",
+  "devDependencies": {
     "@types/node": "^26.6.5",
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "typescript": "~7.0.2"
+  },
+  "dependencies": {
+    "tslib": "^2.9.1"
   }
 }

@@ -1,44 +1,55 @@
 // 核心的战斗对象
 import { removeArray } from "../public/Array";
-import { attackFirst, FightContex } from "./FightAttack";
+import { attackFunc, FightContex } from "./Skills/NormalAttack";
 import { FightMap } from "./FightMap";
 import { FightSide } from "./FightSide";
 import { FightUnit, sortByAttr } from "./FightUnit";
 import { EnemySide, DiedSelectEnum, FightCmdEnum, FightInput, FightSideEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "./struct";
 import { strict as assert } from "node:assert";
+import EventEmitter from "node:events";
+import { skillFunc } from "./Skills/Skills";
 
 export type AllUnitType = [FightUnit[], FightUnit[]];
+export type UnitEventFunc = (unit: FightUnit, ...args: any[]) => void;
 
-export class Fight {
+//表格化数据
+export interface FightData {
+    maxTurn: number;
+    waitInputSec: number;
+    duiwei: boolean; //是否对位战斗？    
+}
+
+export class Fight{
     fid: number;
     // seed为随机数种子
     seed: number;
-    constructor(id: number, seed = 0) {
+    xls: FightData;
+
+    constructor(id: number, data: FightData, seed = 0) {
         this.fid = id;
+        this.xls = data;
         this.seed = seed;
     }
 
     turn = 0; // 当前回合数
     nextTurn() {
         this.turn++;
-        console.log(this.fid, "this.turn", this.turn);
-        if (this.turn >= 100) {
-            this.end = true;
+        if (this.xls.maxTurn && this.turn >= this.xls.maxTurn) {
+            // 超时防守获胜！
+            this.win = FightSideEnum.defend;
         }
     }
 
-    end: boolean = false;
-    isEnd() {
-        return this.end;
-    }
     win: number = -1;
+    isEnd() {
+        return this.win >= 0;
+    }
     onDie(unit: FightUnit) {
-        if (this.end) return;
+        if (this.isEnd()) return;
         const side = unit.side;
         for (const u of this.getSideUnits(side)) {
             if (!u.isDied()) return;
         }
-        this.end = true;
         this.win = EnemySide(side);
     }
 
@@ -89,7 +100,7 @@ export class Fight {
     }
 
     // 主目标只有一个，通常的做法是先打主目标，命中之后，才产生后续的子目标！
-    selectMainTarget(attack: FightUnit, des: FightUnit|null, sel:SelectMainParam) : FightUnit {
+    selectMainTarget(attack: FightUnit, sel:SelectMainParam) : FightUnit {
         assert(!attack?.isDied());
 
         if (sel.target == TargetSelectEnum.duiwei) {
@@ -100,20 +111,17 @@ export class Fight {
         }
         
         // des_or_random
-        if (!des) {
-            const side = sel.target == TargetSelectEnum.friend ? attack.side : EnemySide(attack.side);
-            //const except = sel.includeAttack ? null : attack;
-            const units = this.getSideUnitsDie(side, sel.die);
-            if (!units.length) return null;
-            if (sel.sortAttr){
-                sortByAttr(units, sel.sortAttr, sel.sortDescend);
-                des = units[0]; //最小值？
-            }
-            else {
-                des = this.randArray(units);
-            }
+        const side = sel.target == TargetSelectEnum.friend ? attack.side : EnemySide(attack.side);
+        //const except = sel.includeAttack ? null : attack;
+        const units = this.getSideUnitsDie(side, sel.die);
+        if (!units.length) return null;
+        if (sel.sortAttr){
+            sortByAttr(units, sel.sortAttr, sel.sortDescend);
+            return units[0]; //最小值？
         }
-        return des;
+        else {
+            return this.randArray(units);
+        }
     }
     
     selectTargetsNum(main: FightUnit, sel:SelectParam, num: number) : FightUnit[]|undefined {
@@ -155,25 +163,35 @@ export class Fight {
     }
 
 
-    processUnit(unit: FightUnit, input: FightInput){
+    getDefaultEnemy(unit: FightUnit){
+        if (this.xls.duiwei){
+            return this.map.findDuiwei(unit, DiedSelectEnum.alive);
+        }
+        return this.randomEnemyAlive(unit.side);
+    }
+
+    //在input阶段, skill和target都经过验证，是有效的。
+    processUnit(unit: FightUnit, input: FightInput) : FightContex{
         let cmd = input.cmd;
         let tid = input.target;
 
+        let des = tid && this.getUnitById(tid);
         // 预处理,没有来得及发指令的单位.
         if (cmd == FightCmdEnum.none){
             cmd = FightCmdEnum.attack;
-            const des = this.randomEnemyAlive(unit.side);
-            if (!des) return;
-            tid = des.uid;
+            des = this.getDefaultEnemy(unit)
         }
 
+        if (!des) return;           
+        const ctx: FightContex = { fight: this, attack: unit, defend: des, msgs: [] };
 
         if (cmd == FightCmdEnum.attack){
-            const des = this.getUnitById(tid);
             if (!des || des.isDied()) return;              
+            return attackFunc(unit,des,ctx);
+        }
 
-            const ctx: FightContex = { fight: this, attack: unit, defend: des, msgs: [] };
-            return attackFirst(unit,des,ctx);
+        if (cmd == FightCmdEnum.skill){
+            return skillFunc(unit,des,input.skill,ctx);
         }
     }
 
@@ -194,5 +212,14 @@ export class Fight {
 
     random() {
         return Math.random();
+    }
+
+    // ***event start
+    emitUnit = new EventEmitter();
+    emitUnitEvent(unit: FightUnit, event: string, ...args: any[]){
+        this.emitUnit.emit(event, unit, ...args);
+    }
+    onUnitEvent(event: string, func: UnitEventFunc){
+        this.emitUnit.on(event, func);
     }
 }

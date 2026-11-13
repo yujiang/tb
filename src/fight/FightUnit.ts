@@ -1,5 +1,5 @@
 import { Fight } from "./Fight";
-import { attackFirst, FightContex, fightMsg } from "./FightAttack";
+import { attackFunc, FightContex, fightMsg } from "./Skills/NormalAttack";
 import { FightAttr } from "./FightAttr";
 import { DiedSelectEnum, FightCmdEnum, FightDisplay, FightInput, FightSideEnum } from "./struct";
 
@@ -19,20 +19,49 @@ export abstract class FightUnit {
     getName() {
         return this.display.name;
     }
+    getSpeed(){
+        return this.attr.getSpeed();
+    }
 
     getAttr(key: string){
         return this.attr.getAttr(key);
     }
+
+    // 加入仇恨列表
+    enemyHurt : Map<number, number> = new Map();
+    addEnemy(attacker: FightUnit, hp: number){
+        if (attacker == this) return;
+        this.enemyHurt.set(attacker.uid, this.enemyHurt.get(attacker.uid) + hp)
+    }
+    clearEnemy(){
+        this.enemyHurt.clear();
+    }
+    getEnemyTop(num: number) : number[]{
+        // sort Enemy
+        let arr = Array.from(this.enemyHurt.entries()).sort((a, b) => b[1] - a[1]);
+        return arr.slice(0, num).map((v) => v[0]);
+    }
     
     onHurt(attacker: FightUnit, hp: number, ctx:FightContex){
-        // console.log(attacker.uid, "attack", this.uid, "hp", hp)
-        ctx.msgs.push(["onHurt",this.uid, hp, this.attr.hp])
+        ctx.msgs.push(["hurt",this.uid, hp, this.attr.hp])
         this.attr.hp -= hp;
+        this.addEnemy(attacker, hp);
+        this.emit("hurt", attacker, hp);
         if(this.attr.hp <= 0){  
             ctx.msgs.push(["die",this.uid])
             this.die();
-            this.fight.onDie(this)
+            this.fight.onDie(this);
         }
+    }
+    onHeal(attacker: FightUnit, hp: number, ctx:FightContex){
+        ctx.msgs.push(["heal",this.uid, hp, this.attr.hp])
+        this.addEnemy(attacker, hp);
+        this.attr.hp = Math.max(this.attr.hp + hp, this.attr.hpMax);
+        this.emit("heal", attacker, hp);
+    }
+
+    emit(event: string, ...args: any[]){
+        this.fight.emitUnitEvent(this, event, ...args);
     }
 
     pos: number;
@@ -59,7 +88,7 @@ export abstract class FightUnit {
     }
 
     isFillterDie(die: DiedSelectEnum){
-        if (die == DiedSelectEnum.all) {
+        if (!die) { // DiedSelectEnum.all
             return true;
         } else if (die == DiedSelectEnum.alive) {
             return !this.dead;
@@ -79,8 +108,9 @@ export abstract class FightUnit {
     // 回合后处理, dead...
     processAfterTurn(){}
     processOneTurn(){
+        if (this.isDied()) return;
         const input = this.input || {cmd: FightCmdEnum.none};
-        return this.fight.processUnit(this, this.input);
+        return this.fight.processUnit(this, input);
     }
 
 
@@ -94,6 +124,14 @@ export abstract class FightUnit {
         return true;
     }
 
+    dump() {
+        return {
+            uid: this.uid,
+            name: this.getName(),
+            side: this.side,
+            pos: this.pos,
+        }
+    }
 }
 
 export class FightUnitUser extends FightUnit {
@@ -123,7 +161,7 @@ export class FightUnitMonster extends FightUnit {
 // descend降序
 export function sortByAttr(a: FightUnit[], key: string, descend = false){
     if (descend) {
-        return a.sort((a, b) => -b.getAttr(key) + a.getAttr(key));
+        return a.sort((a, b) => b.getAttr(key) - a.getAttr(key));
     }
     return a.sort((a, b) => a.getAttr(key) - b.getAttr(key));
 }

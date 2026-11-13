@@ -8,9 +8,9 @@ export function EnemySide(side: FightSideEnum) : FightSideEnum{
 }
 
 export enum DiedSelectEnum {
+    all,
     alive,
     die,
-    all,
 }
 
 export enum TargetSelectEnum {
@@ -32,7 +32,7 @@ export interface SelectMainParam{
     die?: DiedSelectEnum;       //默认 alive 0
    
     sortAttr?: string;          //用attr的key排序, 否则随机选
-    sortDescend?: boolean;       //降序 默认false
+    sortDescend?: boolean;      //降序 默认false
 }
 
 export interface SelectParam extends SelectMainParam { 
@@ -61,5 +61,6 @@ export enum FightCmdEnum{
 
 export interface FightInput {
     cmd: FightCmdEnum;
+    skill?: number;
     target?: number;
 }

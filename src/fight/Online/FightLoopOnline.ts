@@ -1,4 +1,4 @@
-import { fightMsg } from "../FightAttack";
+import { fightMsg } from "../Skills/NormalAttack";
 import { FightLoop } from "../FightLoop";
 import { FightUnit, sortByAttr } from "../FightUnit";
 import { FightInput } from "../struct";
@@ -25,29 +25,31 @@ export abstract class FightLoopOnline extends FightLoop {
 // 梦幻西游
 // 网游的常规流程, 指令全部下完,统一处理
 export class FightLoopWest extends FightLoopOnline {    
-    waitInputSec = 30;
-
     loopUnits: FightUnit[];
     override async processOneTurn(){
         // 根据玩家速度来建立出手列表
         // 按出手列表顺序,依次处理
-        const all = this.fight.getAllUnits();
-        sortByAttr(all, "speed", true);
-        this.loopUnits = all; //但是如果有插队,降速会扰乱出手表?
+        const all = this.sortUnitsByProcess(); //但是如果有插队,降速会扰乱出手表?
         let index = 0;
         while (all.length) {
             const u = all.shift();
             let ctx = u.processOneTurn(); 
             if (ctx){
-                this.bcMsg(index, ctx.msgs);
+                ctx.msgs.unshift(["actor", u.uid]);
+                this.bcMsg(ctx.msgs);
             }
             index++;
         }
     }
 
-    bcMsg(index: number, msgs: fightMsg[]){
+    override nextTurn() {
+        super.nextTurn()
+        this.bcMsg(["turn", this.fight.turn]);
+    }    
+
+    bcMsg(msgs: fightMsg | fightMsg[]){
         // 暂时没有发消息, 直接打印
-        console.log("index", index, msgs);
+        console.log(msgs);
     }
 
     input = 0;
@@ -65,10 +67,12 @@ export class FightLoopWest extends FightLoopOnline {
         this.input = input;
         this.inputed = 0;
         this.inputResolve = null;
+        if (input == 0) return 1;
         const p = new Promise((resolve, reject) => {
             this.inputResolve = resolve;
         })
-        const p2 = delay(this.waitInputSec*1000, 0);
+        const wait = this.fight.xls.waitInputSec || 30;
+        const p2 = delay(wait*1000, 0);
         return Promise.race([p, p2]) as Promise<number>;
     }
 

@@ -20,6 +20,7 @@ export class FightSide {
             attr.hpMax = 100;
             attr.attack = data.attack || (50+f.random()*20);
             attr.defend = data.defend || (50-f.random()*20);
+            attr.speed = 100+ Math.floor(f.random()*20);
             const u = new FightUnitMonster(
                 data.id,
                 attr,

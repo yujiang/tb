@@ -1,10 +1,12 @@
+import { Fight } from "../../src/fight/Fight";
+import { FightSide } from "../../src/fight/FightSide";
 
-import {Fight} from '../../src/fight/Fight';
-import {FightLoopWest} from '../../src/fight/Online/FightLoopOnline';
-import { FightSide } from '../../src/fight/FightSide';
-
-async function run(){
-    const fight = new Fight(100);
+export function createFightAndSide(fid: number){
+    const fight = new Fight(fid, {
+        maxTurn: 100,
+        waitInputSec: 1,
+        duiwei: false,
+    });
     fight.createMap(5,5);
     const s1 = new FightSide();
     const s2 = new FightSide();
@@ -24,15 +26,9 @@ async function run(){
         {name: 'b3', id: 13, pos: 5},
         {name: 'b4', id: 14, pos: 7},
     ])
-    const u2 = s2.units[2];
-    u2.die();
+    // const u2 = s2.units[2];
+    // u2.die();
 
     fight.createSide(s1, s2);
-    
-    const loop = new FightLoopWest(fight);
-    loop.waitInputSec = 1;
-    const win = await loop.run();
-    console.log("win", win);
+    return fight;
 }
-
-run();

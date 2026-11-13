@@ -5,7 +5,11 @@ import { FightSide } from "../../src/fight/FightSide";
 import { FightUnit } from "../../src/fight/FightUnit";
 import { DiedSelectEnum, MapShapeEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "../../src/fight/struct";
 
-const fight = new Fight(100);
+const fight = new Fight(100, {
+        maxTurn: 100,
+        waitInputSec: 1,
+        duiwei: false,
+    });
 fight.createMap(5, 5);
 
 const attackSide = new FightSide();
@@ -68,7 +72,7 @@ test("main target selection and secondary shape selection are separate stages", 
         target: TargetSelectEnum.duiwei,
         die: DiedSelectEnum.alive,
     };
-    const main = fight.selectMainTarget(a00, null, mainParam);
+    const main = fight.selectMainTarget(a00, mainParam);
 
     assert.equal(main, b40);
     assert.deepEqual(secondaryTargets(main, MapShapeEnum.x_line), ["b41"]);
@@ -76,25 +80,25 @@ test("main target selection and secondary shape selection are separate stages", 
 
 test("self selects the attacker as the main target", () => {
     assert.equal(
-        fight.selectMainTarget(a00, null, { target: TargetSelectEnum.self }),
+        fight.selectMainTarget(a00, { target: TargetSelectEnum.self }),
         a00,
     );
 });
 
 test("an explicit main target is preserved", () => {
     assert.equal(
-        fight.selectMainTarget(a00, b40, { target: TargetSelectEnum.enmey }),
+        fight.selectMainTarget(a00, { target: TargetSelectEnum.enmey }),
         b40,
     );
 });
 
 test("duiwei can select dead units or skip them according to the die filter", () => {
     assert.equal(
-        fight.selectMainTarget(a10, null, { target: TargetSelectEnum.duiwei, die: DiedSelectEnum.all }),
+        fight.selectMainTarget(a10, { target: TargetSelectEnum.duiwei, die: DiedSelectEnum.all }),
         b30,
     );
     assert.equal(
-        fight.selectMainTarget(a10, null, { target: TargetSelectEnum.duiwei, die: DiedSelectEnum.alive }),
+        fight.selectMainTarget(a10, { target: TargetSelectEnum.duiwei, die: DiedSelectEnum.alive }),
         b32,
     );
 });
@@ -104,7 +108,7 @@ test("main-target selection filters dead units and honors sorting", () => {
     b41.attr.hp = 50;
 
     assert.equal(
-        fight.selectMainTarget(a00, null, {
+        fight.selectMainTarget(a00, {
             target: TargetSelectEnum.enmey,
             die: DiedSelectEnum.alive,
             sortAttr: "hp",
