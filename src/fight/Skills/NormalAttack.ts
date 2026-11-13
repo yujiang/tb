@@ -1,6 +1,8 @@
 // 普通攻击
 import { Fight } from "../Fight";
-import { FightUnit } from "../FightUnit";
+import { BaseAttack } from "../FightAttr";
+import { FightUnit } from "../Unit/FightUnit";
+import { calcHurt } from "./FightSkill";
 
 export type fightMsg = [string, ...any[]];
 
@@ -12,24 +14,54 @@ export interface FightContex {
     
     msgs: fightMsg[];
 
+    //miss?: boolean; // 是否闪避  
+    //crit?: boolean; // 是否暴击
+
     killNum?: number; // 追击次数
     nextNum?: number; // 追击次数
 }
 
+const AttackBaseRand = {
+    next : 0,
+    kill : 0,
+    back : 0,
+}
+
+export const DamageLost = {
+    healSpread : 0.75,
+    skillSpread : 0.7,
+    nextAttack : 0.8,
+}
+
+
 export function attack(attacker: FightUnit, defender: FightUnit, aname: string, ctx: FightContex) {
-    const a = attacker.attr;
-    const d = defender.attr;
+    const f = ctx.fight;
+    const a = attacker.attr.physic;
+    const d = defender.attr.physic;
+    const d2 = a.hit - d.dodge;
+    if (f.random() > d2 / 100) {
+        ctx.msgs.push(["attackmiss", attacker.uid, defender.uid])
+        return false;
+    }
+
     ctx.msgs.push([aname, attacker.uid, defender.uid])
     let d1 = a.attack - d.defend;
     if (aname == "attackNext"){ //连击降低伤害！
-        d1 = d1 * 0.8;
+        d1 = d1 * DamageLost.nextAttack;
     }
-    const damage = Math.max(Math.floor(d1),1);
-    defender.onHurt(attacker, damage, ctx);    
+
+    let crit = true;
+    if (f.random() < a.crit - d.critDefend) {
+        d1 *= 1.5 + Math.max(a.critDeep,1);
+    }
+
+    const damage = calcHurt(a, d, d1);
+    defender.onHurt("attack", attacker, damage, crit, ctx);   
+    return true; 
 }
 
-export function attackFunc(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
-    attack(attacker, defender, "attack", ctx)
+export function attackFunc(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {  
+    if (!attack(attacker, defender, "attack", ctx)) return ctx;
 
     if (defender.isDied()){
         //追击
@@ -37,7 +69,7 @@ export function attackFunc(attacker: FightUnit, defender: FightUnit, ctx: FightC
     }
     else {
         //反击
-        if (!attackBack(defender, attacker, ctx)){
+        if (!attackBack(defender, attacker, ctx) && !attackDamageBack(defender, attacker, ctx)){
             attackNext(attacker, defender, ctx);
         }
     }
@@ -46,7 +78,7 @@ export function attackFunc(attacker: FightUnit, defender: FightUnit, ctx: FightC
 
 export function attackNext(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
     const f = ctx.fight;
-    if (f.random() < 0.3) return false;
+    if (f.random() < AttackBaseRand.next + attacker.attr.physic.randNext) return false;
 
     ctx.nextNum = (ctx.nextNum || 0) + 1;
     attack(attacker, defender, "attackNext", ctx);
@@ -55,7 +87,7 @@ export function attackNext(attacker: FightUnit, defender: FightUnit, ctx: FightC
 
 export function attackKill(attacker: FightUnit, ctx: FightContex) {
     const f = ctx.fight;
-    if (f.random() < 0.5) return false;
+    if (f.random() < AttackBaseRand.kill + attacker.attr.physic.randKill) return false;
 
     const des = f.randomEnemyAlive(attacker.side);    
     if (des) {
@@ -65,10 +97,17 @@ export function attackKill(attacker: FightUnit, ctx: FightContex) {
     return true
 }
 
+// 反击
 export function attackBack(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
     const f = ctx.fight;
-    if (f.random() < 0.5) return false;
-
+    if (f.random() < AttackBaseRand.back + defender.attr.physic.randFightBack) return false;
     attack(attacker, defender, "attackBack", ctx);
+    return true;
+}
+
+// 反伤
+export function attackDamageBack(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
+    if (!defender.attr.physic.damageBack) return false;
+    attacker.onHurt("attackdb", defender, defender.attr.physic.damageBack, false, ctx);    
     return true;
 }

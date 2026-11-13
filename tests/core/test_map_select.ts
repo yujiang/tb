@@ -2,7 +2,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight } from "../../src/fight/Fight";
 import { FightSide } from "../../src/fight/FightSide";
-import { FightUnit } from "../../src/fight/FightUnit";
+import { FightUnit } from "../../src/fight/Unit/FightUnit";
 import { DiedSelectEnum, MapShapeEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "../../src/fight/struct";
 
 const fight = new Fight(100, {

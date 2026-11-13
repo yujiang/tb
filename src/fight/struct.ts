@@ -36,7 +36,7 @@ export interface SelectMainParam{
 }
 
 export interface SelectParam extends SelectMainParam { 
-    num: number;
+    num?: number;
     shape?: MapShapeEnum; // shape and num 一般只取其一
     //custom?: any;
 }

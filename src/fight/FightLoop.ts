@@ -1,5 +1,5 @@
 import { Fight } from "./Fight";
-import { FightUnit, sortByAttr } from "./FightUnit";
+import { FightUnit, sortByAttr } from "./Unit/FightUnit";
 import { FightInput } from "./struct";
 
 export abstract class FightLoop {

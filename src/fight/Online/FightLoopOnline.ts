@@ -1,6 +1,6 @@
 import { fightMsg } from "../Skills/NormalAttack";
 import { FightLoop } from "../FightLoop";
-import { FightUnit, sortByAttr } from "../FightUnit";
+import { FightUnit, sortByAttr } from "../Unit/FightUnit";
 import { FightInput } from "../struct";
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -35,7 +35,7 @@ export class FightLoopWest extends FightLoopOnline {
             const u = all.shift();
             let ctx = u.processOneTurn(); 
             if (ctx){
-                ctx.msgs.unshift(["actor", u.uid]);
+                ctx.msgs.unshift(["actor", u.uid, u.getSpeed()]);
                 this.bcMsg(ctx.msgs);
             }
             index++;

@@ -1,4 +1,4 @@
-import { FightUnit } from "../FightUnit";
+import { FightUnit } from "../Unit/FightUnit";
 import { FightSkill, SkillData } from "./FightSkill";
 import { healFunc } from "./Heal";
 import { FightContex } from "./NormalAttack";
@@ -41,6 +41,9 @@ export function skillFunc(attacker: FightUnit, defender: FightUnit, skillId: num
     }
 
     const func = SkillFuncMap[xls.func] || skillAttackFunc;
-    // if (!func) return;
+    if (!func) return;
+    
+    if (skill.xls.cost && !attacker.costSkill(skill.xls.cost, ctx)) return;
+
     return func(attacker, defender, skill, ctx);
 }

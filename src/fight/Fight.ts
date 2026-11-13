@@ -3,11 +3,11 @@ import { removeArray } from "../public/Array";
 import { attackFunc, FightContex } from "./Skills/NormalAttack";
 import { FightMap } from "./FightMap";
 import { FightSide } from "./FightSide";
-import { FightUnit, sortByAttr } from "./FightUnit";
+import { FightUnit, sortByAttr } from "./Unit/FightUnit";
 import { EnemySide, DiedSelectEnum, FightCmdEnum, FightInput, FightSideEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "./struct";
 import { strict as assert } from "node:assert";
 import EventEmitter from "node:events";
-import { skillFunc } from "./Skills/Skills";
+import { getSkillById, skillFunc } from "./Skills/Skills";
 
 export type AllUnitType = [FightUnit[], FightUnit[]];
 export type UnitEventFunc = (unit: FightUnit, ...args: any[]) => void;
@@ -170,7 +170,7 @@ export class Fight{
         return this.randomEnemyAlive(unit.side);
     }
 
-    //在input阶段, skill和target都经过验证，是有效的。
+    //在input阶段, skill和target都经过验证，是有效并且合规的， 所以此处就没有二次验证。
     processUnit(unit: FightUnit, input: FightInput) : FightContex{
         let cmd = input.cmd;
         let tid = input.target;
@@ -179,10 +179,22 @@ export class Fight{
         // 预处理,没有来得及发指令的单位.
         if (cmd == FightCmdEnum.none){
             cmd = FightCmdEnum.attack;
-            des = this.getDefaultEnemy(unit)
+            // des = this.getDefaultEnemy(unit)
         }
 
+        if (!des) {
+            if (cmd == FightCmdEnum.attack){
+                des = this.getDefaultEnemy(unit);
+            }
+            else if (cmd == FightCmdEnum.skill){
+                const skill = getSkillById(input.skill);
+                if (skill){
+                    des = this.selectMainTarget(unit, skill.xls.sel);
+                }
+            }
+        }
         if (!des) return;           
+
         const ctx: FightContex = { fight: this, attack: unit, defend: des, msgs: [] };
 
         if (cmd == FightCmdEnum.attack){

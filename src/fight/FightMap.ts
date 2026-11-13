@@ -1,7 +1,7 @@
 // 战斗地图,负责占位
 
 import { Fight } from "./Fight";
-import { FightUnit } from "./FightUnit";
+import { FightUnit } from "./Unit/FightUnit";
 import { EnemySide, DiedSelectEnum, MapShapeEnum, SelectParam, TargetSelectEnum } from "./struct";
 import { strict as assert } from "node:assert";
 
@@ -83,7 +83,6 @@ export class FightMap {
             }
             default:
                 assert(false);
-                return;
         }
         return this.fight.getSideUnitsByPos(side, poses, sel.die);
     }

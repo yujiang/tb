@@ -1,8 +1,14 @@
-import { Fight } from "./Fight";
-import { attackFunc, FightContex, fightMsg } from "./Skills/NormalAttack";
-import { FightAttr } from "./FightAttr";
-import { DiedSelectEnum, FightCmdEnum, FightDisplay, FightInput, FightSideEnum } from "./struct";
+import { Fight } from "../Fight";
+import { attackFunc, FightContex, fightMsg } from "../Skills/NormalAttack";
+import { FightAttr } from "../FightAttr";
+import { DiedSelectEnum, FightCmdEnum, FightDisplay, FightInput, FightSideEnum } from "../struct";
+import { SkillCost } from "../Skills/FightSkill";
 
+export enum UnitType{
+    user,
+    summon,
+    monster, //npc
+}
 
 // 战斗单元
 export abstract class FightUnit {
@@ -42,22 +48,39 @@ export abstract class FightUnit {
         return arr.slice(0, num).map((v) => v[0]);
     }
     
-    onHurt(attacker: FightUnit, hp: number, ctx:FightContex){
-        ctx.msgs.push(["hurt",this.uid, hp, this.attr.hp])
+    
+    onHurt(from: string, attacker: FightUnit, hp: number, crit: boolean, ctx:FightContex){
         this.attr.hp -= hp;
+        ctx.msgs.push(["hurt", from, this.uid, hp, crit, this.attr.hp])
         this.addEnemy(attacker, hp);
-        this.emit("hurt", attacker, hp);
+        this.emit("hurt", attacker, hp, crit);
         if(this.attr.hp <= 0){  
             ctx.msgs.push(["die",this.uid])
             this.die();
             this.fight.onDie(this);
         }
     }
-    onHeal(attacker: FightUnit, hp: number, ctx:FightContex){
-        ctx.msgs.push(["heal",this.uid, hp, this.attr.hp])
-        this.addEnemy(attacker, hp);
+
+    // 加入仇恨列表
+    friendHeal : Map<number, number> = new Map();
+    addFriend(attacker: FightUnit, hp: number){
+        if (attacker == this) return;
+        this.friendHeal.set(attacker.uid, this.friendHeal.get(attacker.uid) + hp)
+    }
+    clearFriend(){
+        this.friendHeal.clear();
+    }
+    getFriendTop(num: number) : number[]{
+        // sort Enemy
+        let arr = Array.from(this.friendHeal.entries()).sort((a, b) => b[1] - a[1]);
+        return arr.slice(0, num).map((v) => v[0]);
+    }
+        
+    onHeal(attacker: FightUnit, hp: number, crit:boolean, ctx:FightContex){
+        ctx.msgs.push(["heal", this.uid, hp, crit, this.attr.hp])
+        this.addFriend(attacker, hp);
         this.attr.hp = Math.max(this.attr.hp + hp, this.attr.hpMax);
-        this.emit("heal", attacker, hp);
+        this.emit("heal", attacker, hp, crit);
     }
 
     emit(event: string, ...args: any[]){
@@ -97,9 +120,10 @@ export abstract class FightUnit {
         }
     }
 
-    isUser() {return false;}
-    isUserSummon() {return false;}
-    isMonster() {return false;}
+    type: UnitType;
+    isUser() {return UnitType.user == this.type;}
+    isUserSummon() {return UnitType.summon == this.type;}
+    isMonster() {return UnitType.monster == this.type;}
     needInput() {return this.isUser() || this.isUserSummon();}
 
     input: FightInput;
@@ -132,30 +156,8 @@ export abstract class FightUnit {
             pos: this.pos,
         }
     }
-}
 
-export class FightUnitUser extends FightUnit {
-    override isUser() {return true;}
-    inputStart(){
-        this.input = null;        
-        // send msg to client ...
-    }    
-}
-
-export class FightUnitSummon extends FightUnit {
-    override isUserSummon() {return true;}
-    inputStart(){
-        this.input = null;        
-        // send msg to client ...
-    }    
-}
-
-export class FightUnitMonster extends FightUnit {
-    override isMonster() {return true;}
-    inputStart(){
-        // ai来做选择
-        this.input = {cmd: FightCmdEnum.none};
-    }
+    abstract costSkill(cost: SkillCost, ctx: FightContex): boolean;
 }
 
 // descend降序
