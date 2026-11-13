@@ -42,6 +42,10 @@ export class FightSide {
             magic.attack = data.magic?.attack || (30+f.random()*10);
             magic.defend = data.magic?.defend || (30-f.random()*10);
 
+            heal.crit = 0;
+            heal.attack = data.heal?.attack || (30+f.random()*10);
+            heal.defend = 0;
+
             attr.physic = physic;
             attr.magic = magic;
             attr.heal = heal;            

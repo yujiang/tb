@@ -49,12 +49,11 @@ export abstract class FightLoop {
     processUnits: FightUnit[];
     sortUnitsByProcess(){
         const all = this.fight.getAllUnits();
+        // all包括死亡单位，如果他中途被复活了，还在列表中，就可以行动；否则下个回合才能行动！
+        // 客户端渲染需要剔除死亡的
         sortByAttr(all, "speed", true);
         this.processUnits = all; //但是如果有插队,降速会扰乱出手表?
-
-        //const debug = all.map(u => `${u.getName()} ${u.getSpeed()}`);
-        //console.log("sortUnitsByProcess", debug);
-
+    
         return all;
     }
     

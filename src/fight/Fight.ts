@@ -7,7 +7,7 @@ import { FightUnit, sortByAttr } from "./Unit/FightUnit";
 import { EnemySide, DiedSelectEnum, FightCmdEnum, FightInput, FightSideEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "./struct";
 import { strict as assert } from "node:assert";
 import EventEmitter from "node:events";
-import { getSkillById, skillFunc } from "./Skills/Skills";
+import { skillFunc } from "./Skills/Skills";
 
 export type AllUnitType = [FightUnit[], FightUnit[]];
 export type UnitEventFunc = (unit: FightUnit, ...args: any[]) => void;
@@ -127,7 +127,7 @@ export class Fight{
     selectTargetsNum(main: FightUnit, sel:SelectParam, num: number) : FightUnit[]|undefined {
         const side = main.side;
         const units = this.getSideUnitsDie(side,sel.die, main);
-        if (!units.length) return;
+        if (!units.length) return;        
         if (sel.sortAttr){
             sortByAttr(units, sel.sortAttr, sel.sortDescend);
         }
@@ -187,9 +187,9 @@ export class Fight{
                 des = this.getDefaultEnemy(unit);
             }
             else if (cmd == FightCmdEnum.skill){
-                const skill = getSkillById(input.skill);
+                const skill = unit.findSkill(input.skill);
                 if (skill){
-                    des = this.selectMainTarget(unit, skill.xls.sel);
+                    des = this.selectMainTarget(unit, skill.getSel());
                 }
             }
         }

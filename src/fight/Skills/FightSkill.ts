@@ -2,8 +2,8 @@
 
 import { Fight } from "../Fight";
 import { BaseAttack } from "../FightAttr";
-import { FightUnit } from "../Unit/FightUnit";
 import { SelectParam } from "../struct";
+import { getRelativeSkill } from "./Skills";
 
 
 export interface SkillCost {
@@ -15,25 +15,28 @@ export interface SkillCost {
 export interface SkillData {
     id: number;
     name: string;
+    desc?: string;       // 描述
 
-    magic: boolean; // 是否魔法攻击
+    magic: boolean;     // 是否魔法攻击
+    property?: number;  // 属性, 金木水火土有克制关系~
+
     sel: SelectParam;
     
-    func?: string; // 技能效果函数名, 默认noraml
+    func?: string;      // 技能效果函数名, 默认noraml
 
-    rand: number;       //概率；0到1之间
-    nobackRand: number; //免于反击；0到1之间
-    crit?: number;
-    critDeep?: number;    
+    rand: number;       // 概率；0到1之间
+    nobackRand: number; // 免于反击；0到1之间
+    crit?: number;      // 暴击率；0到1之间
+    critDeep?: number;  // 暴击加深， 基础是1.5  
 
     attack?: number;
     attackPercent?: number;
     damage?: number;
     damagePercent?: number;
 
-    cost?: SkillCost;
+    cost?: SkillCost;   // 消耗
 
-    // 溅射的skill， 比如有的溅射不减伤~
+    // 溅射的skill， 比如有的溅射不减伤，就自己写skill
     spread?: number;
     // 连击的skill
     next?: number;
@@ -54,14 +57,59 @@ export function calcHurt(a: BaseAttack, d: BaseAttack, d1: number) {
 
 
 export class FightSkill {
-    xls: SkillData;
+    private xls: SkillData; //因为很多都跟自身level有关，所以外部直接用xls多半不行
     level = 0; //但是user身上是有level的！
-    constructor(xls: SkillData) {
+    constructor(xls: SkillData, level: number) {
         this.xls = xls;
+        this.level = level;
     }
+
     getId() {
         return this.xls.id;
     }
+    // 命中率
+    getRand() {
+        return this.xls.rand || 1;
+    }
+    isMagic(){
+        return this.xls.magic;
+    }
+
+    // 可能升到level才有kill,next...
+    getKill(){
+        return this.xls.kill;
+    }
+    getKillSkill(){
+        return getRelativeSkill(this, this.getKill());
+    }
+    getNext(){
+        return this.xls.next;
+    }
+    getNextSkill(){
+        return getRelativeSkill(this, this.getNext());
+    }
+    getSpread(){
+        return this.xls.spread;
+    }
+    getSpreadSkill(){
+        return getRelativeSkill(this, this.getSpread());
+    }
+    getNobackRand(){
+        return this.xls.nobackRand || 0;
+    }
+
+    getCost(){
+        return this.xls.cost;
+    }
+
+    getFunc(){
+        return this.xls.func || "normal";
+    }
+    getSel(){
+        return this.xls.sel;
+    }
+
+
 
     calcAttack(v: number){
         //TODO use skill level..
@@ -90,7 +138,7 @@ export class FightSkill {
             d1 *= 1.5 + Math.max(a.critDeep + (xls.critDeep||0), 1);
             crit = true;
         }
-        return [d1, crit];
+        return [Math.floor(d1), crit];
     }
 }
 

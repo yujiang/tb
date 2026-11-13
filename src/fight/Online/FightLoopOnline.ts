@@ -29,8 +29,8 @@ export class FightLoopWest extends FightLoopOnline {
     override async processOneTurn(){
         // 根据玩家速度来建立出手列表
         // 按出手列表顺序,依次处理
-        const all = this.sortUnitsByProcess(); //但是如果有插队,降速会扰乱出手表?
         let index = 0;
+        let all = this.processUnits;
         while (all.length) {
             const u = all.shift();
             let ctx = u.processOneTurn(); 
@@ -45,6 +45,8 @@ export class FightLoopWest extends FightLoopOnline {
     override nextTurn() {
         super.nextTurn()
         this.bcMsg(["turn", this.fight.turn]);
+        const all = this.sortUnitsByProcess(); //但是如果有插队,降速会扰乱出手表?
+        this.bcMsg(["sort", all.map(u => u.uid)]);
     }    
 
     bcMsg(msgs: fightMsg | fightMsg[]){

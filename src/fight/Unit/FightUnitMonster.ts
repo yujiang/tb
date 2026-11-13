@@ -12,6 +12,10 @@ export class FightUnitMonster extends FightUnit {
         if (this.inputSkill) {
             this.input = { cmd: FightCmdEnum.skill, skill: this.inputSkill };
         }
+        else if (this.skills.size > 0) {
+            //没有指定技能，随机选择一个
+            this.input = { cmd: FightCmdEnum.skill, skill: this.skills.keys().next().value };
+        }
         else {
             this.input = { cmd: FightCmdEnum.none };
         }

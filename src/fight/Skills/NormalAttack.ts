@@ -3,6 +3,7 @@ import { Fight } from "../Fight";
 import { BaseAttack } from "../FightAttr";
 import { FightUnit } from "../Unit/FightUnit";
 import { calcHurt } from "./FightSkill";
+import { skillBack } from "./NomalSkill";
 
 export type fightMsg = [string, ...any[]];
 
@@ -19,6 +20,8 @@ export interface FightContex {
 
     killNum?: number; // 追击次数
     nextNum?: number; // 追击次数
+    backNum?: number; // 反击次数
+    dbackNum?: number; // 反震次数
 }
 
 const AttackBaseRand = {
@@ -69,14 +72,14 @@ export function attackFunc(attacker: FightUnit, defender: FightUnit, ctx: FightC
     }
     else {
         //反击
-        if (!attackBack(defender, attacker, ctx) && !attackDamageBack(defender, attacker, ctx)){
+        if (!tryBack(defender, attacker, false, ctx) && !attackDamageBack(defender, attacker, ctx)){
             attackNext(attacker, defender, ctx);
         }
     }
     return ctx;
 }
 
-export function attackNext(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
+function attackNext(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
     const f = ctx.fight;
     if (f.random() < AttackBaseRand.next + attacker.attr.physic.randNext) return false;
 
@@ -85,7 +88,7 @@ export function attackNext(attacker: FightUnit, defender: FightUnit, ctx: FightC
     return true
 }
 
-export function attackKill(attacker: FightUnit, ctx: FightContex) {
+function attackKill(attacker: FightUnit, ctx: FightContex) {
     const f = ctx.fight;
     if (f.random() < AttackBaseRand.kill + attacker.attr.physic.randKill) return false;
 
@@ -97,8 +100,17 @@ export function attackKill(attacker: FightUnit, ctx: FightContex) {
     return true
 }
 
-// 反击
-export function attackBack(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
+// 优先用装备的技能反击，最后采用attackBack
+export function tryBack(attacker: FightUnit, defender: FightUnit, skill: boolean, ctx: FightContex) {
+    const f = ctx.fight;
+    const back = attacker.getBackSkill();
+    if (back) {
+        skillBack(attacker, defender, back, ctx);
+    }
+    return attackBack(attacker, defender, ctx);
+}
+
+function attackBack(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
     const f = ctx.fight;
     if (f.random() < AttackBaseRand.back + defender.attr.physic.randFightBack) return false;
     attack(attacker, defender, "attackBack", ctx);
@@ -106,7 +118,7 @@ export function attackBack(attacker: FightUnit, defender: FightUnit, ctx: FightC
 }
 
 // 反伤
-export function attackDamageBack(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
+function attackDamageBack(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
     if (!defender.attr.physic.damageBack) return false;
     attacker.onHurt("attackdb", defender, defender.attr.physic.damageBack, false, ctx);    
     return true;

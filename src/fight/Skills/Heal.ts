@@ -4,7 +4,7 @@ import { FightUnit } from "../Unit/FightUnit";
 import { FightSkill } from "./FightSkill";
 import { DamageLost, FightContex } from "./NormalAttack";
 
-export function heal(attacker: FightUnit, defender: FightUnit, skill:FightSkill, spread: number, ctx: FightContex) {
+function heal(attacker: FightUnit, defender: FightUnit, skill:FightSkill, spread: number, ctx: FightContex) {
     const f = ctx.fight;
     const a = attacker.attr.heal;
     const d = defender.attr.heal;
@@ -22,15 +22,15 @@ export function heal(attacker: FightUnit, defender: FightUnit, skill:FightSkill,
 
 export function healFunc(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
     heal(attacker, defender, skill, 0, ctx);
-
+    spreadHeal(attacker, defender, skill, ctx);
     return ctx;
 }
 
-export function spreadHeal(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
+function spreadHeal(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
     const f = ctx.fight;
-    const xls = skill.xls;
-    const targets = f.selectTargets(defender, xls.sel);
-    if (!targets || targets?.length > 0) return
+    //const xls = skill.xls;
+    const targets = f.selectTargets(defender, skill.getSel());
+    if (!targets?.length) return
 
     const ids = targets.map((target) => {
         return target.uid;

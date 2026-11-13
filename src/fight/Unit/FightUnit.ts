@@ -1,8 +1,9 @@
 import { Fight } from "../Fight";
-import { attackFunc, FightContex, fightMsg } from "../Skills/NormalAttack";
+import { FightContex } from "../Skills/NormalAttack";
 import { FightAttr } from "../FightAttr";
 import { DiedSelectEnum, FightCmdEnum, FightDisplay, FightInput, FightSideEnum } from "../struct";
-import { SkillCost } from "../Skills/FightSkill";
+import { FightSkill, SkillCost } from "../Skills/FightSkill";
+import { getSkillData } from "../Skills/Skills";
 
 export enum UnitType{
     user,
@@ -51,7 +52,7 @@ export abstract class FightUnit {
     
     onHurt(from: string, attacker: FightUnit, hp: number, crit: boolean, ctx:FightContex){
         this.attr.hp -= hp;
-        ctx.msgs.push(["hurt", from, this.uid, hp, crit, this.attr.hp])
+        ctx.msgs.push(["hurt", from, this.uid, hp, crit ? 1 : 0, this.attr.hp])
         this.addEnemy(attacker, hp);
         this.emit("hurt", attacker, hp, crit);
         if(this.attr.hp <= 0){  
@@ -77,7 +78,7 @@ export abstract class FightUnit {
     }
         
     onHeal(attacker: FightUnit, hp: number, crit:boolean, ctx:FightContex){
-        ctx.msgs.push(["heal", this.uid, hp, crit, this.attr.hp])
+        ctx.msgs.push(["heal", this.uid, hp, crit ? 1 : 0, this.attr.hp])
         this.addFriend(attacker, hp);
         this.attr.hp = Math.max(this.attr.hp + hp, this.attr.hpMax);
         this.emit("heal", attacker, hp, crit);
@@ -158,6 +159,25 @@ export abstract class FightUnit {
     }
 
     abstract costSkill(cost: SkillCost, ctx: FightContex): boolean;
+
+    skills = new Map<number,FightSkill>();
+    findSkill(id: number) : FightSkill{
+        if (!id) return;
+        return this.skills.get(id);
+    }
+
+    backSkill = 0;
+    getBackSkill(){
+        return this.findSkill(this.backSkill);
+    }
+
+    addSkill(id: number, level: number){
+        const data = getSkillData(id);
+        if (!data) return;
+        const skill = new FightSkill(data, level);
+        this.skills.set(id, skill);
+        return skill;
+    }
 }
 
 // descend降序
