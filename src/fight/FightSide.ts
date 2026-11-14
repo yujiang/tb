@@ -1,5 +1,5 @@
 import { Fight } from "./Fight";
-import { BaseAttack, FightAttr } from "./FightAttr";
+import { BaseAttack, FightAttr, FinalAttack } from "./FightAttr";
 import { FightUnit } from "./Unit/FightUnit";
 import { FightUnitMonster } from "./Unit/FightUnitMonster";
 import { FightSideEnum } from "./struct";
@@ -19,24 +19,42 @@ export class FightSide {
     createSimpleMonster(f:Fight, datas: simpleData[]): void {
         for (const data of datas){
             const attr = new FightAttr()
-            attr.hp = 100;
-            attr.hpMax = 100;
-            attr.mp = 100;
-            attr.mpMax = 100;
+            const point = {
+                hp:100,
+                hpMax:100,
+                mp:100,
+                mpMax:100,
+            };
+            attr.point = point;
             const physic: BaseAttack = {} as any
             const magic: BaseAttack = {} as any
             const heal: BaseAttack = {} as any
-            physic.randFightBack = 0.5;
-            physic.randKill = 0.5;
-            physic.randNext = 0.5;
-            
-            magic.randFightBack = 0.2;
-            
+                      
+           
             physic.crit = data.physic?.crit || (20+f.random()*10);
             physic.attack = data.physic?.attack || (50+f.random()*20);
             physic.defend = data.physic?.defend || (50-f.random()*20);
             physic.hit = data.physic?.hit || (80+f.random()*10);
             physic.dodge = data.physic?.dodge || (20+f.random()*10);
+
+            attr.kill = {...physic, rand: 0.5} 
+            attr.next = {...physic, rand: 0.5} 
+            attr.fback = {...physic, rand: 0.5} 
+
+            const fa: FinalAttack = {
+                dbackP: 0,
+                bloodP: 0,
+                immunity: 0,
+                immunityP: 0,
+
+                dbackPAnti: 0,
+                bloodPAnti: 0,
+                immunityAnti: 0,
+                immunityPAnti: 0,
+            }
+
+            attr.fphysic = {...fa};
+            attr.fmagic = {...fa};
             
             magic.crit = data.magic?.crit || (10+f.random()*5);
             magic.attack = data.magic?.attack || (30+f.random()*10);

@@ -5,9 +5,10 @@ import { FightUnit, UnitType } from "./FightUnit";
 
 export class FightUnitCost extends FightUnit {
     canCost(cost: SkillCost) {
-        if (cost.hp && this.attr.hp <= cost.hp)
+        const point = this.attr.point;
+        if (cost.hp && point.hp <= cost.hp)
             return false;
-        if (cost.mp && this.attr.mp < cost.mp)
+        if (cost.mp && point.mp < cost.mp)
             return false;
 
         return true;
@@ -15,13 +16,14 @@ export class FightUnitCost extends FightUnit {
 
     costSkill(cost: SkillCost, ctx: FightContex) {
         if (!this.canCost(cost)) return false;
+        const point = this.attr.point;
         if (cost.hp){
-            this.attr.hp -= cost.hp;
-            ctx.msgs.push(["costHp",this.uid, cost.hp, this.attr.hp])            
+            point.hp -= cost.hp;
+            ctx.msgs.push(["costHp",this.uid, cost.hp, point.hp])            
         }
         if (cost.mp){
-            this.attr.mp -= cost.mp;
-            ctx.msgs.push(["costMp",this.uid, cost.mp, this.attr.mp])            
+            point.mp -= cost.mp;
+            ctx.msgs.push(["costMp",this.uid, cost.mp, point.mp])            
         }
         return true;
     }

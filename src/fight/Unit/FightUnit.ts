@@ -3,7 +3,7 @@ import { FightContex } from "../Skills/NormalAttack";
 import { FightAttr } from "../FightAttr";
 import { DiedSelectEnum, FightCmdEnum, FightDisplay, FightInput, FightSideEnum } from "../struct";
 import { FightSkill, SkillCost } from "../Skills/FightSkill";
-import { getSkillData } from "../Skills/Skills";
+import { getSkillData } from "../Skills/SkillDatas";
 
 export enum UnitType{
     user,
@@ -50,12 +50,13 @@ export abstract class FightUnit {
     }
     
     
-    onHurt(from: string, attacker: FightUnit, hp: number, crit: boolean, ctx:FightContex){
-        this.attr.hp -= hp;
-        ctx.msgs.push(["hurt", from, this.uid, hp, crit ? 1 : 0, this.attr.hp])
+    onHurt(attacker: FightUnit, why: string, hp: number, crit: boolean, ctx:FightContex){
+        const point = this.attr.point;
+        point.hp -= hp;
+        ctx.msgs.push(["hurt", why, this.uid, attacker.uid, hp, crit ? 1 : 0, point.hp])
         this.addEnemy(attacker, hp);
         this.emit("hurt", attacker, hp, crit);
-        if(this.attr.hp <= 0){  
+        if(point.hp <= 0){  
             ctx.msgs.push(["die",this.uid])
             this.die();
             this.fight.onDie(this);
@@ -77,11 +78,12 @@ export abstract class FightUnit {
         return arr.slice(0, num).map((v) => v[0]);
     }
         
-    onHeal(attacker: FightUnit, hp: number, crit:boolean, ctx:FightContex){
-        ctx.msgs.push(["heal", this.uid, hp, crit ? 1 : 0, this.attr.hp])
+    onHeal(attacker: FightUnit, why: string, hp: number, crit:boolean, ctx:FightContex){
+        const point = this.attr.point;
+        ctx.msgs.push(["heal", why, this.uid, attacker.uid, hp, crit ? 1 : 0, point.hp])
         this.addFriend(attacker, hp);
-        this.attr.hp = Math.min(this.attr.hp + hp, this.attr.hpMax);
-        this.emit("heal", attacker, hp, crit);
+        point.hp = Math.min(point.hp + hp, point.hpMax);
+        this.emit("heal", attacker, why, hp, crit);
     }
 
     emit(event: string, ...args: any[]){

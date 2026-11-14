@@ -43,11 +43,34 @@ export class FightLoopWest extends FightLoopOnline {
     }
 
     override nextTurn() {
-        super.nextTurn()
+        const rt = super.nextTurn()
         this.bcMsg(["turn", this.fight.turn]);
         const all = this.sortUnitsByProcess(); //但是如果有插队,降速会扰乱出手表?
         this.bcMsg(["sort", all.map(u => u.uid)]);
+        return rt;
     }    
+
+    getUnitMsg(u: FightUnit){
+        return {
+            uid: u.uid, 
+            display:u.display,
+            point: u.attr.getPointAttr(),
+        }
+    }
+
+    override start() {
+        this.bcMsg(["start", this.fight.fid]);
+        for (let s of [0,1]){
+            const side = this.fight.getSide(s);
+            this.bcMsg(["side", s, side.units.map(
+                u => this.getUnitMsg(u))
+            ]);
+        }
+    }
+
+    override end() {
+        this.bcMsg(["end", this.fight.win]);
+    }
 
     bcMsg(msgs: fightMsg | fightMsg[]){
         // 暂时没有发消息, 直接打印

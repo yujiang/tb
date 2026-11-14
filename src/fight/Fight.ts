@@ -7,7 +7,7 @@ import { FightUnit, sortByAttr } from "./Unit/FightUnit";
 import { EnemySide, DiedSelectEnum, FightCmdEnum, FightInput, FightSideEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "./struct";
 import { strict as assert } from "node:assert";
 import EventEmitter from "node:events";
-import { skillFunc } from "./Skills/Skills";
+import { skillFunc } from "./Skills/SkillFuncType";
 
 export type AllUnitType = [FightUnit[], FightUnit[]];
 export type UnitEventFunc = (unit: FightUnit, ...args: any[]) => void;
@@ -38,6 +38,7 @@ export class Fight{
             // 超时防守获胜！
             this.win = FightSideEnum.defend;
         }
+        return this.turn;
     }
 
     win: number = -1;
@@ -55,6 +56,10 @@ export class Fight{
 
     // ***units start
     Sides: FightSide[];
+    getSide(side: FightSideEnum) : FightSide {
+        return this.Sides[side];
+    }
+
     AllUnits: AllUnitType;
     createSide(attack: FightSide, des: FightSide) {
         this.Sides = [attack, des];
@@ -78,6 +83,9 @@ export class Fight{
     }
     getAllUnits() : FightUnit[] {
         return this.AllUnits.flat();
+    }
+    getAllUser() : FightUnit[] {
+        return this.getAllUnits().filter(u => u.isUser());
     }
 
     getSideUnitsDie(side: FightSideEnum, die: DiedSelectEnum, except:FightUnit=null) : FightUnit[] {

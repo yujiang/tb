@@ -16,7 +16,7 @@ function heal(attacker: FightUnit, defender: FightUnit, skill:FightSkill, spread
     }
 
     const [damage, crit] = skill.calcHeal(f, a, d, spread);
-    defender.onHeal(attacker, damage, crit, ctx);
+    defender.onHeal(attacker, "heal", damage, crit, ctx);
     return ctx;
 }
 

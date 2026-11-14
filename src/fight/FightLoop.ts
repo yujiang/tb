@@ -16,6 +16,7 @@ export abstract class FightLoop {
 
     async run() {
         const f = this.fight;
+        this.start();
         while(!f.isEnd()){
             this.nextTurn();
             //console.log(f);
@@ -31,11 +32,15 @@ export abstract class FightLoop {
             await this.waitDrawOver();
             this.processAfterTurn(); //回合后主要处理死亡等            
         }
+        this.end();
         return this.fight.win;
     }
 
+    start() {}
+    end() {}
+
     nextTurn() {
-        this.fight.nextTurn();
+        return this.fight.nextTurn();
     }
 
     // return 0: 超时, 1: 正常结束

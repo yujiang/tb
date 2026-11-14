@@ -5,7 +5,7 @@ import { BaseAttack } from "../../src/fight/FightAttr";
 import { FightSide } from "../../src/fight/FightSide";
 import { FightSkill, SkillData, calcHurt } from "../../src/fight/Skills/FightSkill";
 import { DamageLost, FightContex } from "../../src/fight/Skills/NormalAttack";
-import { getRelativeSkill, getSkillData, initSkills, skillFunc } from "../../src/fight/Skills/Skills";
+import { getRelativeSkill, getSkillData, initSkills, skillFunc } from "../../src/fight/Skills/SkillDatas";
 import { FightUnit } from "../../src/fight/Unit/FightUnit";
 import { FightUnitUser } from "../../src/fight/Unit/FightUnitUser";
 import { DiedSelectEnum, MapShapeEnum, TargetSelectEnum } from "../../src/fight/struct";
@@ -14,63 +14,63 @@ const skillData: SkillData[] = [
     {
         id: 101, name: "magic", magic: true,
         sel: { target: TargetSelectEnum.enmey, die: DiedSelectEnum.alive },
-        rand: 1, nobackRand: 1, attack: 10, attackPercent: 0.2,
+        rand: 1, notFbackRand: 1, attack: 10, attackPercent: 0.2,
         damage: 5, damagePercent: 0.5,
     },
     {
         id: 102, name: "miss", magic: true,
         sel: { target: TargetSelectEnum.enmey, die: DiedSelectEnum.alive },
-        rand: 0.2, nobackRand: 1,
+        rand: 0.2, notFbackRand: 1,
     },
     {
         id: 103, name: "heal", magic: true, func: "heal",
         sel: { target: TargetSelectEnum.friend, die: DiedSelectEnum.alive, num: 2 },
-        rand: 1, nobackRand: 1, attack: 10,
+        rand: 1, notFbackRand: 1, attack: 10,
     },
     {
         id: 104, name: "spread", magic: true, func: "spread",
         sel: { target: TargetSelectEnum.enmey, die: DiedSelectEnum.alive, shape: MapShapeEnum.y_line },
-        rand: 1, nobackRand: 1, attack: 10,
+        rand: 1, notFbackRand: 1, attack: 10,
     },
     {
         id: 105, name: "spread child", magic: true,
         sel: { target: TargetSelectEnum.enmey, die: DiedSelectEnum.alive },
-        rand: 1, nobackRand: 1, attack: 30,
+        rand: 1, notFbackRand: 1, attack: 30,
     },
     {
         id: 106, name: "combo", magic: true,
         sel: { target: TargetSelectEnum.enmey, die: DiedSelectEnum.alive },
-        rand: 1, nobackRand: 1, next: 105, kill: 105,
+        rand: 1, notFbackRand: 1, next: 105, kill: 105,
     },
     {
         id: 107, name: "cost", magic: true,
         sel: { target: TargetSelectEnum.enmey, die: DiedSelectEnum.alive },
-        rand: 1, nobackRand: 1, cost: { hp: 5, mp: 10 },
+        rand: 1, notFbackRand: 1, cost: { hp: 5, mp: 10 },
     },
     {
         id: 108, name: "custom spread", magic: true, func: "spread",
         sel: { target: TargetSelectEnum.enmey, die: DiedSelectEnum.alive, shape: MapShapeEnum.y_line },
-        rand: 1, nobackRand: 1, spread: 105,
+        rand: 1, notFbackRand: 1, spread: 105,
     },
     {
         id: 109, name: "physical", magic: false,
         sel: { target: TargetSelectEnum.enmey, die: DiedSelectEnum.alive },
-        rand: 1, nobackRand: 1, attack: 5,
+        rand: 1, notFbackRand: 1, attack: 5,
     },
     {
         id: 110, name: "unknown effect", magic: true, func: "missing",
         sel: { target: TargetSelectEnum.enmey, die: DiedSelectEnum.alive },
-        rand: 1, nobackRand: 1,
+        rand: 1, notFbackRand: 1,
     },
     {
         id: 111, name: "critical", magic: true,
         sel: { target: TargetSelectEnum.enmey, die: DiedSelectEnum.alive },
-        rand: 1, nobackRand: 1, crit: 1, critDeep: 0.5, attack: 0,
+        rand: 1, notFbackRand: 1, crit: 1, critDeep: 0.5, attack: 0,
     },
     {
         id: 112, name: "counterable", magic: true,
         sel: { target: TargetSelectEnum.enmey, die: DiedSelectEnum.alive },
-        rand: 1, nobackRand: 0,
+        rand: 1, notFbackRand: 0,
     },
 ];
 
@@ -165,7 +165,7 @@ test("skill registry, accessors, relative skills, and attack/damage formulas", (
 
     const defaults = new FightSkill({
         id: 200, name: "defaults", magic: false,
-        sel: { target: TargetSelectEnum.self }, rand: 0, nobackRand: 0,
+        sel: { target: TargetSelectEnum.self }, rand: 0, notFbackRand: 0,
     }, 1);
     assert.equal(defaults.getRand(), 1);
     assert.equal(defaults.getNobackRand(), 0);
@@ -382,7 +382,7 @@ test("a successful counter skill is counted and deals its own attack", () => {
     skillFunc(attacker, defender, 112, ctx);
     assert.equal(defender.attr.hp, 90);
     assert.equal(attacker.attr.hp, 85);
-    assert.equal(ctx.backNum, 1);
+    assert.equal(ctx.fbackNum, 1);
     assert.ok(ctx.msgs.some(msg => msg[0] === "skillBack"));
 });
 

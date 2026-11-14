@@ -1,6 +1,6 @@
 import { FightLoopWest } from '../../src/fight/Online/FightLoopOnline';
 import { SkillData } from '../../src/fight/Skills/FightSkill';
-import { initSkills } from '../../src/fight/Skills/Skills';
+import { initSkills } from '../../src/fight/Skills/SkillDatas';
 import { MapShapeEnum, SelectParam, TargetSelectEnum } from '../../src/fight/struct';
 import { FightUnitMonster } from '../../src/fight/Unit/FightUnitMonster';
 import { createFightAndSide } from './help';
@@ -15,12 +15,12 @@ const normalSkill:SkillData = {
     magic: true,
     sel:{target: TargetSelectEnum.enmey,},
     rand: 0.8,
-    nobackRand: 1,
 
     cost : {mp: 10},
 
     attack: 20,
     attackPercent: 0.2,
+    tags: ["blood"],
 }
 
 const healSkill:SkillData = {
@@ -31,7 +31,6 @@ const healSkill:SkillData = {
     func: "heal",
 
     rand: 1,
-    nobackRand: 1,
 
     cost : {mp: 20},
 
@@ -47,7 +46,6 @@ const spreadSkill:SkillData = {
     func: "spread",
     
     rand: 1,
-    nobackRand: 1,
     crit: 0.5,
     critDeep: 1,
 
