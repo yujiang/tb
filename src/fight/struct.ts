@@ -3,6 +3,13 @@ export enum FightSideEnum {
     defend = 1,
 }
 
+export enum FightResultEnum {
+    ongoing = -1,
+    attack = 0,
+    defend = 1,
+    draw = 2,
+}
+
 export function EnemySide(side: FightSideEnum) : FightSideEnum{
     return 1 - side;
 }
@@ -29,7 +36,7 @@ export enum MapShapeEnum {
 
 export interface SelectMainParam{
     target: TargetSelectEnum;   //默认 des 0
-    die?: DiedSelectEnum;       //默认 alive 0
+    die?: DiedSelectEnum;       //默认 alive；显式 all 才包含死亡单位
    
     sortAttr?: string;          //用attr的key排序, 否则随机选
     sortDescend?: boolean;      //降序 默认false
@@ -60,6 +67,7 @@ export enum FightCmdEnum{
 }
 
 export interface FightInput {
+    turn?: number; // FightLoopWest 的网络输入必须携带当前回合；本地调用可省略
     cmd: FightCmdEnum;
     skill?: number;
     target?: number;

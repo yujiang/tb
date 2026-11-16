@@ -1,9 +1,8 @@
 import { fightMsg } from "../Skills/NormalAttack";
 import { FightLoop } from "../FightLoop";
-import { FightUnit, sortByAttr } from "../Unit/FightUnit";
+import { FightUnit } from "../Unit/FightUnit";
 import { FightInput } from "../struct";
 import { setTimeout as delay } from 'node:timers/promises';
-import { FightBuff } from "../Buffs/FightBuff";
 
 export abstract class FightLoopOnline extends FightLoop {
     //回合前开始处理buff等
@@ -32,7 +31,7 @@ export class FightLoopWest extends FightLoopOnline {
         // 按出手列表顺序,依次处理
         let index = 0;
         let all = this.processUnits;
-        while (all.length) {
+        while (all.length && !this.fight.isEnd()) {
             const u = all.shift();
             let ctx = u.processOneTurn(); 
             if (ctx){
@@ -60,6 +59,7 @@ export class FightLoopWest extends FightLoopOnline {
     }
 
     override start() {
+        super.start();
         this.bcMsg(["start", this.fight.fid]);
         for (let s of [0,1]){
             const side = this.fight.getSide(s);
@@ -67,12 +67,14 @@ export class FightLoopWest extends FightLoopOnline {
                 u => this.getUnitMsg(u))
             ]);
         }
-        this.fight.onUnitEvent("speed", this.onChangeSpeed.bind(this));
+        this.fight.emitUnit.off("speed", this.speedListener);
+        this.fight.onUnitEvent("speed", this.speedListener);
     }
 
-    onChangeSpeed(u: FightUnit, attacker: FightUnit, why: string, buff: FightBuff){
+    private speedListener = (u: FightUnit) => this.onChangeSpeed(u);
+    onChangeSpeed(u: FightUnit){
         const all = this.processUnits;
-        if (buff.hasTag("speed") && all.includes(u)){
+        if (all?.includes(u)){
             // this.processUnits 重新排序？
             all.sort((a, b) => b.getSpeedOrder() - a.getSpeedOrder());
             this.bcMsg(["sort", all.map(u => u.uid)]);
@@ -80,6 +82,7 @@ export class FightLoopWest extends FightLoopOnline {
     }
 
     override end() {
+        this.fight.emitUnit.off("speed", this.speedListener);
         this.bcMsg(["end", this.fight.win]);
     }
 
@@ -104,19 +107,26 @@ export class FightLoopWest extends FightLoopOnline {
         this.inputed = 0;
         this.inputResolve = null;
         if (input == 0) return 1;
-        const p = new Promise((resolve, reject) => {
+        const p = new Promise<number>((resolve) => {
             this.inputResolve = resolve;
         })
         const wait = this.fight.xls.waitInputSec || 30;
-        const p2 = delay(wait*1000, 0);
-        return Promise.race([p, p2]) as Promise<number>;
+        const timer = new AbortController();
+        const p2 = delay(wait*1000, 0, {signal: timer.signal});
+        try {
+            return await Promise.race([p, p2]);
+        } finally {
+            this.input = 0;
+            this.inputResolve = null;
+            timer.abort();
+        }
     }
 
     onInput(id: number, input: FightInput){
-        if (this.input == 0) return;
+        if (this.input == 0 || this.fight.isEnd() || input?.turn !== this.fight.turn) return;
 
         const unit = this.fight.getUnitById(id);
-        if (unit){
+        if (unit && unit.needInput()){
             const isnull = (unit.input == null);
             if (unit.onInput(input) && unit.needInput()){
                 if (unit.input && isnull){

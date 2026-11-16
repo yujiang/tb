@@ -26,6 +26,7 @@ export interface FightContex {
     nextNum?: number; // 追击次数
     fbackNum?: number; // 反击次数
     dbackNum?: number; // 反震次数
+    reactionSteps?: number; // 单次动作共享的结算预算，防止回调无限触发
 }
 
 // const AttackBaseRand = {
@@ -57,7 +58,7 @@ class PhysicSkill extends FightSkill {
     physic: FightTypeAttr;
     
     constructor(name: string, unit: FightUnit, attack: BaseAttack, final: FinalAttack) {
-        super({...PhysicData, attack, final} , 1);
+        super({...PhysicData, attack, final, rand: name === "physic" ? 1 : attack.rand} , 1);
         this.unit = unit;
         this.physic = unit.attr.physic;
         this.name = name;

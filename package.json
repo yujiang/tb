@@ -6,19 +6,17 @@
   "engines": {
     "node": ">=22"
   },
-  "main": "lib/src/index.js",
-  "types": "lib/src/index.d.ts",
+  "main": "bin-debug/index.js",
+  "types": "bin-debug/index.d.ts",
   "files": [
-    "lib/src",
-    "README.MD",
-    "DESIGN.md",
-    "API.md"
+    "bin-debug",
+    "README.MD"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && npm run test:build && node --test tests/*.test.cjs .test-build/tests/core/test_map_select.js .test-build/tests/core/test_skill.js .test-build/tests/core/test_buff.js",
+    "test": "npm run build && npm run test:build && node --test tests/*.test.cjs .test-build/tests/core/*.js",
     "test:build": "node -e \"require('node:fs').rmSync('.test-build', { recursive: true, force: true })\" && tsc -p tsconfig.test.json",
-    "example": "npm run build && node lib/examples/simple/main.js"
+    "example": "npm run test:build && node .test-build/tests/simple/test_loop.js"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

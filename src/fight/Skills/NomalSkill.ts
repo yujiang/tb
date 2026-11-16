@@ -1,7 +1,6 @@
-import { FinalAttack, BaseAttack, FightTypeAttr } from "../FightAttr";
+import { BaseAttack, FightTypeAttr } from "../FightAttr";
 import { FightUnit } from "../Unit/FightUnit";
 import { afterHurt } from "./Buff";
-import { mergeTable } from "./Calc";
 import { tryBlood, tryDBack, tryFBack } from "./FightBack";
 import { FightSkill, } from "./FightSkill";
 import { FightContex } from "./NormalAttack";
@@ -25,6 +24,7 @@ class MagicSkill extends FightSkill {
         if (!data) return;
         const skill = new MagicSkill(data, this.level);
         skill.name = name;
+        skill.ft = this.ft;
         skill.mergeAttack(attack,this.ft.final);
         return skill;
     }
@@ -33,10 +33,10 @@ class MagicSkill extends FightSkill {
         return this.createMagicSkill("next",this.getNext(), this.ft.next);
     }
     override getKillSkill(): FightSkill {
-        return this.createMagicSkill("kill",this.getNext(), this.ft.kill);
+        return this.createMagicSkill("kill",this.getKill(), this.ft.kill);
     }
     override getSpreadSkill(): FightSkill {
-        return this.createMagicSkill("spread",this.getNext(), this.ft.spread);
+        return this.createMagicSkill("spread",this.getSpread(), this.ft.spread);
     }
 }
 
@@ -45,6 +45,9 @@ class MagicSkill extends FightSkill {
 export function skillAttack(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
     // assert(skill);
     const f = ctx.fight;
+    if (attacker.isDied() || defender.isDied()) return false;
+    ctx.reactionSteps = (ctx.reactionSteps ?? 0) + 1;
+    if (ctx.reactionSteps > 64) throw new Error("Reaction limit exceeded (64 effects per action)");
     
     // 发动概率, 比如连击...
     if (f.randomGreat(skill.getRand())) return false;
@@ -82,8 +85,7 @@ function skillKill(attacker: FightUnit, sk:FightSkill, ctx: FightContex) {
     const skill = sk.getKillSkill();
     if (!skill) return false;
     const f = ctx.fight;
-    const a = skill.isMagic() ? attacker.attr.magic : attacker.attr.physic;
-    if (!skill || f.randomGreat(skill.getRand())) return false;
+    if (skill.getRand() <= 0) return false;
 
     const des = f.randomEnemyAlive(attacker.side);    
     if (!des) return false;
@@ -96,8 +98,7 @@ function skillNext(attacker: FightUnit, sk:FightSkill, ctx: FightContex) {
     const skill = sk.getNextSkill();
     if (!skill) return false;
     const f = ctx.fight;
-    const a = skill.isMagic() ? attacker.attr.magic : attacker.attr.physic;
-    if (!skill || f.randomGreat(skill.getRand())) return false;
+    if (skill.getRand() <= 0) return false;
 
     const des = f.randomEnemyAlive(attacker.side);    
     if (!des) return false;
@@ -113,11 +114,15 @@ export function skillAttackFunc(attacker: FightUnit, defender: FightUnit, skill:
 }
 
 export function magicAttackFunc(attacker: FightUnit, defender: FightUnit, magic:FightSkill, ctx: FightContex) {
-    const rt = skillAttack(attacker, defender, magic, ctx);
-    if (!rt) return false;
-    spread(attacker, defender, magic, ctx);
-    afterSkillAttack(attacker, defender, magic, ctx);
-    return true;
+    return ctx.fight.resolveAction(() => {
+        const rt = skillAttack(attacker, defender, magic, ctx);
+        if (!rt) return false;
+        if (!attacker.isDied()) {
+            spread(attacker, defender, magic, ctx);
+            afterSkillAttack(attacker, defender, magic, ctx);
+        }
+        return true;
+    });
 }
 
 function spread(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
@@ -143,6 +148,7 @@ function spread(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx:
 }
 
 export function afterSkillAttack(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
+    if (attacker.isDied()) return;
     if (defender.isDied()){
         //追击
         skillKill(attacker, skill, ctx);

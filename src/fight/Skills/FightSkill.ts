@@ -49,7 +49,7 @@ export class FightSkill {
     }
     // 命中率
     getRand() {
-        return this.xls.rand || 1;
+        return this.xls.rand ?? 1;
     }
     isMagic(){
         return this.xls.magic;

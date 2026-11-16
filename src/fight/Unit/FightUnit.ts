@@ -66,7 +66,7 @@ export abstract class FightUnit {
     enemyHurt : Map<number, number> = new Map();
     addEnemy(attacker: FightUnit, hp: number){
         if (attacker == this) return;
-        this.enemyHurt.set(attacker.uid, this.enemyHurt.get(attacker.uid) + hp)
+        this.enemyHurt.set(attacker.uid, (this.enemyHurt.get(attacker.uid) ?? 0) + hp)
     }
     clearEnemy(){
         this.enemyHurt.clear();
@@ -78,10 +78,11 @@ export abstract class FightUnit {
     }
     
     onHurt(attacker: FightUnit, why: string, hp: number, ctx:FightContex){
+        if (this.isDied()) return 0;
         if (this.isDefend()) {
             hp *= 0.5;
         }     
-        hp = Math.floor(hp);
+        hp = Math.min(this.getHp(), Math.max(0, Math.floor(hp)));
 
         const point = this.attr.point;
         point.hp -= hp;
@@ -100,7 +101,7 @@ export abstract class FightUnit {
     friendHeal : Map<number, number> = new Map();
     addFriend(attacker: FightUnit, hp: number){
         if (attacker == this) return;
-        this.friendHeal.set(attacker.uid, this.friendHeal.get(attacker.uid) + hp)
+        this.friendHeal.set(attacker.uid, (this.friendHeal.get(attacker.uid) ?? 0) + hp)
     }
     clearFriend(){
         this.friendHeal.clear();
@@ -176,7 +177,7 @@ export abstract class FightUnit {
         }
     }
 
-    isFillterDie(die: DiedSelectEnum){
+    isFillterDie(die: DiedSelectEnum = DiedSelectEnum.alive){
         if (!die) { // DiedSelectEnum.all
             return true;
         } else if (die == DiedSelectEnum.alive) {
@@ -190,6 +191,7 @@ export abstract class FightUnit {
     isUser() {return UnitType.user == this.type;}
     isUserSummon() {return UnitType.summon == this.type;}
     isMonster() {return UnitType.monster == this.type;}
+    // 死亡单位也要收指令：本轮轮到它之前可能被其他单位复活。
     needInput() {return this.isUser() || this.isUserSummon();}
 
     input: FightInput;
@@ -210,7 +212,8 @@ export abstract class FightUnit {
     }
 
     onInput(input: FightInput){
-        this.input = input;
+        if (!this.fight?.validateInput(this, input)) return false;
+        this.input = {...input};
         if (input.cmd == FightCmdEnum.cancel){
             this.input = null;
         }
@@ -248,8 +251,9 @@ export abstract class FightUnit {
     //buff status and forbid
     buffs = new Map<number,FightBuff>();
     clearBuff(){
+        const removed = Array.from(this.buffs.values());
         this.buffs.clear();
-        this.onBuffChanged("clear", null);
+        this.onBuffChanged("clear", removed);
     }
 
 
@@ -320,7 +324,9 @@ export abstract class FightUnit {
             this.attr.point.mp = point.mp;
         }
         this.emit("attr");
-        if (oldspeed != this.attr.speed) this.emit("speed");
+        if (oldspeed != this.attr.speed) {
+            this.emit("speed", this.attr.speed);
+        }
     }
     
     addBuff(attacker: FightUnit, why: string, buff: number, lv: number, ctx:FightContex) : FightBuff{

@@ -1,0 +1,382 @@
+import { strict as assert } from "node:assert";
+import { test } from "node:test";
+import { Fight } from "../../src/fight/Fight";
+import { BaseAttack, FightAttr } from "../../src/fight/FightAttr";
+import { FightSide } from "../../src/fight/FightSide";
+import { FightLoopWest } from "../../src/fight/Online/FightLoopOnline";
+import { FightUnitMonster } from "../../src/fight/Unit/FightUnitMonster";
+import { FightUnitSummon, FightUnitUser } from "../../src/fight/Unit/FightUnitUser";
+import { BuffData, initBuffs, OverlapEnum } from "../../src/fight/Buffs/BuffDatas";
+import { FightSkill } from "../../src/fight/Skills/FightSkill";
+import { FightContex, attackFunc } from "../../src/fight/Skills/NormalAttack";
+import { tryBlood, tryDBack } from "../../src/fight/Skills/FightBack";
+import { initSkills, SkillData } from "../../src/fight/Skills/SkillDatas";
+import { relifeFunc } from "../../src/fight/Skills/Relife";
+import { DiedSelectEnum, FightCmdEnum, FightSideEnum, TargetSelectEnum } from "../../src/fight/struct";
+
+function base(extra: Partial<BaseAttack> = {}): BaseAttack {
+    return { property: 0, rand: 0, hit: 100, dodge: 0, attack: 20, defend: 0,
+        hurt: 0, hurtP: 0, hurtAnti: 0, hurtPAnti: 0, critP: 0, critPAnit: 0,
+        critDeep: 0, critDeepAnit: 0, ...extra };
+}
+
+function attr(): FightAttr {
+    const a = new FightAttr();
+    a.point = { hp: 100, hpMax: 100, mp: 100, mpMax: 100 };
+    a.speed = 100;
+    const group = () => ({ base: base({rand: 1}), next: base(), kill: base(),
+        spread: base(), fback: base(), final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 } });
+    a.physic = group();
+    a.magic = group();
+    a.heal = base();
+    a.poison = base();
+    return a;
+}
+
+function pair(user = false, extraEnemy = false) {
+    const f = new Fight(1, { maxTurn: 10, waitInputSec: 0.01, duiwei: false }, 123);
+    f.random = () => 0.5;
+    const a = new FightSide(), b = new FightSide();
+    const u = user ? new FightUnitUser(1, attr(), {name: "A"}) : new FightUnitMonster(1, attr(), {name: "A"});
+    const v = new FightUnitMonster(2, attr(), {name: "B"});
+    u.setPos(0); v.setPos(0);
+    a.units.push(u); b.units.push(v);
+    if (extraEnemy) {
+        const w = new FightUnitMonster(3, attr(), {name: "C"});
+        w.setPos(1); b.units.push(w);
+    }
+    f.createSide(a, b);
+    const c: FightContex = {fight: f, attack: u, defend: v, msgs: [], effects: []};
+    const loop = new FightLoopWest(f);
+    loop.bcMsg = () => {};
+    return { f, u, v, c, loop };
+}
+
+function skill(id: number, extra: Partial<SkillData> = {}): SkillData {
+    return {id, name: String(id), magic: true, rand: 1,
+        sel: {target: TargetSelectEnum.enmey, die: DiedSelectEnum.alive},
+        attack: base({attack: 0, hit: 0}),
+        final: {bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0}, ...extra};
+}
+
+function buff(id: number): BuffData {
+    return {id, name: "attack", desc: "", overlap: OverlapEnum.NOT, status: [], tags: [],
+        magic: false, attackType: "base", attack: {attack: 10}, final: {}};
+}
+
+test("regression: skill counterattacks stop after one reaction and use fback attributes", () => {
+    const {f, u, v} = pair();
+    initSkills([skill(8001, {tags: ["fback"]})]);
+    for (const unit of [u, v]) {
+        unit.attr.point.hp = 1000000;
+        unit.attr.point.hpMax = 1000000;
+        unit.attr.magic.fback.attack = 7;
+        unit.addSkill(8001, 1); unit.backSkill = 8001;
+    }
+    initSkills([skill(8002, {tags: ["fback"]})]);
+    u.addSkill(8002, 1);
+    const ctx = f.processUnit(u, {cmd: FightCmdEnum.skill, skill: 8002, target: v.uid});
+    assert.equal(ctx.msgs.filter(m => m[0] === "hurt").length, 2);
+    assert.equal(u.getHp(), 1000000 - 7);
+    assert.equal(v.getHp(), 1000000 - 20);
+});
+
+test("regression: reentrant reaction chains fail with a bounded diagnostic", () => {
+    const {f, u, v, c} = pair();
+    v.attr.point.hp = v.attr.point.hpMax = 100000000;
+    f.onUnitEvent("hurt", () => attackFunc(u, v, c));
+    assert.throws(() => attackFunc(u, v, c), /reaction limit/i);
+});
+
+test("regression: lifesteal and reflection respect fractional ratios and source", () => {
+    const {u, v, c} = pair();
+    u.attr.point.hp = 50;
+    u.attr.physic.final.bloodP = 0.2;
+    v.attr.physic.final.dbackP = 0.2;
+    tryBlood(u, v, false, 10, c);
+    assert.equal(u.getHp(), 52);
+    tryDBack(u, v, false, 10, c);
+    assert.equal(u.getHp(), 50);
+    assert.equal(c.msgs.find(m => m[0] === "hurt")[3], v.uid);
+});
+
+test("regression: death clears attribute buffs and revival restores valid HP", () => {
+    const {u, v, c} = pair();
+    initBuffs([buff(8010)]);
+    v.addBuff(u, "test", 8010, 1, c);
+    assert.equal(v.attr.physic.base.attack, 30);
+    v.onHurt(u, "test", 250, c);
+    assert.equal(v.attr.physic.base.attack, 20);
+    assert.equal(v.getHp(), 0);
+    relifeFunc(u, v, new FightSkill(skill(8011, {attack: base({attack: 0.5})}), 1), c);
+    assert.equal(v.isDied(), false);
+    assert.equal(v.getHp(), 50);
+});
+
+test("regression: threat and healing contribution accumulate from zero", () => {
+    const {u, v} = pair();
+    v.addEnemy(u, 10); v.addEnemy(u, 5);
+    v.addFriend(u, 20); v.addFriend(u, 7);
+    assert.equal(v.enemyHurt.get(u.uid), 15);
+    assert.equal(v.friendHeal.get(u.uid), 27);
+});
+
+test("regression: kill and spread use their own skill IDs", () => {
+    for (const kind of ["kill", "spread"] as const) {
+        const {f, u, v} = pair(false, true);
+        initSkills([skill(8020, {[kind]: 8021}), skill(8021)]);
+        u.addSkill(8020, 1);
+        if (kind === "kill") v.attr.point.hp = 1;
+        const ctx = f.processUnit(u, {cmd: FightCmdEnum.skill, skill: 8020, target: v.uid});
+        assert.ok(ctx.msgs.some(m => m[1] === 8021), `${kind} child must execute`);
+    }
+});
+
+test("regression: a zero chance skill never executes", () => {
+    const {f, u, v} = pair();
+    initSkills([skill(8030, {rand: 0})]); u.addSkill(8030, 1);
+    f.processUnit(u, {cmd: FightCmdEnum.skill, skill: 8030, target: v.uid});
+    assert.equal(v.getHp(), 100);
+});
+
+test("regression: omitted death filter means alive, explicit all includes corpses", () => {
+    const {f, u, v} = pair(false, true);
+    v.die(); f.random = () => 0;
+    assert.equal(f.selectMainTarget(u, {target: TargetSelectEnum.enmey}).uid, 3);
+    assert.equal(f.selectMainTarget(u, {target: TargetSelectEnum.enmey, die: DiedSelectEnum.all}), v);
+});
+
+test("regression: rectangular maps find enemies across the full width", () => {
+    const {f, u, v} = pair();
+    f.createMap(5, 2); u.setPos(4); v.setPos(4);
+    assert.equal(f.map.findDuiwei(u, DiedSelectEnum.alive), v);
+});
+
+test("regression: West initializes units and speed changes reorder without payload errors", () => {
+    const {u, v, loop} = pair();
+    loop.fight.random = () => 0;
+    loop.start();
+    assert.equal(u.speedRand, -10);
+    loop.sortUnitsByProcess();
+    v.attrOri.speed = 200;
+    assert.doesNotThrow(() => v.calcAttr());
+    assert.equal(loop.processUnits[0], v);
+    loop.end();
+});
+
+test("regression: maxTurn=1 executes exactly one full round", async () => {
+    const {f, u, v, loop} = pair(); f.xls.maxTurn = 1;
+    await loop.run();
+    assert.equal(u.getHp(), 80); assert.equal(v.getHp(), 80);
+    assert.equal(f.turn, 1); assert.equal(f.win, FightSideEnum.defend);
+});
+
+test("regression: mutual elimination is resolved after reflection as a draw", () => {
+    const {f, u, v} = pair();
+    u.attr.point.hp = v.attr.point.hp = 5;
+    v.attr.physic.final.dbackP = 1;
+    f.processUnit(u, {cmd: FightCmdEnum.attack, target: v.uid});
+    assert.equal(u.isDied(), true); assert.equal(v.isDied(), true);
+    assert.equal(f.isEnd(), true); assert.equal(f.win, 2, "2 denotes a draw");
+});
+
+test("regression: winner stops remaining actions in the round", async () => {
+    const {f, u, v, loop} = pair();
+    v.attr.point.hp = 1;
+    loop.processUnits = [u, v];
+    let visited = false;
+    v.processOneTurn = () => {visited = true; return undefined;};
+    await loop.processOneTurn();
+    assert.equal(f.win, FightSideEnum.attack); assert.equal(visited, false);
+});
+
+test("regression: explicit invalid commands and friendly attacks do not change state or RNG", () => {
+    const {f, u, v} = pair(true);
+    let draws = 0; f.random = () => {draws++; return 0.5;};
+    for (const input of [
+        {cmd: FightCmdEnum.attack, target: u.uid},
+        {cmd: FightCmdEnum.attack, target: 99999},
+        {cmd: FightCmdEnum.skill, skill: 99999, target: v.uid},
+        {cmd: 999},
+    ]) {
+        assert.equal(u.onInput(input), false);
+        f.processUnit(u, input);
+    }
+    assert.equal(u.getHp(), 100); assert.equal(v.getHp(), 100);
+    assert.equal(draws, 0); assert.equal(u.input, undefined);
+});
+
+test("regression: accepted commands are copied and execution rechecks target allegiance", () => {
+    const {f, u, v} = pair(true);
+    const input = {cmd: FightCmdEnum.attack, target: v.uid};
+    assert.equal(u.onInput(input), true);
+    input.target = u.uid;
+    assert.equal(u.input.target, v.uid);
+    v.side = u.side;
+    assert.equal(u.processOneTurn(), undefined);
+    assert.equal(v.getHp(), 100);
+});
+
+test("regression: timeout closes input and late packets cannot overwrite commands", async () => {
+    const {u, loop} = pair(true);
+    assert.equal(await loop.waitInput(), 0);
+    loop.onInput(u.uid, {cmd: FightCmdEnum.defend, ...{turn: loop.fight.turn}});
+    assert.equal(loop.input, 0); assert.equal(u.input, null);
+});
+
+test("regression: monsters cannot submit commands but dead players still need input", async () => {
+    const {u, v, loop} = pair(true);
+    const waiting = loop.waitInput();
+    const original = v.input;
+    loop.onInput(v.uid, {cmd: FightCmdEnum.defend, ...{turn: loop.fight.turn}});
+    assert.deepEqual(v.input, original);
+    loop.onInput(u.uid, {cmd: FightCmdEnum.defend, ...{turn: loop.fight.turn}});
+    assert.equal(await waiting, 1);
+    u.die();
+    assert.equal(u.needInput(), true);
+});
+
+test("regression: zero chance physical counterattacks and followups stay disabled", () => {
+    const {f, u, v} = pair(false, true);
+    const ctx = f.processUnit(u, {cmd: FightCmdEnum.attack, target: v.uid});
+    assert.equal(ctx.msgs.filter(m => m[0] === "hurt").length, 1);
+    assert.equal(u.getHp(), 100);
+    assert.equal(v.getHp(), 80);
+});
+
+test("regression: old-round and unversioned network packets cannot fill a new input window", async () => {
+    const {f, u, loop} = pair(true);
+    f.turn = 2;
+    const waiting = loop.waitInput();
+    loop.onInput(u.uid, {cmd: FightCmdEnum.defend, ...{turn: 1}});
+    assert.equal(u.input, null);
+    loop.onInput(u.uid, {cmd: FightCmdEnum.defend});
+    assert.equal(u.input, null);
+    loop.onInput(u.uid, {cmd: FightCmdEnum.defend, ...{turn: 2}});
+    assert.equal(await waiting, 1);
+});
+
+test("regression: seeded random sequences are reproducible and seed zero works", () => {
+    const sequence = (seed: number) => {
+        const f = new Fight(1, {maxTurn: 1, waitInputSec: 1, duiwei: false}, seed);
+        return Array.from({length: 20}, () => f.random());
+    };
+    assert.deepEqual(sequence(123), sequence(123));
+    assert.deepEqual(sequence(0), sequence(0));
+    assert.notDeepEqual(sequence(123), sequence(124));
+    assert.ok(sequence(0).every(x => x >= 0 && x < 1));
+});
+
+test("regression: fresh contexts cannot bypass the reaction recursion limit", () => {
+    const {f, u, v} = pair();
+    v.attr.point.hp = v.attr.point.hpMax = 100000000;
+    f.onUnitEvent("hurt", () => f.processUnit(u, {cmd: FightCmdEnum.attack, target: v.uid}));
+    assert.throws(() => f.processUnit(u, {cmd: FightCmdEnum.attack, target: v.uid}), /reaction limit/i);
+});
+
+test("regression: explicit target ID zero does not fall back to random selection", () => {
+    const {f, u, v} = pair();
+    u.uid = 0;
+    let draws = 0; f.random = () => {draws++; return 0.5;};
+    f.processUnit(v, {cmd: FightCmdEnum.attack, target: 0});
+    assert.equal(u.getHp(), 80);
+    assert.equal(draws, 0);
+});
+
+test("regression: followup chance is rolled once rather than squared", () => {
+    const {f, u, v} = pair();
+    initSkills([skill(8040, {next: 8041}), skill(8041, {rand: 0.5})]);
+    u.addSkill(8040, 1);
+    const draws = [0.1, 0.1, 0.9];
+    let count = 0; f.random = () => draws[count++];
+    const ctx = f.processUnit(u, {cmd: FightCmdEnum.skill, skill: 8040, target: v.uid});
+    assert.ok(ctx.msgs.some(m => m[1] === 8041));
+    assert.equal(count, 2, "one target selection and one chance roll");
+});
+
+function addAlly(f: Fight) {
+    const healer = new FightUnitMonster(5, attr(), {name: "healer"});
+    healer.setFight(f, FightSideEnum.attack);
+    healer.setPos(1);
+    f.getSide(FightSideEnum.attack).units.push(healer);
+    return healer;
+}
+
+test("regression: dead players and summons submit, cancel and resubmit network input", async () => {
+    const {f, u, v, loop} = pair(true);
+    addAlly(f);
+    const summon = new FightUnitSummon(4, attr(), {name: "summon"});
+    summon.setFight(f, FightSideEnum.attack);
+    f.getSide(FightSideEnum.attack).units.push(summon);
+    u.die(); summon.die();
+    const waiting = loop.waitInput();
+    assert.equal(loop.input, 2);
+    loop.onInput(u.uid, {turn: f.turn, cmd: FightCmdEnum.attack, target: v.uid});
+    assert.equal(loop.inputed, 1);
+    loop.onInput(u.uid, {turn: f.turn, cmd: FightCmdEnum.cancel});
+    assert.equal(loop.inputed, 0);
+    loop.onInput(u.uid, {turn: f.turn, cmd: FightCmdEnum.attack, target: v.uid});
+    loop.onInput(summon.uid, {turn: f.turn, cmd: FightCmdEnum.defend});
+    assert.equal(await waiting, 1);
+    assert.equal(u.input.target, v.uid);
+    assert.equal(summon.input.cmd, FightCmdEnum.defend);
+});
+
+test("regression: a dead player acts on the submitted command after an earlier ally revives them", async () => {
+    const {f, u, v, loop} = pair(true);
+    const healer = addAlly(f);
+    initSkills([skill(8050, {func: "relife", attack: base({attack: 0.5}),
+        sel: {target: TargetSelectEnum.friend, die: DiedSelectEnum.die}})]);
+    healer.addSkill(8050, 1);
+    u.attr.point.hp = 0; u.die();
+    const waiting = loop.waitInput();
+    loop.onInput(u.uid, {turn: f.turn, cmd: FightCmdEnum.attack, target: v.uid});
+    await waiting;
+    assert.equal(u.input?.target, v.uid);
+    healer.input = {cmd: FightCmdEnum.skill, skill: 8050, target: u.uid};
+    loop.processUnits = [healer, u];
+    await loop.processOneTurn();
+    assert.equal(u.isDied(), false);
+    assert.equal(u.getHp(), 50);
+    assert.equal(v.getHp(), 80);
+});
+
+test("regression: a submitted command does not let a still-dead actor act", () => {
+    const {f, u, v} = pair(true);
+    addAlly(f);
+    u.attr.point.hp = 0; u.die();
+    assert.equal(u.onInput({cmd: FightCmdEnum.attack, target: v.uid}), true);
+    assert.equal(u.processOneTurn(), undefined);
+    assert.equal(f.processUnit(u, u.input), undefined);
+    assert.equal(v.getHp(), 100);
+});
+
+test("regression: corpse guarding locks a dead enemy and attacks it if revived before the turn", async () => {
+    const {f, u, v, loop} = pair(true, true);
+    v.attr.point.hp = 0; v.die();
+    const waiting = loop.waitInput();
+    loop.onInput(u.uid, {turn: f.turn, cmd: FightCmdEnum.attack, target: v.uid});
+    await waiting;
+    assert.equal(u.input?.target, v.uid);
+    const healer = f.getUnitById(3);
+    initSkills([skill(8051, {func: "relife", attack: base({attack: 0.5}),
+        sel: {target: TargetSelectEnum.friend, die: DiedSelectEnum.die}})]);
+    healer.addSkill(8051, 1);
+    healer.input = {cmd: FightCmdEnum.skill, skill: 8051, target: v.uid};
+    loop.processUnits = [healer, u];
+    await loop.processOneTurn();
+    assert.equal(v.isDied(), false);
+    assert.equal(v.getHp(), 30);
+    assert.equal(healer.getHp(), 100);
+});
+
+test("regression: corpse guarding accepts the command but does not damage or retarget a still-dead enemy", () => {
+    const {f, u, v} = pair(true, true);
+    v.attr.point.hp = 0; v.die();
+    let draws = 0; f.random = () => {draws++; return 0.5;};
+    assert.equal(u.onInput({cmd: FightCmdEnum.attack, target: v.uid}), true);
+    assert.equal(u.processOneTurn(), undefined);
+    assert.equal(v.getHp(), 0);
+    assert.equal(f.getUnitById(3).getHp(), 100);
+    assert.equal(draws, 0);
+});

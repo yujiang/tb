@@ -4,7 +4,7 @@ import { attackFunc, FightContex } from "./Skills/NormalAttack";
 import { FightMap } from "./FightMap";
 import { FightSide } from "./FightSide";
 import { FightUnit, FightUnitEvent, sortByAttr } from "./Unit/FightUnit";
-import { EnemySide, DiedSelectEnum, FightCmdEnum, FightInput, FightSideEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "./struct";
+import { EnemySide, DiedSelectEnum, FightCmdEnum, FightInput, FightSideEnum, FightResultEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "./struct";
 import { strict as assert } from "node:assert";
 import EventEmitter from "node:events";
 import { skillFunc } from "./Skills/SkillFuncType";
@@ -29,16 +29,22 @@ export class Fight{
         this.fid = id;
         this.xls = data;
         this.seed = seed;
+        assert.ok(Number.isSafeInteger(seed), "seed must be a safe integer");
+        this.randomState = seed >>> 0;
     }
 
     turn = 0; // 当前回合数
     nextTurn() {
         this.turn++;
-        if (this.xls.maxTurn && this.turn >= this.xls.maxTurn) {
+        return this.turn;
+    }
+
+    finishTurn() {
+        this.checkOutcome();
+        if (!this.isEnd() && this.xls.maxTurn && this.turn >= this.xls.maxTurn) {
             // 超时防守获胜！
             this.win = FightSideEnum.defend;
         }
-        return this.turn;
     }
 
     win: number = -1;
@@ -46,12 +52,30 @@ export class Fight{
         return this.win >= 0;
     }
     onDie(unit: FightUnit) {
-        if (this.isEnd()) return;
-        const side = unit.side;
-        for (const u of this.getSideUnits(side)) {
-            if (!u.isDied()) return;
+        if (this.actionDepth === 0) this.checkOutcome();
+    }
+
+    checkOutcome() {
+        if (this.isEnd() || !this.AllUnits) return;
+        const alive = this.AllUnits.map(units => units.some(u => !u.isDied()));
+        if (!alive[0] && !alive[1]) this.win = FightResultEnum.draw;
+        else if (!alive[0]) this.win = FightSideEnum.defend;
+        else if (!alive[1]) this.win = FightSideEnum.attack;
+    }
+
+    private actionDepth = 0;
+    resolveAction<T>(run: () => T): T {
+        if (this.actionDepth >= 64) throw new Error("Reaction limit exceeded (64 nested action scopes)");
+        this.actionDepth++;
+        let completed = false;
+        try {
+            const result = run();
+            completed = true;
+            return result;
+        } finally {
+            this.actionDepth--;
+            if (completed && this.actionDepth === 0) this.checkOutcome();
         }
-        this.win = EnemySide(side);
     }
 
     // ***units start
@@ -178,12 +202,47 @@ export class Fight{
         return this.randomEnemyAlive(unit.side);
     }
 
-    //在input阶段, skill和target都经过验证，是有效并且合规的， 所以此处就没有二次验证。
+    isLegalTarget(unit: FightUnit, target: FightUnit, sel: SelectMainParam): boolean {
+        if (!target || !target.isFillterDie(sel.die)) return false;
+        if (sel.target === TargetSelectEnum.self) return target === unit;
+        const side = sel.target === TargetSelectEnum.friend ? unit.side : EnemySide(unit.side);
+        if (target.side !== side) return false;
+        if (sel.target === TargetSelectEnum.duiwei) return this.map?.findDuiwei(unit, sel.die) === target;
+        return true;
+    }
+
+    validateInput(unit: FightUnit, input: FightInput): boolean {
+        if (!input || this.isEnd() || !this.getAllUnits().includes(unit)) return false;
+        if (![FightCmdEnum.none, FightCmdEnum.attack, FightCmdEnum.defend, FightCmdEnum.skill, FightCmdEnum.cancel].includes(input.cmd)) return false;
+        // 普攻可以显式指定死亡敌人守尸；自动选目标仍只选存活敌人。
+        let sel: SelectMainParam = {target: TargetSelectEnum.enmey, die: DiedSelectEnum.all};
+        if (input.cmd === FightCmdEnum.skill) {
+            const skill = unit.findSkill(input.skill);
+            if (!skill || unit.isForbid("skill")) return false;
+            sel = skill.getSel();
+            if (!sel) return false;
+        } else if ((input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none) && unit.isForbid("attack")) {
+            return false;
+        }
+        if (input.target !== undefined) {
+            if (!Number.isSafeInteger(input.target) || !this.isLegalTarget(unit, this.getUnitById(input.target), sel)) return false;
+        }
+        return true;
+    }
+
+    // 提交后阵营、生命状态和封印都可能变化，执行时重新校验。
     processUnit(unit: FightUnit, input: FightInput) : FightContex{
+        // 收指令时允许死亡，真正轮到行动时必须已经复活。
+        if (unit.isDied()) return;
+        if (!this.validateInput(unit, input)) return;
+        return this.resolveAction(() => this.executeUnit(unit, input));
+    }
+
+    private executeUnit(unit: FightUnit, input: FightInput): FightContex {
         let cmd = input.cmd;
         let tid = input.target;
 
-        let des = tid && this.getUnitById(tid);
+        let des = tid !== undefined ? this.getUnitById(tid) : undefined;
         // 预处理,没有来得及发指令的单位.
         if (cmd == FightCmdEnum.none){
             cmd = FightCmdEnum.attack;
@@ -238,8 +297,14 @@ export class Fight{
         return items;
     }
 
+    private randomState: number;
+    // Mulberry32 v1；包括零种子，固定使用 uint32 状态。
     random() {
-        return Math.random();
+        this.randomState = (this.randomState + 0x6D2B79F5) >>> 0;
+        let value = this.randomState;
+        value = Math.imul(value ^ (value >>> 15), value | 1);
+        value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+        return ((value ^ (value >>> 14)) >>> 0) / 0x100000000;
     }
     randomGreat(g: number){
         if (g >= 1) return false;

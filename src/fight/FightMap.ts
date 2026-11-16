@@ -41,7 +41,7 @@ export class FightMap {
     }
 
     getDuiwei(x: number){
-        return (this.ny  - 1) - x;
+        return (this.nx  - 1) - x;
     }
 
     xLine(x: number) {

@@ -17,6 +17,7 @@ export abstract class FightLoop {
     async run() {
         const f = this.fight;
         this.start();
+        f.checkOutcome();
         while(!f.isEnd()){
             this.nextTurn();
             //console.log(f);
@@ -24,6 +25,7 @@ export abstract class FightLoop {
                 break;
             }
             this.processBeforeTurn();             
+            f.checkOutcome();
             if (f.isEnd()) {
                 break;
             }
@@ -31,6 +33,7 @@ export abstract class FightLoop {
             await this.processOneTurn();
             await this.waitDrawOver();
             this.processAfterTurn(); //回合后主要处理死亡等            
+            f.finishTurn();
         }
         this.end();
         return this.fight.win;

@@ -1,6 +1,6 @@
 import { FightUnit } from "../Unit/FightUnit";
 import { FightSkill } from "./FightSkill";
-import { magicAttackFunc, skillAttackFunc } from "./NomalSkill";
+import { magicAttackFunc } from "./NomalSkill";
 import { FightContex } from "./NormalAttack";
 import { SkillData } from "./SkillDatas";
 
@@ -21,7 +21,8 @@ const PhysicFBackData : SkillData = {
 class PhysicFBackSkill extends FightSkill {
     constructor(unit: FightUnit) {
         super({...PhysicFBackData, 
-            attack: unit.attr.physic.fback, final: unit.attr.physic.final} , 1);
+            attack: unit.attr.physic.fback, final: unit.attr.physic.final,
+            rand: unit.attr.physic.fback.rand} , 1);
     }    
 
     // 否则没完没了
@@ -50,7 +51,7 @@ export function skillFBack(attacker: FightUnit, defender: FightUnit, skill:Fight
     const ft = skill.isMagic() ? attacker.attr.magic : attacker.attr.physic;
     magic.mergeAttack(ft.fback, ft.final);
 
-    return skillAttackFunc(attacker, defender, skill, ctx);
+    return magicAttackFunc(attacker, defender, magic, ctx);
 }
 
 export function tryFBack(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
@@ -68,7 +69,7 @@ export function tryBlood(attacker: FightUnit, defender: FightUnit, magic: boolea
         attacker.attr.magic.final.bloodP :
         attacker.attr.physic.final.bloodP ;
     if (p > 0) {
-        damage *= Math.max(p, 1);
+        damage *= p;
         attacker.onHeal(attacker, "blood", damage, ctx);
     }
 }
@@ -79,7 +80,7 @@ export function tryDBack(attacker: FightUnit, defender: FightUnit, magic: boolea
         defender.attr.magic.final.dbackP  :
         defender.attr.physic.final.dbackP ;
      if (p > 0) {
-        damage *= Math.max(p, 1);
-        attacker.onHurt(attacker, "dback", damage, ctx);
+        damage *= p;
+        attacker.onHurt(defender, "dback", damage, ctx);
     }
 }
