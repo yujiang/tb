@@ -1,27 +1,14 @@
 import { BuffData, getBuffData } from "./BuffDatas";
+import { FightStatic } from "./StaticData";
 
-export class FightBuff {
-    protected xls: BuffData;
-    level = 0; 
+export class FightBuff extends FightStatic{
+    protected override xls: BuffData;
     constructor(xls: BuffData, level: number) {
-        this.xls = xls;
-        this.level = level;
-    }
-
-    getId() {
-        return this.xls.id;
-    }
-
-    inStatus(status: string) {
-        return this.xls.status.includes(status);
+        super(xls, level);
     }
 
     getOverlap() {
         return this.xls.overlap;
-    }
-
-    hasTag(tag: string) {
-        return this.xls.tags.includes(tag);
     }
 }
 

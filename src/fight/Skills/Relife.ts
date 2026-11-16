@@ -1,5 +1,4 @@
 import { FightUnit } from "../Unit/FightUnit";
-import { attrFunc } from "./AttrSkill";
 import { FightSkill } from "./FightSkill";
 import { FightContex } from "./NormalAttack";
 
@@ -15,8 +14,8 @@ export function relifeFunc(attacker: FightUnit, defender: FightUnit, skill:Fight
         return false;
     }
 
-    const heal = skill.
-
-    defender.relife();
-
+    defender.onRelife(attacker, "relife", ctx);    
+    const heal = skill.getAttack().attack * attacker.getHpMax() ;
+    defender.onHeal(attacker, "relife", heal, ctx);
+    return true;
 }

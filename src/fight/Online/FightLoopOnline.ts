@@ -67,11 +67,10 @@ export class FightLoopWest extends FightLoopOnline {
                 u => this.getUnitMsg(u))
             ]);
         }
-        this.fight.onUnitEvent("addBuff", this.onChangeBuff.bind(this));
-        this.fight.onUnitEvent("removeBuff", this.onChangeBuff.bind(this));
+        this.fight.onUnitEvent("speed", this.onChangeSpeed.bind(this));
     }
 
-    onChangeBuff(u: FightUnit, attacker: FightUnit, why: string, buff: FightBuff){
+    onChangeSpeed(u: FightUnit, attacker: FightUnit, why: string, buff: FightBuff){
         const all = this.processUnits;
         if (buff.hasTag("speed") && all.includes(u)){
             // this.processUnits 重新排序？

@@ -1,16 +1,12 @@
+import { StaticData } from "./StaticData";
+
 export enum OverlapEnum {
     NOT = 0, // 不叠加
     REPLACE = 1, // 替换
 }
 
-export interface BuffData {
-    id: number;
-    name: string;
-    desc: string;
- 
-    overlap: OverlapEnum;
-    status: string[];
-    tags: string[]; //tag like 增益，建议，封印，毒 ... speed, attack.....
+export interface BuffData extends StaticData{
+    overlap: OverlapEnum;    
 }
 
 const buffs = new Map<number,BuffData>();

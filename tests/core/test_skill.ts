@@ -1,13 +1,14 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight } from "../../src/fight/Fight";
-import { BaseAttack, FinalAttack, FightTypeAttr } from "../../src/fight/FightAttr";
+import { BaseAttack, FinalAttack, FightAttr, FightTypeAttr } from "../../src/fight/FightAttr";
 import { FightSide } from "../../src/fight/FightSide";
-import { calcHurt, mergeTable } from "../../src/fight/Skills/Calc";
-import { FightSkill, SkillData } from "../../src/fight/Skills/FightSkill";
+import { calcAttack, calcHurt, calcPoison, mergeTable } from "../../src/fight/Skills/Calc";
+import { FightSkill } from "../../src/fight/Skills/FightSkill";
+import { healFunc } from "../../src/fight/Skills/Heal";
 import { skillAttackFunc } from "../../src/fight/Skills/NomalSkill";
 import { attackFunc, FightContex } from "../../src/fight/Skills/NormalAttack";
-import { getSkillData, initSkills } from "../../src/fight/Skills/SkillDatas";
+import { getSkillData, initSkills, SkillData } from "../../src/fight/Skills/SkillDatas";
 import { TargetSelectEnum } from "../../src/fight/struct";
 import { FightUnit } from "../../src/fight/Unit/FightUnit";
 
@@ -20,8 +21,13 @@ function baseAttack(overrides: Partial<BaseAttack> = {}): BaseAttack {
         attack: 20,
         defend: 0,
         critP: 0,
-        critPAnit: 0,
         critDeep: 1,
+        critPAnit: 0,
+        critDeepAnit: 0,
+        hurt: 0,
+        hurtP: 0,
+        hurtAnti: 0,
+        hurtPAnti: 0,
         ...overrides,
     };
 }
@@ -178,4 +184,89 @@ test("ordinary attacks and skills use the shared damage flow with skill attribut
     assert.equal(skilled.defender.attr.point.hp, 75);
     assert.equal(skill.getAttack().attack, 10);
     assert.equal(skilled.attacker.attr.magic.base.attack, 20);
+});
+
+test("simple monsters have finite attributes for skill damage, healing, and poison", () => {
+    const fight = new Fight(2, { maxTurn: 10, waitInputSec: 1, duiwei: false });
+    fight.random = () => 0.99;
+    const attackSide = new FightSide();
+    const defendSide = new FightSide();
+    attackSide.createSimpleMonster(fight, [{ name: "attacker", id: 11, pos: 0 }]);
+    defendSide.createSimpleMonster(fight, [{ name: "defender", id: 12, pos: 1 }]);
+    fight.createSide(attackSide, defendSide);
+
+    const attacker = attackSide.units[0];
+    const defender = defendSide.units[0];
+    const ctx = contextFor(fight, attacker, defender);
+    const damageSkill = new FightSkill({
+        id: 202,
+        name: "magic strike",
+        magic: true,
+        sel: { target: TargetSelectEnum.enmey },
+        rand: 1,
+        attack: baseAttack({ attack: 10 }),
+        final: finalAttack(),
+    }, 1);
+
+    assert.equal(skillAttackFunc(attacker, defender, damageSkill, ctx), true);
+    assert.ok(Number.isFinite(ctx.damage));
+    assert.ok(Number.isFinite(defender.attr.point.hp));
+    assert.ok(defender.attr.point.hp < defender.attr.point.hpMax);
+
+    defender.attr.point.hp = 50;
+    const healingSkill = new FightSkill({
+        id: 203,
+        name: "heal",
+        magic: true,
+        sel: { target: TargetSelectEnum.friend },
+        func: "heal",
+        rand: 1,
+        attack: baseAttack({ attack: 20 }),
+        final: finalAttack(),
+    }, 1);
+    healFunc(attacker, defender, healingSkill, ctx);
+
+    assert.ok(Number.isFinite(defender.attr.point.hp));
+    assert.ok(defender.attr.point.hp > 50);
+    assert.ok(Number.isFinite(calcPoison(
+        fight,
+        attacker.attr.poison,
+        defender.attr.poison,
+        defender.getHp(),
+        ctx,
+    )));
+});
+
+test("damage and attribute calculations assert when their result is non-finite", () => {
+    const { fight, attacker, defender } = createFightPair();
+    const ctx = contextFor(fight, attacker, defender);
+
+    assert.throws(
+        () => calcAttack(fight, baseAttack({ hurt: Number.NaN }), baseAttack(), ctx),
+        /damage must be finite/,
+    );
+    assert.throws(
+        () => mergeTable({ attack: 10 }, { attack: Number.NaN }),
+        /merged attributes must be finite/,
+    );
+});
+
+test("fight units clone nested attributes while preserving FightAttr methods", () => {
+    const fight = new Fight(3, { maxTurn: 10, waitInputSec: 1, duiwei: false });
+    const side = new FightSide();
+    side.createSimpleMonster(fight, [{ name: "clone target", id: 21, pos: 0 }]);
+    const unit = side.units[0];
+    const originalHp = unit.attrOri.point.hp;
+    const originalAttack = unit.attrOri.magic.base.attack;
+
+    assert.ok(unit.attr instanceof FightAttr);
+    assert.notEqual(unit.attr, unit.attrOri);
+    assert.notEqual(unit.attr.point, unit.attrOri.point);
+    assert.notEqual(unit.attr.magic.base, unit.attrOri.magic.base);
+    assert.equal(Number.isFinite(unit.attr.getSpeed()), true);
+
+    unit.attr.point.hp -= 10;
+    unit.attr.magic.base.attack += 10;
+    assert.equal(unit.attrOri.point.hp, originalHp);
+    assert.equal(unit.attrOri.magic.base.attack, originalAttack);
 });

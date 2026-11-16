@@ -16,7 +16,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && npm run test:build && node --test tests/*.test.cjs .test-build/tests/core/test_map_select.js .test-build/tests/core/test_skill.js",
+    "test": "npm run build && npm run test:build && node --test tests/*.test.cjs .test-build/tests/core/test_map_select.js .test-build/tests/core/test_skill.js .test-build/tests/core/test_buff.js",
     "test:build": "node -e \"require('node:fs').rmSync('.test-build', { recursive: true, force: true })\" && tsc -p tsconfig.test.json",
     "example": "npm run build && node lib/examples/simple/main.js"
   },

@@ -8,31 +8,24 @@ import { FightContex } from "./NormalAttack";
 export function addBuffFunc(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
     const addbuff = skill.getXls().addBuff;
     if (!addbuff) return false;
-    const f = ctx.fight;
-    for (const buff of addbuff) {
-        let [id, lv, rand]  = buff;
-        if (rand < 1 && f.random() > rand) continue;
-        defender.addBuff(attacker, "buff", id, lv, ctx);
-    }
+    defender.addBuffs(attacker, "buff", addbuff, ctx);
     return true;
 }
 
 export function removeBuffFunc(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
     const xls = skill.getXls();
     const buffs = xls.rmeoveBuff;
-    if (buffs){
-        const f = ctx.fight;
-        for (const buff of buffs) {
-            let [id, rand]  = buff;
-            if (rand < 1 && f.random() > rand) continue;
-            defender.removeBuff(attacker, "buff", id, ctx);
-        }
-    }
     const tag = xls.removeBuffTag;   
+    if (buffs){
+        defender.removeBuffs(attacker, "buff", buffs, ctx);
+        return true;
+    }
+    // 一般不可能同时有buffs+tag
     if (tag){
         defender.removeBuffByTag(attacker, "buff", tag, xls.removeBuffNum, ctx);
+        return true;
     }        
-    return !!(buffs || tag);
+    return false;
 }
 
 export function afterHurt(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {

@@ -1,7 +1,6 @@
 import { FightLoopWest } from '../../src/fight/Online/FightLoopOnline';
 import { BaseAttack, FinalAttack } from '../../src/fight/FightAttr';
-import { SkillData } from '../../src/fight/Skills/FightSkill';
-import { initSkills } from '../../src/fight/Skills/SkillDatas';
+import { initSkills, SkillData } from '../../src/fight/Skills/SkillDatas';
 import { MapShapeEnum, SelectParam, TargetSelectEnum } from '../../src/fight/struct';
 import { FightUnitMonster } from '../../src/fight/Unit/FightUnitMonster';
 import { createFightAndSide } from './help';
@@ -21,6 +20,11 @@ function baseAttack(attack: number): BaseAttack {
         critP: 0,
         critPAnit: 0,
         critDeep: 1,
+        critDeepAnit: 0,
+        hurt: 0,
+        hurtP: 0,
+        hurtAnti: 0,
+        hurtPAnti: 0,
     };
 }
 

@@ -12,6 +12,26 @@ export interface simpleData {
     physic?: BaseAttack;
     magic?: BaseAttack;
     heal?: BaseAttack;
+    poison?: BaseAttack;
+}
+
+function defaultBaseAttack(): BaseAttack {
+    return {
+        property: 0,
+        rand: 0.5,
+        hit: 100,
+        dodge: 0,
+        attack: 0,
+        defend: 0,
+        hurt: 0,
+        hurtP: 0,
+        hurtAnti: 0,
+        hurtPAnti: 0,
+        critP: 0,
+        critPAnit: 0,
+        critDeep: 1,
+        critDeepAnit: 0,
+    };
 }
 
 export class FightSide {
@@ -26,11 +46,11 @@ export class FightSide {
                 mpMax:100,
             };
             attr.point = point;
-            const physic: BaseAttack = {} as any
-            const magic: BaseAttack = {} as any
-            const heal: BaseAttack = {} as any
+            const physic: BaseAttack = {...defaultBaseAttack(), ...data.physic};
+            const magic: BaseAttack = {...defaultBaseAttack(), ...data.magic};
+            const heal: BaseAttack = {...defaultBaseAttack(), ...data.heal};
+            const poison: BaseAttack = {...defaultBaseAttack(), ...data.poison};
                       
-           
             physic.critP = data.physic?.critP || (20+f.random()*10);
             physic.attack = data.physic?.attack || (50+f.random()*20);
             physic.defend = data.physic?.defend || (50-f.random()*20);
@@ -78,7 +98,8 @@ export class FightSide {
             heal.attack = data.heal?.attack || (30+f.random()*10);
             heal.defend = 0;
 
-            attr.heal = heal;            
+            attr.heal = heal;
+            attr.poison = poison;
 
             attr.speed = 100 + Math.floor(f.random()*20);
             const u = new FightUnitMonster(
