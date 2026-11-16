@@ -50,17 +50,23 @@ export abstract class FightUnit {
     }
     
     
-    onHurt(attacker: FightUnit, why: string, hp: number, crit: boolean, ctx:FightContex){
+    onHurt(attacker: FightUnit, why: string, hp: number, ctx:FightContex){
+        if (this.isDefend()) {
+            hp *= 0.5;
+        }     
+        hp = Math.floor(hp);
+
         const point = this.attr.point;
         point.hp -= hp;
-        ctx.msgs.push(["hurt", why, this.uid, attacker.uid, hp, crit ? 1 : 0, point.hp])
+        ctx.msgs.push(["hurt", why, this.uid, attacker.uid, hp, point.hp, ctx.effects])
         this.addEnemy(attacker, hp);
-        this.emit("hurt", attacker, hp, crit);
+        this.emit("hurt", attacker, hp, ctx);
         if(point.hp <= 0){  
             ctx.msgs.push(["die",this.uid])
             this.die();
             this.fight.onDie(this);
         }
+        return hp;
     }
 
     // 加入仇恨列表
@@ -78,12 +84,14 @@ export abstract class FightUnit {
         return arr.slice(0, num).map((v) => v[0]);
     }
         
-    onHeal(attacker: FightUnit, why: string, hp: number, crit:boolean, ctx:FightContex){
+    onHeal(attacker: FightUnit, why: string, hp: number, ctx:FightContex){
+        hp = Math.floor(hp);
+
         const point = this.attr.point;
-        ctx.msgs.push(["heal", why, this.uid, attacker.uid, hp, crit ? 1 : 0, point.hp])
+        ctx.msgs.push(["heal", why, this.uid, attacker.uid, hp, point.hp, ctx.effects])
         this.addFriend(attacker, hp);
         point.hp = Math.min(point.hp + hp, point.hpMax);
-        this.emit("heal", attacker, why, hp, crit);
+        this.emit("heal", attacker, why, hp, ctx);
     }
 
     emit(event: string, ...args: any[]){
@@ -111,6 +119,11 @@ export abstract class FightUnit {
     }
     relife(){
         this.dead = false;
+    }
+
+    defend = false;
+    isDefend() {
+        return this.defend;
     }
 
     isFillterDie(die: DiedSelectEnum){
@@ -141,7 +154,10 @@ export abstract class FightUnit {
     }
 
 
-    abstract inputStart(): void
+    inputStart(): void{
+        this.defend = false;
+        this.input = null;
+    }
 
     onInput(input: FightInput){
         this.input = input;
@@ -180,6 +196,15 @@ export abstract class FightUnit {
         this.skills.set(id, skill);
         return skill;
     }
+
+    //buff status and forbid
+    isForbid(action: string) {
+        return false;
+    }
+    isStatus(status: string) {
+        return false;
+    }
+    
 }
 
 // descend降序

@@ -3,14 +3,12 @@ import { FightSkill } from "./FightSkill";
 import { healFunc } from "./Heal";
 import { skillAttackFunc } from "./NomalSkill";
 import { FightContex } from "./NormalAttack";
-import { spreadFunc } from "./Spread";
 
 
-export type SkillFuncType = (attacker: FightUnit, defender: FightUnit, skill: FightSkill, ctx: FightContex) => FightContex;
+export type SkillFuncType = (attacker: FightUnit, defender: FightUnit, skill: FightSkill, ctx: FightContex) => boolean;
 const SkillFuncMap: Record<string, SkillFuncType> = {
     normal: skillAttackFunc,
     heal: healFunc,
-    spread: spreadFunc,
 };
 
 export function skillFunc(attacker: FightUnit, defender: FightUnit, skillId: number, ctx: FightContex) {

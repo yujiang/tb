@@ -106,8 +106,8 @@ test("duiwei can select dead units or skip them according to the die filter", ()
 });
 
 test("main-target selection filters dead units and honors sorting", () => {
-    b40.attr.hp = 80;
-    b41.attr.hp = 50;
+    b40.attr.point.hp = 80;
+    b41.attr.point.hp = 50;
 
     assert.equal(
         fight.selectMainTarget(a00, {
@@ -136,9 +136,9 @@ test("secondary cross targets include adjacent units but exclude the main target
 });
 
 test("numeric secondary selection chooses sorted allies and excludes the main target", () => {
-    a01.attr.hp = 90;
-    a11.attr.hp = 40;
-    a02.attr.hp = 60;
+    a01.attr.point.hp = 90;
+    a11.attr.point.hp = 40;
+    a02.attr.point.hp = 60;
 
     const selected = fight.selectTargets(a00, {
         target: TargetSelectEnum.enmey,

@@ -12,7 +12,7 @@ export interface BaseAttack {
     defend: number;         //防御力
 
     crit: number;           //暴击
-    critDefend: number;     //暴击减免
+    critAnit: number;       //暴击减免
     critDeep: number;       //暴击增伤
 }
 
@@ -21,6 +21,7 @@ export interface PointAttr {
     hpMax: number;      // 最大血量
     mp: number;         // 当前蓝量
     mpMax: number;      // 最大蓝量
+
 //     sp: number;         // 当前怒气
 //     spMax: number;      // 最大怒气
 //     shield: number;     // 当前护盾
@@ -33,10 +34,23 @@ export interface FinalAttack {
     immunity: number;       // 伤害减免
     immunityP: number;      // 减伤比    
 
-    dbackPAnti: number;     // 反反伤比
-    bloodPAnti: number;     // 免吸血
-    immunityAnti: number;   // 免伤害减免
-    immunityPAnti: number;  // 免减伤比    
+    // 先别搞太复杂
+    // dbackPAnti: number;     // 反反伤比
+    // bloodPAnti: number;     // 免吸血
+    // immunityAnti: number;   // 免伤害减免
+    // immunityPAnti: number;  // 免减伤比    
+}
+
+export interface FightTypeAttr{
+    base: BaseAttack;    
+    
+    kill: BaseAttack;       // 追击
+    next: BaseAttack;       // 连击
+    spread: BaseAttack;     // 溅射！
+
+    fback: BaseAttack;      // 反击
+
+    final: FinalAttack;
 }
 
 export class FightAttr {
@@ -44,22 +58,12 @@ export class FightAttr {
 
     speed: number;      // 速度
     
-    physic: BaseAttack;    
-    fphysic: FinalAttack;
-    
-    kill: BaseAttack;       // 追击
-    next: BaseAttack;       // 连击
-    fback: BaseAttack;      // 反击
-    //spread: BaseAttack;     // 溅射！
-
-    // protect: BaseAttack;    // 保护
-    // guard: BaseAttack;      // 防御
-    // help: BaseAttack;       // 助战
-
-    magic: BaseAttack;
-    fmagic: FinalAttack;
+    physic: FightTypeAttr;
+    magic: FightTypeAttr;
 
     heal: BaseAttack;
+    // poison: BaseAttack; // 下毒
+    
     // restrain: BaseAttack; // property克制会增伤~
 
     getBaseAttack(name: string) : BaseAttack{

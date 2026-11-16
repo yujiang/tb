@@ -37,35 +37,47 @@ export class FightSide {
             physic.hit = data.physic?.hit || (80+f.random()*10);
             physic.dodge = data.physic?.dodge || (20+f.random()*10);
 
-            attr.kill = {...physic, rand: 0.5} 
-            attr.next = {...physic, rand: 0.5} 
-            attr.fback = {...physic, rand: 0.5} 
-
             const fa: FinalAttack = {
                 dbackP: 0,
                 bloodP: 0,
                 immunity: 0,
                 immunityP: 0,
 
-                dbackPAnti: 0,
-                bloodPAnti: 0,
-                immunityAnti: 0,
-                immunityPAnti: 0,
+                // dbackPAnti: 0,
+                // bloodPAnti: 0,
+                // immunityAnti: 0,
+                // immunityPAnti: 0,
+            };
+
+            attr.physic = {
+                base: {...physic, rand: 0.5} , 
+                kill : {...physic, rand: 0.5} ,
+                next : {...physic, rand: 0.5} ,
+                spread : {...physic, rand: 0.5} ,
+                fback : {...physic, rand: 0.5} ,
+                final: {...fa},
             }
 
-            attr.fphysic = {...fa};
-            attr.fmagic = {...fa};
+            
             
             magic.crit = data.magic?.crit || (10+f.random()*5);
             magic.attack = data.magic?.attack || (30+f.random()*10);
             magic.defend = data.magic?.defend || (30-f.random()*10);
 
+            attr.magic = {
+                base: {...magic, rand: 0.5} , 
+                kill : {...magic, rand: 0.5} ,
+                next : {...magic, rand: 0.5} ,
+                spread : {...magic, rand: 0.5} ,
+                fback : {...magic, rand: 0.5} ,
+                final: {...fa},
+            }
+
+
             heal.crit = 0;
             heal.attack = data.heal?.attack || (30+f.random()*10);
             heal.defend = 0;
 
-            attr.physic = physic;
-            attr.magic = magic;
             attr.heal = heal;            
 
             attr.speed = 100 + Math.floor(f.random()*20);

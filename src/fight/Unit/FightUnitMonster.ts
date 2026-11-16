@@ -7,7 +7,8 @@ export class FightUnitMonster extends FightUnit {
     override isMonster() { return true; }
 
     inputSkill = 0;
-    inputStart() {
+    override inputStart() {
+        super.inputStart();
         // ai来做选择
         if (this.inputSkill) {
             this.input = { cmd: FightCmdEnum.skill, skill: this.inputSkill };

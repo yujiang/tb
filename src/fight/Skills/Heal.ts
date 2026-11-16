@@ -1,29 +1,34 @@
 // 治疗
 
 import { FightUnit } from "../Unit/FightUnit";
+import { calcHeal, mergeTable } from "./Calc";
 import { FightSkill } from "./FightSkill";
 import { DamageLost, FightContex } from "./NormalAttack";
 
-function heal(attacker: FightUnit, defender: FightUnit, skill:FightSkill, spread: number, ctx: FightContex) {
+
+function heal(attacker: FightUnit, defender: FightUnit, skill:FightSkill, name: string, ctx: FightContex) {
     const f = ctx.fight;
-    const a = attacker.attr.heal;
+    const a = mergeTable(skill.getAttack(),attacker.attr.heal);
     const d = defender.attr.heal;
 
-    let d1 = skill.calcAttack(a.attack) - d.defend;
-    if (d1 < 0) {
+    const damage = calcHeal(f, a, d, ctx);
+    if (damage <= 0) {
         ctx.msgs.push(["禁疗", defender.uid])
-        return ctx;
+        return false;
     }
 
-    const [damage, crit] = skill.calcHeal(f, a, d, spread);
-    defender.onHeal(attacker, "heal", damage, crit, ctx);
-    return ctx;
+    defender.onHeal(attacker, name, damage, ctx);
+    return true;
 }
 
 export function healFunc(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
-    heal(attacker, defender, skill, 0, ctx);
-    spreadHeal(attacker, defender, skill, ctx);
-    return ctx;
+
+    heal(attacker, defender, skill, "heal", ctx);
+    const spread = skill.getSpreadSkill();
+    if (spread) {
+        spreadHeal(attacker, defender, spread, ctx);
+    }
+    return true;
 }
 
 function spreadHeal(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
@@ -37,6 +42,6 @@ function spreadHeal(attacker: FightUnit, defender: FightUnit, skill:FightSkill, 
     });
     ctx.msgs.push(["spread", ids]);
     for (const target of targets) {
-        heal(attacker, target, skill, DamageLost.healSpread, ctx);
+        heal(attacker, target, skill, "spread", ctx);
     }
 }

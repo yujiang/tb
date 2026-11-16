@@ -27,10 +27,6 @@ export class FightUnitCost extends FightUnit {
         }
         return true;
     }
-    inputStart() {
-        this.input = null;
-        // send msg to client ...
-    }
 }
 
 export class FightUnitUser extends FightUnitCost {

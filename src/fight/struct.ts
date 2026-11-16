@@ -52,7 +52,7 @@ export enum FightCmdEnum{
     none,       //没有来得及发指令, 默认攻击!
     //stand,      //什么都不干
     attack,     //攻击
-    //defend,     //防御
+    defend,     //防御
     skill,      //技能
     //runaway,    //逃跑
     //catch,      //捕捉宠物

@@ -190,6 +190,11 @@ export class Fight{
             // des = this.getDefaultEnemy(unit)
         }
 
+        if (cmd === FightCmdEnum.defend){
+            unit.defend = true;
+            return;
+        }
+
         if (!des) {
             if (cmd == FightCmdEnum.attack){
                 des = this.getDefaultEnemy(unit);
@@ -203,15 +208,18 @@ export class Fight{
         }
         if (!des) return;           
 
-        const ctx: FightContex = { fight: this, attack: unit, defend: des, msgs: [] };
+        const ctx: FightContex = { fight: this, attack: unit, defend: des, msgs: [], effects: []};
 
         if (cmd == FightCmdEnum.attack){
-            if (!des || des.isDied()) return;              
-            return attackFunc(unit,des,ctx);
+            if (des.isDied() || unit.isForbid("attack")) return;              
+            attackFunc(unit,des,ctx);
+            return ctx;
         }
 
         if (cmd == FightCmdEnum.skill){
-            return skillFunc(unit,des,input.skill,ctx);
+            if (unit.isForbid("skill")) return;              
+            skillFunc(unit,des,input.skill,ctx);
+            return ctx;
         }
     }
 
@@ -232,6 +240,16 @@ export class Fight{
 
     random() {
         return Math.random();
+    }
+    randomGreat(g: number){
+        if (g >= 1) return false;
+        if (g <= 0) return true;
+        return this.random() >= g;
+    }
+    randomLess(g: number){
+        if (g >= 1) return true;
+        if (g <= 0) return false;
+        return this.random() <= g;
     }
 
     // ***event start
