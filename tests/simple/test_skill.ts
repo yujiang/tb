@@ -1,4 +1,5 @@
 import { FightLoopWest } from '../../src/fight/Online/FightLoopOnline';
+import { BaseAttack, FinalAttack } from '../../src/fight/FightAttr';
 import { SkillData } from '../../src/fight/Skills/FightSkill';
 import { initSkills } from '../../src/fight/Skills/SkillDatas';
 import { MapShapeEnum, SelectParam, TargetSelectEnum } from '../../src/fight/struct';
@@ -9,6 +10,27 @@ const sel : SelectParam = {
     target: TargetSelectEnum.enmey,
 }
 
+function baseAttack(attack: number): BaseAttack {
+    return {
+        property: 0,
+        rand: 1,
+        hit: 100,
+        dodge: 0,
+        attack,
+        defend: 0,
+        crit: 0,
+        critAnit: 0,
+        critDeep: 1,
+    };
+}
+
+const finalAttack: FinalAttack = {
+    dbackP: 0,
+    bloodP: 0,
+    immunity: 0,
+    immunityP: 0,
+};
+
 const normalSkill:SkillData = {
     id: 1,
     name: "普通魔法",
@@ -18,8 +40,8 @@ const normalSkill:SkillData = {
 
     cost : {mp: 10},
 
-    attack: 20,
-    attackPercent: 0.2,
+    attack: baseAttack(20),
+    final: finalAttack,
     tags: ["blood"],
 }
 
@@ -34,8 +56,8 @@ const healSkill:SkillData = {
 
     cost : {mp: 20},
 
-    attack: 20,
-    attackPercent: 0.2,
+    attack: baseAttack(20),
+    final: finalAttack,
 }
 
 const spreadSkill:SkillData = {
@@ -46,13 +68,10 @@ const spreadSkill:SkillData = {
     func: "spread",
     
     rand: 1,
-    crit: 0.5,
-    critDeep: 1,
-
     cost : {mp: 30},
 
-    attack: 10,
-    attackPercent: 0.2,
+    attack: baseAttack(10),
+    final: finalAttack,
 }
 
 function prepareSkills(){

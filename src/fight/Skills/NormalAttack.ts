@@ -57,6 +57,7 @@ class PhysicSkill extends FightSkill {
     
     constructor(name: string, unit: FightUnit, attack: BaseAttack, final: FinalAttack) {
         super({...PhysicData, attack, final} , 1);
+        this.unit = unit;
         this.physic = unit.attr.physic;
         this.name = name;
     }

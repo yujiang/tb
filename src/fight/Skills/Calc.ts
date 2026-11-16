@@ -36,5 +36,5 @@ export function mergeTable(_a: Object , _b: Object) : any{
     for (const k in b) {
         c[k] = (a[k] || 0) + b[k];
     }
-    return a;
+    return c;
 };

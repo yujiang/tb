@@ -133,7 +133,9 @@ function spread(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx:
 
     const f = ctx.fight;
     //const xls = skill.xls;
-    const targets = f.selectTargets(defender, skill.getSel());
+    const sel = skill.getSel();
+    if (!sel) return;
+    const targets = f.selectTargets(defender, sel);
     if (!targets?.length) return
 
     const ids = targets.map((target) => {
