@@ -1,14 +1,21 @@
 import { FightUnit } from "../Unit/FightUnit";
+import { addBuffFunc, removeBuffFunc } from "./Buff";
 import { FightSkill } from "./FightSkill";
 import { healFunc } from "./Heal";
 import { skillAttackFunc } from "./NomalSkill";
 import { FightContex } from "./NormalAttack";
+import { poisonFunc } from "./Poison";
+import { relifeFunc } from "./Relife";
 
 
 export type SkillFuncType = (attacker: FightUnit, defender: FightUnit, skill: FightSkill, ctx: FightContex) => boolean;
 const SkillFuncMap: Record<string, SkillFuncType> = {
     normal: skillAttackFunc,
     heal: healFunc,
+    poison: poisonFunc,
+    relife: relifeFunc,
+    addBuff: addBuffFunc,
+    removeBuff: removeBuffFunc,
 };
 
 export function skillFunc(attacker: FightUnit, defender: FightUnit, skillId: number, ctx: FightContex) {

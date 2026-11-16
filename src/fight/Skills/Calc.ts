@@ -1,6 +1,9 @@
 import { Fight } from "../Fight";
 import { FinalAttack, BaseAttack } from "../FightAttr";
+import { FightUnit } from "../Unit/FightUnit";
 import { FightContex } from "./NormalAttack";
+
+const critBase = 1.5;
 
 function calcFinal(a: FinalAttack, d: FinalAttack, d1: number) {
     if (d.immunity > 0){
@@ -14,18 +17,32 @@ function calcFinal(a: FinalAttack, d: FinalAttack, d1: number) {
 }
 
 export function calcHurt(f: Fight, a: BaseAttack, d: BaseAttack, af: FinalAttack, df: FinalAttack, ctx: FightContex) {
-    const d1 = calcHeal(f, a, d, ctx);
+    const d1 = calcAttack(f, a, d, ctx);
     const damage = calcFinal(af, df, d1);
     return Math.max(damage,1);
 }
 
-export function calcHeal(f: Fight, a: BaseAttack, d: BaseAttack, ctx: FightContex) : number {
+export function clamp(v: number, min: number, max: number) {
+    return Math.min(Math.max(v, min), max);
+}
+
+export function calcPoison(f: Fight, a: BaseAttack, d: BaseAttack, hp: number, ctx: FightContex) : number {
     let d1 = a.attack - d.defend;    
-    if (f.randomLess(a.crit - d.critAnit)) {
-        d1 *= 1.5 + Math.max(a.critDeep, 1);
+    let d2 = clamp(a.hurt - d.hurtAnti, 0, 0.5);    
+    return Math.max(d2 * hp + d1,1);
+}
+
+export function calcAttack(f: Fight, a: BaseAttack, d: BaseAttack, ctx: FightContex) : number {
+    let d1 = a.attack - d.defend;    
+    d1 += a.hurt - d.hurtAnti;
+    d1 *= 1 + Math.max(a.hurtP - d.hurtPAnti,0);
+
+    if (d1 > 1 && f.randomLess(a.critP - d.critPAnit)) {
+        d1 *= critBase + clamp(a.critDeep - d.critDeepAnit, 0, 1);
         ctx.effects.push("crit");
     }
-    return d1;
+
+    return Math.max(d1,1);
 }
 
 // _a _b的字段必须匹配！

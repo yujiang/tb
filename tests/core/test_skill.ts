@@ -19,8 +19,8 @@ function baseAttack(overrides: Partial<BaseAttack> = {}): BaseAttack {
         dodge: 0,
         attack: 20,
         defend: 0,
-        crit: 0,
-        critAnit: 0,
+        critP: 0,
+        critPAnit: 0,
         critDeep: 1,
         ...overrides,
     };
@@ -119,7 +119,7 @@ test("damage calculation applies critical hits and defender damage reduction", (
 
     const damage = calcHurt(
         fight,
-        baseAttack({ attack: 24, crit: 1 }),
+        baseAttack({ attack: 24, critP: 1 }),
         baseAttack({ defend: 4 }),
         finalAttack(),
         finalAttack({ immunity: 4, immunityP: 0.25 }),

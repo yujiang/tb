@@ -4,6 +4,9 @@ import { FightAttr } from "../FightAttr";
 import { DiedSelectEnum, FightCmdEnum, FightDisplay, FightInput, FightSideEnum } from "../struct";
 import { FightSkill, SkillCost } from "../Skills/FightSkill";
 import { getSkillData } from "../Skills/SkillDatas";
+import { createBuff, FightBuff} from "../Buffs/FightBuff";
+import { findForbidStatusByAction } from "../Buffs/FightStatus";
+import { OverlapEnum } from "../Buffs/BuffDatas";
 
 export enum UnitType{
     user,
@@ -11,8 +14,14 @@ export enum UnitType{
     monster, //npc
 }
 
+
+export type FightUnitEvent = 'die' | 'relife' | 'hurt' | 'heal' | 'addBuff' | "removeBuff";
+
 // 战斗单元
 export abstract class FightUnit {
+    hasStatus(arg0: string) {
+        throw new Error("Method not implemented.");
+    }
     uid: number;
     attr: FightAttr; 
     display: FightDisplay;
@@ -26,8 +35,24 @@ export abstract class FightUnit {
     getName() {
         return this.display.name;
     }
+
+    speedRand = 0;      // 乱敏，用来排序出手
     getSpeed(){
         return this.attr.getSpeed();
+    }
+    getSpeedOrder() {
+        return this.getSpeed() + this.speedRand;
+    }
+
+    startFight(f: Fight){
+        this.speedRand = this.getSpeed() * (f.random() * 0.2 - 0.1);
+    }
+
+    getHp(){
+        return this.attr.point.hp;
+    }
+    getHpMax(){
+        return this.attr.point.hpMax;
     }
 
     getAttr(key: string){
@@ -49,7 +74,6 @@ export abstract class FightUnit {
         return arr.slice(0, num).map((v) => v[0]);
     }
     
-    
     onHurt(attacker: FightUnit, why: string, hp: number, ctx:FightContex){
         if (this.isDefend()) {
             hp *= 0.5;
@@ -63,7 +87,7 @@ export abstract class FightUnit {
         this.emit("hurt", attacker, hp, ctx);
         if(point.hp <= 0){  
             ctx.msgs.push(["die",this.uid])
-            this.die();
+            this.onDie(attacker, why, ctx);
             this.fight.onDie(this);
         }
         return hp;
@@ -94,13 +118,22 @@ export abstract class FightUnit {
         this.emit("heal", attacker, why, hp, ctx);
     }
 
-    emit(event: string, ...args: any[]){
+    emit(event: FightUnitEvent, ...args: any[]){
         this.fight.emitUnitEvent(this, event, ...args);
     }
 
     pos: number;
     setPos(pos: number) {
         this.pos = pos;
+    }
+
+    dump() {
+        return {
+            uid: this.uid,
+            name: this.getName(),
+            side: this.side,
+            pos: this.pos,
+        }
     }
 
     fight: Fight;
@@ -114,8 +147,17 @@ export abstract class FightUnit {
     isDied() {
         return this.dead;
     }
+    onDie(attacker: FightUnit, why: string, ctx:FightContex){
+        this.die();
+        this.emit("die", attacker, why, ctx);
+    }
     die() {
         this.dead = true;
+        this.clearBuff();
+    }
+    onRelife(attacker: FightUnit, why: string, ctx:FightContex){
+        this.relife();
+        this.emit("relife", attacker, why, ctx);
     }
     relife(){
         this.dead = false;
@@ -124,6 +166,11 @@ export abstract class FightUnit {
     defend = false;
     isDefend() {
         return this.defend;
+    }
+    doDefend(){
+        if (!this.dead) {
+            this.defend = true;
+        }
     }
 
     isFillterDie(die: DiedSelectEnum){
@@ -167,15 +214,6 @@ export abstract class FightUnit {
         return true;
     }
 
-    dump() {
-        return {
-            uid: this.uid,
-            name: this.getName(),
-            side: this.side,
-            pos: this.pos,
-        }
-    }
-
     abstract costSkill(cost: SkillCost, ctx: FightContex): boolean;
 
     skills = new Map<number,FightSkill>();
@@ -198,13 +236,77 @@ export abstract class FightUnit {
     }
 
     //buff status and forbid
+    buffs = new Map<number,FightBuff>();
+    clearBuff(){
+        this.buffs.clear();
+    }
+    //封印 - attack普攻，物品，skill技能，大招
     isForbid(action: string) {
+        const status = findForbidStatusByAction(action);
+        if (!status) return false;
+        for (const s of status){
+            if (this.inStatus(s)) return true;
+        }
         return false;
     }
-    isStatus(status: string) {
+    // 不会改变的Status, 不如boss不吃魔法~
+    fixedStatus: string[] = [];
+    inStatus(status: string) {
+        if (this.fixedStatus.indexOf(status) != -1) return true;
+        for (const buff of this.buffs.values()){
+            if (buff.inStatus(status)) return true;
+        }
         return false;
+    }
+
+    findBuff(id: number) : FightBuff{
+        return this.buffs.get(id);
+    }
+
+    findBuffsByTag(tag: string) : FightBuff[]{
+        return Array.from(this.buffs.values()).filter((v) => v.hasTag(tag));
+    }
+
+    _removeBuff(buff: FightBuff){
+        if (buff) {
+            this.buffs.delete(buff.getId());
+        }
     }
     
+    addBuff(attacker: FightUnit, why: string, buff: number, lv: number, ctx:FightContex) : FightBuff{
+        const buf = this.findBuff(buff);
+        if (buf){
+            const lap = buf.getOverlap()
+            if (lap === OverlapEnum.NOT) return;
+            // replace
+            this._removeBuff(buf);
+        }
+        const b = createBuff(buff, lv);
+        if (!b) return;
+        this.buffs.set(b.getId(), b);
+        ctx.msgs.push(["addBuff", why, this.uid, attacker.uid, buff, lv])
+        this.emit("addBuff", attacker, why, b, ctx);
+        return b;
+    }
+
+    removeBuff(attacker: FightUnit, why: string, buff: number, ctx:FightContex){
+        const buf = this.findBuff(buff);
+        if (!buf) return false;
+        this._removeBuff(buf);
+        ctx.msgs.push(["removeBuff", why, this.uid, attacker.uid, buff])
+        this.emit("removeBuff", attacker, why, buf, ctx);
+        return true;
+    }
+
+    removeBuffByTag(attacker: FightUnit, why: string, tag: string, num: number, ctx:FightContex){
+        const bufs = this.findBuffsByTag(tag);        
+        const f = ctx.fight;
+        const bs = (num > 0 && bufs.length > num) ? f.shuffleArray(bufs).slice(0, num) : bufs ;
+        for (const buf of bs){
+            this.removeBuff(attacker, why, buf.getId(), ctx);
+        }
+    }
+
 }
 
 // descend降序

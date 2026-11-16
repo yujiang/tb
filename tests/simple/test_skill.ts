@@ -18,8 +18,8 @@ function baseAttack(attack: number): BaseAttack {
         dodge: 0,
         attack,
         defend: 0,
-        crit: 0,
-        critAnit: 0,
+        critP: 0,
+        critPAnit: 0,
         critDeep: 1,
     };
 }

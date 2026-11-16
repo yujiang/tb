@@ -3,7 +3,7 @@ import { removeArray } from "../public/Array";
 import { attackFunc, FightContex } from "./Skills/NormalAttack";
 import { FightMap } from "./FightMap";
 import { FightSide } from "./FightSide";
-import { FightUnit, sortByAttr } from "./Unit/FightUnit";
+import { FightUnit, FightUnitEvent, sortByAttr } from "./Unit/FightUnit";
 import { EnemySide, DiedSelectEnum, FightCmdEnum, FightInput, FightSideEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "./struct";
 import { strict as assert } from "node:assert";
 import EventEmitter from "node:events";
@@ -191,7 +191,7 @@ export class Fight{
         }
 
         if (cmd === FightCmdEnum.defend){
-            unit.defend = true;
+            unit.doDefend();
             return;
         }
 
@@ -254,10 +254,10 @@ export class Fight{
 
     // ***event start
     emitUnit = new EventEmitter();
-    emitUnitEvent(unit: FightUnit, event: string, ...args: any[]){
+    emitUnitEvent(unit: FightUnit, event: FightUnitEvent, ...args: any[]){
         this.emitUnit.emit(event, unit, ...args);
     }
-    onUnitEvent(event: string, func: UnitEventFunc){
+    onUnitEvent(event: FightUnitEvent, func: UnitEventFunc){
         this.emitUnit.on(event, func);
     }
 }

@@ -2,8 +2,9 @@
 import { Fight } from "../Fight";
 import { BaseAttack, FightTypeAttr, FinalAttack } from "../FightAttr";
 import { FightUnit } from "../Unit/FightUnit";
-import { FightSkill, SkillData } from "./FightSkill";
+import { FightSkill, } from "./FightSkill";
 import { magicAttackFunc} from "./NomalSkill";
+import { SkillData } from "./SkillDatas";
 
 export type fightMsg = [string, ...any[]];
 
@@ -27,17 +28,17 @@ export interface FightContex {
     dbackNum?: number; // 反震次数
 }
 
-const AttackBaseRand = {
-    next : 0,
-    kill : 0,
-    back : 0,
-}
+// const AttackBaseRand = {
+//     next : 0,
+//     kill : 0,
+//     back : 0,
+// }
 
-export const DamageLost = {
-    healSpread : 0.75,
-    skillSpread : 0.7,
-    nextAttack : 0.8,
-}
+// const DamageLost = {
+//     healSpread : 0.75,
+//     skillSpread : 0.7,
+//     nextAttack : 0.8,
+// }
 
 const PhysicData : SkillData = {
     id: 0,
@@ -80,10 +81,10 @@ class PhysicSkill extends FightSkill {
     override canBlood(){
         return true
     }
-    override canDback(){
+    override canDBack(){
         return true;
     }
-    override canFback(){
+    override canFBack(){
         return true
     }    
 }

@@ -1,13 +1,12 @@
-import { BaseAttack, FinalAttack } from "../FightAttr";
 import { FightUnit } from "../Unit/FightUnit";
-import { mergeTable } from "./Calc";
-import { FightSkill, SkillData } from "./FightSkill";
+import { FightSkill } from "./FightSkill";
 import { magicAttackFunc, skillAttackFunc } from "./NomalSkill";
 import { FightContex } from "./NormalAttack";
+import { SkillData } from "./SkillDatas";
 
 // 优先用装备的技能反击，最后采用attackBack
 
-const PhysicFbackData : SkillData = {
+const PhysicFBackData : SkillData = {
     id: 0,
     name : "fback",
     magic: false,
@@ -19,39 +18,34 @@ const PhysicFbackData : SkillData = {
     final: null,
 }
 
-class PhysicFbackSkill extends FightSkill {
+class PhysicFBackSkill extends FightSkill {
     constructor(unit: FightUnit) {
-        super({...PhysicFbackData, attack: unit.attr.physic.fback, final: unit.attr.physic.final} , 1);
+        super({...PhysicFBackData, 
+            attack: unit.attr.physic.fback, final: unit.attr.physic.final} , 1);
     }    
 
     // 否则没完没了
-    override canFback(){
+    override canFBack(){
         return false;
     }        
 }
 
-class MagicFbackSkill extends FightSkill {
-    mergeAttack(attack: BaseAttack, final: FinalAttack){
-        this.xls = {...this.xls};
-        this.xls.attack = mergeTable(this.xls.attack, attack);
-        this.xls.final = mergeTable(this.xls.final, final);
-    }
-
+class MagicFBackSkill extends FightSkill {
     // 否则没完没了
-    override canFback(){
+    override canFBack(){
         return false;
     }   
 }
 
 // 物理反击
-function attackBack(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
-    const skill = new PhysicFbackSkill(attacker);
+function attackFback(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
+    const skill = new PhysicFBackSkill(attacker);
     return magicAttackFunc(attacker, defender, skill, ctx);
 }
 
-export function skillBack(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
+export function skillFBack(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
     ctx.fbackNum = (ctx.fbackNum || 0) + 1;
-    const magic = new MagicFbackSkill(skill.getXls(), skill.level);
+    const magic = new MagicFBackSkill(skill.getXls(), skill.level);
 
     const ft = skill.isMagic() ? attacker.attr.magic : attacker.attr.physic;
     magic.mergeAttack(ft.fback, ft.final);
@@ -59,12 +53,12 @@ export function skillBack(attacker: FightUnit, defender: FightUnit, skill:FightS
     return skillAttackFunc(attacker, defender, skill, ctx);
 }
 
-export function tryBack(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
+export function tryFBack(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
     const back = attacker.getBackSkill();
     if (back) {
-        return skillBack(attacker, defender, back, ctx);
+        return skillFBack(attacker, defender, back, ctx);
     }
-    return attackBack(attacker, defender, ctx);
+    return attackFback(attacker, defender, ctx);
 }
 
 

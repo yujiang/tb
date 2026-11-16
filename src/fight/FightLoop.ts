@@ -36,7 +36,13 @@ export abstract class FightLoop {
         return this.fight.win;
     }
 
-    start() {}
+    start() {
+        const all = this.fight.getAllUnits();        
+        for (const u of all){
+            u.startFight(this.fight);
+        }
+    }
+
     end() {}
 
     nextTurn() {
@@ -56,7 +62,9 @@ export abstract class FightLoop {
         const all = this.fight.getAllUnits();
         // all包括死亡单位，如果他中途被复活了，还在列表中，就可以行动；否则下个回合才能行动！
         // 客户端渲染需要剔除死亡的
-        sortByAttr(all, "speed", true);
+        //sortByAttr(all, "speed", true);
+        all.sort((a, b) => b.getSpeedOrder() - a.getSpeedOrder());
+
         this.processUnits = all; //但是如果有插队,降速会扰乱出手表?
     
         return all;

@@ -3,6 +3,7 @@ import { FightLoop } from "../FightLoop";
 import { FightUnit, sortByAttr } from "../Unit/FightUnit";
 import { FightInput } from "../struct";
 import { setTimeout as delay } from 'node:timers/promises';
+import { FightBuff } from "../Buffs/FightBuff";
 
 export abstract class FightLoopOnline extends FightLoop {
     //回合前开始处理buff等
@@ -65,6 +66,17 @@ export class FightLoopWest extends FightLoopOnline {
             this.bcMsg(["side", s, side.units.map(
                 u => this.getUnitMsg(u))
             ]);
+        }
+        this.fight.onUnitEvent("addBuff", this.onChangeBuff.bind(this));
+        this.fight.onUnitEvent("removeBuff", this.onChangeBuff.bind(this));
+    }
+
+    onChangeBuff(u: FightUnit, attacker: FightUnit, why: string, buff: FightBuff){
+        const all = this.processUnits;
+        if (buff.hasTag("speed") && all.includes(u)){
+            // this.processUnits 重新排序？
+            all.sort((a, b) => b.getSpeedOrder() - a.getSpeedOrder());
+            this.bcMsg(["sort", all.map(u => u.uid)]);
         }
     }
 

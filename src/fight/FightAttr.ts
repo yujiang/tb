@@ -11,9 +11,19 @@ export interface BaseAttack {
     attack: number;         //攻击力
     defend: number;         //防御力
 
-    crit: number;           //暴击
-    critAnit: number;       //暴击减免
-    critDeep: number;       //暴击增伤
+    hurt: number;           //伤害增加
+    hurtP: number;          //伤害加成
+    hurtAnti: number;       //减伤
+    hurtPAnti: number;      //减伤比
+
+    critP: number;           //暴击率
+    critDeep: number;        //暴击增伤
+    critPAnit: number;       //暴击减免
+    critDeepAnit: number;    //暴击增伤
+}
+
+export interface PoisonAttack {
+
 }
 
 export interface PointAttr {
@@ -31,8 +41,8 @@ export interface PointAttr {
 export interface FinalAttack {
     dbackP: number;         // 反伤比
     bloodP: number;         // 吸血比
-    immunity: number;       // 伤害减免
-    immunityP: number;      // 减伤比    
+    immunity: number;       // 免伤，最后一步计算跟hurtAni位置不同
+    immunityP: number;      // 免伤比    
 
     // 先别搞太复杂
     // dbackPAnti: number;     // 反反伤比
@@ -56,14 +66,14 @@ export interface FightTypeAttr{
 export class FightAttr {
     point: PointAttr;
 
-    speed: number;      // 速度
+    speed: number;          // 速度
     
     physic: FightTypeAttr;
     magic: FightTypeAttr;
 
-    heal: BaseAttack;
-    // poison: BaseAttack; // 下毒
-    
+    heal: BaseAttack;   // 治疗
+    poison: BaseAttack; // 下毒
+
     // restrain: BaseAttack; // property克制会增伤~
 
     getBaseAttack(name: string) : BaseAttack{

@@ -1,8 +1,11 @@
 // 战斗技能
 
+import { Fight } from "../Fight";
 import { BaseAttack, FinalAttack } from "../FightAttr";
-import { SelectParam } from "../struct";
-import { getSkillData } from "./SkillDatas";
+import { FightUnit } from "../Unit/FightUnit";
+import { calcAttack, calcHurt, mergeTable } from "./Calc";
+import { FightContex } from "./NormalAttack";
+import { getSkillData, SkillData } from "./SkillDatas";
 
 
 export interface SkillCost {
@@ -10,44 +13,6 @@ export interface SkillCost {
     mp?: number;
 }
 
-//表格化数据
-export interface SkillData {
-    id: number;
-    name: string;
-    desc?: string;       // 描述
-
-    magic: boolean;     // 是否魔法攻击
-    property?: number;  // 属性, 金木水火土有克制关系~
-
-    sel: SelectParam;
-    
-    func?: string;      // 技能效果函数名, 默认noraml
-
-    rand: number;       // 概率；0到1之间
-
-    // crit?: number;      // 暴击率；0到1之间
-    // critDeep?: number;  // 暴击加深， 基础是1.5  
-
-    // base: BaseAttack; 
-
-    // attack?: number;
-    // attackPercent?: number;
-    // damage?: number;
-    // damagePercent?: number;
-    attack: BaseAttack;
-    final: FinalAttack;
-
-    cost?: SkillCost;   // 消耗
-
-    // 溅射的skill， 比如有的溅射不减伤，就自己写skill
-    spread?: number;
-    // 连击的skill
-    next?: number;
-    // 追击的kill
-    kill?: number;
-
-    tags?: string[];
-}
 
 
 export class FightSkill {
@@ -68,10 +33,10 @@ export class FightSkill {
     canBlood(){
         return this.hasTag("blood");
     }
-    canDback(){
+    canDBack(){
         return this.hasTag("dback");
     }
-    canFback(){
+    canFBack(){
         return this.hasTag("fback");
     }
 
@@ -135,6 +100,31 @@ export class FightSkill {
     }
     getFinal(){
         return this.xls.final;
+    }
+
+    physicHitTest(f: Fight, defender: FightUnit) {
+        // 70 = 100 - 30
+        const d2 = this.getAttack().hit - defender.attr.physic.base.dodge;
+        return f.randomLess(d2 / 100);
+    }
+
+    calcHurt(f: Fight, defender: FightUnit, ctx: FightContex){
+        const ismagic = this.isMagic();
+        const dft = ismagic ? defender.attr.magic  : defender.attr.physic;
+        return calcHurt(f, this.getAttack(), dft.base, this.getFinal(), dft.final, ctx);
+    }
+
+    calcAttack(f: Fight, defender: FightUnit, ctx: FightContex){
+        const dft = defender.attr.magic;
+        return calcAttack(f, this.getAttack(), dft.base, ctx);
+    }
+
+    // 动态的才调用
+    mergeAttack(attack: BaseAttack, final: FinalAttack){
+        this.xls = {...this.xls};
+        // TODO: xls.attack 可能有等级成长，
+        this.xls.attack = mergeTable(this.xls.attack, attack);
+        this.xls.final = mergeTable(this.xls.final, final);
     }
 }
 

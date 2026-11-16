@@ -31,7 +31,7 @@ export class FightSide {
             const heal: BaseAttack = {} as any
                       
            
-            physic.crit = data.physic?.crit || (20+f.random()*10);
+            physic.critP = data.physic?.critP || (20+f.random()*10);
             physic.attack = data.physic?.attack || (50+f.random()*20);
             physic.defend = data.physic?.defend || (50-f.random()*20);
             physic.hit = data.physic?.hit || (80+f.random()*10);
@@ -60,7 +60,7 @@ export class FightSide {
 
             
             
-            magic.crit = data.magic?.crit || (10+f.random()*5);
+            magic.critP = data.magic?.critP || (10+f.random()*5);
             magic.attack = data.magic?.attack || (30+f.random()*10);
             magic.defend = data.magic?.defend || (30-f.random()*10);
 
@@ -74,7 +74,7 @@ export class FightSide {
             }
 
 
-            heal.crit = 0;
+            heal.critP = 0;
             heal.attack = data.heal?.attack || (30+f.random()*10);
             heal.defend = 0;
 

@@ -1,19 +1,14 @@
 import { FinalAttack, BaseAttack, FightTypeAttr } from "../FightAttr";
 import { FightUnit } from "../Unit/FightUnit";
-import { calcHurt, mergeTable } from "./Calc";
-import { tryBlood, tryDBack, tryBack } from "./FightBack";
+import { afterHurt } from "./Buff";
+import { mergeTable } from "./Calc";
+import { tryBlood, tryDBack, tryFBack } from "./FightBack";
 import { FightSkill, } from "./FightSkill";
 import { FightContex } from "./NormalAttack";
 import { getSkillData } from "./SkillDatas";
 
 class MagicSkill extends FightSkill {
     ft: FightTypeAttr;
-
-    mergeAttack(attack: BaseAttack, final: FinalAttack){
-        this.xls = {...this.xls};
-        this.xls.attack = mergeTable(this.xls.attack, attack);
-        this.xls.final = mergeTable(this.xls.final, final);
-    }
 
     name: string;
     override getName() {
@@ -25,7 +20,7 @@ class MagicSkill extends FightSkill {
         this.mergeAttack(ft.base, ft.final);
     }
 
-    getMagicSkill(name: string, id: number, attack: BaseAttack) {
+    createMagicSkill(name: string, id: number, attack: BaseAttack) {
         const data = getSkillData(id);
         if (!data) return;
         const skill = new MagicSkill(data, this.level);
@@ -35,13 +30,13 @@ class MagicSkill extends FightSkill {
     }
 
     override getNextSkill(): FightSkill {
-        return this.getMagicSkill("next",this.getNext(), this.ft.next);
+        return this.createMagicSkill("next",this.getNext(), this.ft.next);
     }
     override getKillSkill(): FightSkill {
-        return this.getMagicSkill("kill",this.getNext(), this.ft.kill);
+        return this.createMagicSkill("kill",this.getNext(), this.ft.kill);
     }
     override getSpreadSkill(): FightSkill {
-        return this.getMagicSkill("spread",this.getNext(), this.ft.spread);
+        return this.createMagicSkill("spread",this.getNext(), this.ft.spread);
     }
 }
 
@@ -50,18 +45,16 @@ class MagicSkill extends FightSkill {
 export function skillAttack(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
     // assert(skill);
     const f = ctx.fight;
-    // 发动概率
+    
+    // 发动概率, 比如连击...
     if (f.randomGreat(skill.getRand())) return false;
     
     const aname = attacker.getName();
 
     // 命中概率
-    if (skill.isPhysic()){
-        const d2 = skill.getAttack().hit - defender.attr.physic.base.dodge;
-        if (f.randomGreat(d2 / 100)) {
-            ctx.msgs.push([aname, "miss", attacker.uid, defender.uid])
-            return false;            
-        }
+    if (skill.isPhysic() && !skill.physicHitTest(f,defender)){
+        ctx.msgs.push([aname, "miss", attacker.uid, defender.uid])
+        return false;            
     }
 
     // 方便客户端绘制
@@ -69,15 +62,15 @@ export function skillAttack(attacker: FightUnit, defender: FightUnit, skill:Figh
     ctx.effects = [];
 
     const ismagic = skill.isMagic();
-    const dft = ismagic ? defender.attr.magic  : defender.attr.physic;
     
-    let damage = calcHurt(f, skill.getAttack(), dft.base, skill.getFinal(), dft.final, ctx);
+    let damage = skill.calcHurt(f, defender, ctx);
     damage = defender.onHurt(attacker, aname, damage, ctx);
+    afterHurt(attacker, defender, skill, ctx);
     if (damage > 1) {
         if (skill.canBlood()){
             tryBlood(attacker, defender, ismagic, damage, ctx);
         }
-        if (skill.canDback()){
+        if (skill.canDBack()){
             tryDBack(attacker, defender, ismagic, damage, ctx);
         }
     }
@@ -158,8 +151,8 @@ export function afterSkillAttack(attacker: FightUnit, defender: FightUnit, skill
         //反击 
         // const f = ctx.fight;
         let back = false;
-        if (skill.canFback()) {
-            back = tryBack(defender, attacker, ctx);
+        if (skill.canFBack()) {
+            back = tryFBack(defender, attacker, ctx);
         }
         if (!back) {
             skillNext(attacker, skill, ctx);
