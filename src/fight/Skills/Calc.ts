@@ -1,9 +1,9 @@
 import { strict as assert } from "node:assert";
 import { Fight } from "../Fight";
-import { FinalAttack, BaseAttack, FightAttr } from "../FightAttr";
-import { FightUnit } from "../Unit/FightUnit";
+import { FinalAttack, BaseAttack, FightAttr, FightTypeAttr } from "../FightAttr";
 import { FightContex } from "./NormalAttack";
 import { FightStatic } from "../Buffs/StaticData";
+import { clone } from "../../public/Utilts";
 
 const critBase = 1.5;
 
@@ -55,7 +55,7 @@ export function calcAttack(f: Fight, a: BaseAttack, d: BaseAttack, ctx: FightCon
 export function mergeTable(_a: Object , _b: Object) : any{
     const a = _a as Record<string, number>;
     const b = _b as Record<string, number>;
-    const c: any = {}
+    const c: any = {...a}
     for (const k in b) {
         c[k] = (a[k] || 0) + b[k];
     }
@@ -64,5 +64,43 @@ export function mergeTable(_a: Object , _b: Object) : any{
 };
 
 export function calcAttr(ori: FightAttr , objs: FightStatic[]) : FightAttr{
-    // ???
+    const result = clone(ori);
+
+    for (const obj of objs) {
+        const data = obj.getData();
+        const attackType = data.attackType;
+
+        if (attackType === "heal" || attackType === "poison") {
+            if (data.attack && Object.keys(data.attack).length) {
+                result[attackType] = mergeTable(result[attackType], data.attack);
+            }
+            if (data.final && Object.keys(data.final).length) {
+                throw new Error(`Final attributes are not supported for ${attackType}`);
+            }
+            continue;
+        }
+
+        const attackGroup: FightTypeAttr = data.magic ? result.magic : result.physic;
+        let attackKey: "base" | "kill" | "next" | "spread" | "fback";
+        switch (attackType) {
+            case "base":
+            case "kill":
+            case "next":
+            case "spread":
+            case "fback":
+                attackKey = attackType;
+                break;
+            default:
+                throw new Error(`Unsupported attack type: ${attackType}`);
+        }
+
+        if (data.attack && Object.keys(data.attack).length) {
+            attackGroup[attackKey] = mergeTable(attackGroup[attackKey], data.attack);
+        }
+        if (data.final && Object.keys(data.final).length) {
+            attackGroup.final = mergeTable(attackGroup.final, data.final);
+        }
+    }
+
+    return result;
 }

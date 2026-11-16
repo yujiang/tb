@@ -8,7 +8,6 @@ import { createBuff, FightBuff} from "../Buffs/FightBuff";
 import { findForbidStatusByAction } from "../Buffs/FightStatus";
 import { OverlapEnum } from "../Buffs/BuffDatas";
 import { PassiveSkill } from "../Buffs/PassiveSkill";
-import { clone } from "../../public/Utilts";
 import { calcAttr } from "../Skills/Calc";
 
 export enum UnitType{
@@ -29,11 +28,11 @@ export abstract class FightUnit {
     attrOri: FightAttr; 
     display: FightDisplay;
     
-   constructor(id: number, attr: FightAttr, display: FightDisplay) {
+   constructor(id: number, attr: FightAttr, display: FightDisplay, passiveSkills: PassiveSkill[] = []) {
         this.uid = id;
         this.attrOri = attr;
-        // this.attr = clone(attr);
         this.display = display;
+        this.setPassiveSkills(passiveSkills);
     }
 
     getName() {
@@ -123,7 +122,7 @@ export abstract class FightUnit {
     }
 
     emit(event: FightUnitEvent, ...args: any[]){
-        this.fight.emitUnitEvent(this, event, ...args);
+        this.fight?.emitUnitEvent(this, event, ...args);
     }
 
     pos: number;
@@ -240,7 +239,7 @@ export abstract class FightUnit {
     }
 
     // passive skills 不会add remove
-    passiveSkills : PassiveSkill[];
+    passiveSkills : PassiveSkill[] = [];
     setPassiveSkills(passiveSkills: PassiveSkill[]){
         this.passiveSkills = passiveSkills;
         this.calcAttr();
@@ -314,7 +313,12 @@ export abstract class FightUnit {
             }
         }
         const oldspeed = this.attr?.speed;
+        const point = this.attr?.point;
         this.attr = calcAttr(this.attrOri, attrs);
+        if (point) {
+            this.attr.point.hp = point.hp;
+            this.attr.point.mp = point.mp;
+        }
         this.emit("attr");
         if (oldspeed != this.attr.speed) this.emit("speed");
     }

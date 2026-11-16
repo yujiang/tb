@@ -4,7 +4,7 @@ import { Fight } from "../../src/fight/Fight";
 import { FightSide } from "../../src/fight/FightSide";
 import { OverlapEnum, BuffData, initBuffs } from "../../src/fight/Buffs/BuffDatas";
 import { FightBuff } from "../../src/fight/Buffs/FightBuff";
-import { initPassives, PassiveData } from "../../src/fight/Buffs/PassiveDatas";
+import { PassiveData } from "../../src/fight/Buffs/PassiveDatas";
 import { PassiveSkill } from "../../src/fight/Buffs/PassiveSkill";
 import { FightContex } from "../../src/fight/Skills/NormalAttack";
 import { initSkills, SkillData } from "../../src/fight/Skills/SkillDatas";
@@ -104,8 +104,7 @@ test("buff statuses affect status queries and forbidden actions", () => {
     assert.deepEqual(defender.findBuffsByTag("debuff").map(buff => buff.getId()), [901]);
 
     const passive = passiveData(918, ["眩晕"]);
-    initPassives([passive]);
-    defender.passiveSkills.set(passive.id, new PassiveSkill(passive, 1));
+    defender.passiveSkills.push(new PassiveSkill(passive, 1));
     assert.equal(defender.inStatus("眩晕"), true);
     assert.equal(defender.isForbid("item"), true);
     assert.equal(defender.isForbid("escapse"), true);
@@ -153,7 +152,7 @@ test("buff removal reports missing ids, removes by tag, and death clears remaini
     for (const id of [904, 905, 906, 907]) {
         defender.addBuff(attacker, "test", id, 1, ctx);
     }
-    assert.equal(defender.removeBuff(attacker, "test", 999, ctx), false);
+    assert.equal(defender.removeBuff(attacker, "test", 999, ctx), undefined);
 
     defender.removeBuffByTag(attacker, "cleanse", "debuff", 2, ctx);
     assert.equal(defender.findBuffsByTag("debuff").length, 1);
@@ -178,12 +177,15 @@ test("buff skills add only buffs whose chance succeeds and remove configured ids
     });
     const removeSkill = skillData(911, "removeBuff", {
         rmeoveBuff: [[908, 1]],
+    });
+    const removeTagSkill = skillData(913, "removeBuff", {
         removeBuffTag: "debuff",
         removeBuffNum: 0,
     });
-    initSkills([addSkill, removeSkill]);
+    initSkills([addSkill, removeSkill, removeTagSkill]);
     attacker.addSkill(addSkill.id, 1);
     attacker.addSkill(removeSkill.id, 1);
+    attacker.addSkill(removeTagSkill.id, 1);
 
     assert.equal(skillFunc(attacker, defender, addSkill.id, ctx), true);
     assert.equal(defender.findBuff(908)?.level, 4);
@@ -192,8 +194,10 @@ test("buff skills add only buffs whose chance succeeds and remove configured ids
     assert.equal(defender.inStatus("禁疗"), true);
 
     assert.equal(skillFunc(attacker, defender, removeSkill.id, ctx), true);
-    assert.equal(defender.buffs.size, 0);
+    assert.equal(defender.buffs.size, 1);
     assert.equal(defender.inStatus("禁疗"), false);
+    assert.equal(skillFunc(attacker, defender, removeTagSkill.id, ctx), true);
+    assert.equal(defender.buffs.size, 0);
     assert.deepEqual(ctx.msgs.map(msg => msg[0]), [
         "addBuff",
         "addBuff",

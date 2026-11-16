@@ -27,6 +27,10 @@ export class FightStatic {
         return this.xls.id;
     }
 
+    getData() {
+        return this.xls;
+    }
+
     inStatus(status: string) {
         return this.xls.status.includes(status);
     }

@@ -3,7 +3,8 @@ import { test } from "node:test";
 import { Fight } from "../../src/fight/Fight";
 import { BaseAttack, FinalAttack, FightAttr, FightTypeAttr } from "../../src/fight/FightAttr";
 import { FightSide } from "../../src/fight/FightSide";
-import { calcAttack, calcHurt, calcPoison, mergeTable } from "../../src/fight/Skills/Calc";
+import { FightStatic } from "../../src/fight/Buffs/StaticData";
+import { calcAttack, calcAttr, calcHurt, calcPoison, mergeTable } from "../../src/fight/Skills/Calc";
 import { FightSkill } from "../../src/fight/Skills/FightSkill";
 import { healFunc } from "../../src/fight/Skills/Heal";
 import { skillAttackFunc } from "../../src/fight/Skills/NomalSkill";
@@ -75,6 +76,26 @@ function createFightPair() {
 
 function contextFor(fight: Fight, attacker: FightUnit, defender: FightUnit): FightContex {
     return { fight, attack: attacker, defend: defender, msgs: [], effects: [] };
+}
+
+function staticModifier(
+    id: number,
+    attackType: string,
+    magic: boolean,
+    attack: Partial<BaseAttack> = {},
+    final: Partial<FinalAttack> = {},
+): FightStatic {
+    return new FightStatic({
+        id,
+        name: `modifier-${id}`,
+        desc: "",
+        status: [],
+        tags: [],
+        magic,
+        attackType,
+        attack,
+        final,
+    }, 1);
 }
 
 test("skill registry stores data by id and creates relative skills at the same level", () => {
@@ -249,6 +270,36 @@ test("damage and attribute calculations assert when their result is non-finite",
         () => mergeTable({ attack: 10 }, { attack: Number.NaN }),
         /merged attributes must be finite/,
     );
+});
+
+test("calcAttr applies modifiers to the selected attack type without mutating original attributes", () => {
+    const original = new FightAttr();
+    original.point = { hp: 100, hpMax: 100, mp: 50, mpMax: 50 };
+    original.speed = 100;
+    original.physic = fightType(baseAttack({ attack: 10 }));
+    original.magic = fightType(baseAttack({ attack: 20 }));
+    original.heal = baseAttack({ attack: 30 });
+    original.poison = baseAttack({ attack: 40 });
+
+    const result = calcAttr(original, [
+        staticModifier(301, "base", false, { attack: 5, hurtP: 0.1 }, { immunity: 2 }),
+        staticModifier(302, "base", false, { attack: 3 }),
+        staticModifier(303, "next", true, { attack: 7 }),
+        staticModifier(304, "heal", false, { attack: 4 }),
+        staticModifier(305, "poison", false, { hurt: 0.2 }),
+    ]);
+
+    assert.ok(result instanceof FightAttr);
+    assert.notEqual(result, original);
+    assert.notEqual(result.physic, original.physic);
+    assert.equal(result.physic.base.attack, 18);
+    assert.equal(result.physic.base.hurtP, 0.1);
+    assert.equal(result.physic.final.immunity, 2);
+    assert.equal(result.magic.next.attack, 27);
+    assert.equal(result.heal.attack, 34);
+    assert.equal(result.poison.hurt, 0.2);
+    assert.equal(original.physic.base.attack, 10);
+    assert.equal(original.magic.next.attack, 20);
 });
 
 test("fight units clone nested attributes while preserving FightAttr methods", () => {
