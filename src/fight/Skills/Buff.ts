@@ -17,12 +17,12 @@ export function removeBuffFunc(attacker: FightUnit, defender: FightUnit, skill:F
     const buffs = xls.rmeoveBuff;
     const tag = xls.removeBuffTag;   
     if (buffs){
-        defender.removeBuffs(attacker, "buff", buffs, ctx);
+        defender.removeBuffs(attacker, "buff", buffs, skill.getPower(), ctx);
         return true;
     }
     // 一般不可能同时有buffs+tag
     if (tag){
-        defender.removeBuffByTag(attacker, "buff", tag, xls.removeBuffNum, ctx);
+        defender.removeBuffByTag(attacker, "buff", tag, xls.removeBuffNum, skill.getPower(), ctx);
         return true;
     }        
     return false;

@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { Fight } from "../../src/fight/Fight";
 import { FightSide } from "../../src/fight/FightSide";
 import { OverlapEnum, BuffData, initBuffs } from "../../src/fight/Buffs/BuffDatas";
-import { FightBuff } from "../../src/fight/Buffs/FightBuff";
+import { FightBuff, MAX_POWER } from "../../src/fight/Buffs/FightBuff";
 import { PassiveData } from "../../src/fight/Buffs/PassiveDatas";
 import { PassiveSkill } from "../../src/fight/Buffs/PassiveSkill";
 import { FightContex } from "../../src/fight/Skills/NormalAttack";
@@ -52,6 +52,7 @@ function buffData(
 
 function passiveData(id: number, status: string[]): PassiveData {
     return {
+        addbuff: [],
         id,
         name: `passive-${id}`,
         desc: "",
@@ -158,9 +159,9 @@ test("buff removal reports missing ids, removes by tag, and death clears remaini
     for (const id of [904, 905, 906, 907]) {
         defender.addBuff(attacker, "test", id, 1, ctx);
     }
-    assert.equal(defender.removeBuff(attacker, "test", 999, ctx), undefined);
+    assert.equal(defender.removeBuff(attacker, "test", 999, MAX_POWER, ctx), undefined);
 
-    defender.removeBuffByTag(attacker, "cleanse", "debuff", 2, ctx);
+    defender.removeBuffByTag(attacker, "cleanse", "debuff", 2, MAX_POWER, ctx);
     assert.equal(defender.findBuffsByTag("debuff").length, 1);
     assert.ok(defender.findBuff(907));
     assert.equal(removed.length, 2);
@@ -168,6 +169,60 @@ test("buff removal reports missing ids, removes by tag, and death clears remaini
     defender.die();
     assert.equal(defender.buffs.size, 0);
     assert.equal(defender.isDied(), true);
+});
+
+// 测试：移除技能的 power 不足时保留 Buff，达到 Buff power 时可移除。
+test("buff removal requires sufficient power by id, list, and tag", () => {
+    const { attacker, defender, ctx } = createFightPair();
+    initBuffs([
+        buffData(9221, OverlapEnum.NOT, [], ["power-test"]),
+        buffData(9222, OverlapEnum.NOT, [], ["power-test"]),
+        buffData(9223, OverlapEnum.NOT, [], ["power-test"]),
+        buffData(9224, OverlapEnum.NOT, [], ["power-test"]),
+        {...buffData(9226, OverlapEnum.NOT, [], ["skill-power"]), power: 5},
+    ]);
+
+    const byId = defender.addBuff(attacker, "test", 9221, 5, ctx);
+    assert.equal(defender.removeBuff(attacker, "test", 9221, 4, ctx), undefined);
+    assert.equal(defender.findBuff(9221), byId);
+    assert.equal(defender.removeBuff(attacker, "test", 9221, 5, ctx), byId);
+
+    const byList = defender.addBuff(attacker, "test", 9222, 5, ctx);
+    assert.deepEqual(defender.removeBuffs(attacker, "test", [[9222, 1]], 4, ctx), []);
+    assert.equal(defender.findBuff(9222), byList);
+    assert.deepEqual(defender.removeBuffs(attacker, "test", [[9222, 1]], 5, ctx), [byList]);
+
+    const weak = defender.addBuff(attacker, "test", 9223, 2, ctx);
+    const strong = defender.addBuff(attacker, "test", 9224, 5, ctx);
+    assert.deepEqual(defender.removeBuffByTag(attacker, "test", "power-test", 0, 4, ctx), [weak]);
+    assert.equal(defender.findBuff(9224), strong);
+    assert.deepEqual(defender.removeBuffByTag(attacker, "test", "power-test", 0, 5, ctx), [strong]);
+
+    const addSkill = skillData(9225, "addBuff", {
+        power: 5,
+        addBuff: [[9226, 1, 1]],
+    });
+    const weakRemoveSkill = skillData(9227, "removeBuff", {
+        power: 4,
+        removeBuffTag: "skill-power",
+        removeBuffNum: 0,
+    });
+    const equalRemoveSkill = skillData(9228, "removeBuff", {
+        power: 5,
+        removeBuffTag: "skill-power",
+        removeBuffNum: 0,
+    });
+    initSkills([addSkill, weakRemoveSkill, equalRemoveSkill]);
+    attacker.addSkill(addSkill.id, 1);
+    attacker.addSkill(weakRemoveSkill.id, 1);
+    attacker.addSkill(equalRemoveSkill.id, 1);
+
+    assert.equal(skillFunc(attacker, defender, addSkill.id, ctx), true);
+    assert.equal(defender.findBuff(9226)?.getPower(), 5);
+    assert.equal(skillFunc(attacker, defender, weakRemoveSkill.id, ctx), true);
+    assert.ok(defender.findBuff(9226));
+    assert.equal(skillFunc(attacker, defender, equalRemoveSkill.id, ctx), true);
+    assert.equal(defender.findBuff(9226), undefined);
 });
 
 // 测试：Buff 技能按概率添加效果，并按编号或标签移除效果。
@@ -183,7 +238,7 @@ test("buff skills add only buffs whose chance succeeds and remove configured ids
         addBuff: [[908, 4, 1], [909, 1, 1], [912, 1, 0.5]],
     });
     const removeSkill = skillData(911, "removeBuff", {
-        rmeoveBuff: [[908, 1]],
+        rmeoveBuff: [[908, 1]], power: 4,
     });
     const removeTagSkill = skillData(913, "removeBuff", {
         removeBuffTag: "debuff",
@@ -320,7 +375,7 @@ test("removed periodic buffs are skipped within the same boundary", () => {
     initBuffs([9209, 9210].map(id => ({...buffData(id), func: "heal", skill: 9208, lastTurn: 3})));
     defender.attr.point.hp = 30;
     for (const id of [9209, 9210]) defender.addBuff(attacker, "test", id, 1, ctx);
-    fight.onUnitEvent("heal", () => defender.removeBuff(attacker, "test", 9210, ctx));
+    fight.onUnitEvent("heal", () => defender.removeBuff(attacker, "test", 9210, MAX_POWER, ctx));
     defender.processBeforeTurn(1, ctx);
     assert.equal(defender.getHp(), 40);
 });

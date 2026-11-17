@@ -1,13 +1,13 @@
 import { Fight} from "../Fight";
 import { FightContex } from "../Skills/NormalAttack";
 import { FightAttr } from "../FightAttr";
-import { DiedSelectEnum, FightCmdEnum, FightDisplay, FightInput, FightSideEnum } from "../struct";
+import { DiedSelectEnum, FightCmdEnum, FightDisplay, FightInput, FightSideEnum, IdLevelArray, IdRand } from "../struct";
 import { FightSkill, SkillCost } from "../Skills/FightSkill";
 import { getSkillData } from "../Skills/SkillDatas";
 import { createBuff, FightBuff} from "../Buffs/FightBuff";
 import { findForbidStatusByAction } from "../Buffs/FightStatus";
 import { FightUnitEvent, OverlapEnum } from "../Buffs/BuffDatas";
-import { PassiveSkill } from "../Buffs/PassiveSkill";
+import { createPassiveSkills, PassiveSkill } from "../Buffs/PassiveSkill";
 import { calcAttr } from "../Skills/Calc";
 import EventEmitter from "node:events";
 
@@ -28,11 +28,12 @@ export abstract class FightUnit {
     attrOri: FightAttr; 
     display: FightDisplay;
     
-   constructor(id: number, attr: FightAttr, display: FightDisplay, passiveSkills: PassiveSkill[] = []) {
+   constructor(id: number, attr: FightAttr, display: FightDisplay, passiveSkills: IdLevelArray = []) {
         this.uid = id;
         this.attrOri = attr;
         this.display = display;
         this.setPassiveSkills(passiveSkills);
+        this.calcAttr();
     }
 
     getName() {
@@ -186,7 +187,7 @@ export abstract class FightUnit {
     }
     die() {
         this.dead = true;
-        this.clearBuff();
+        this.clearBuffByDie();
     }
     onRelife(attacker: FightUnit, why: string, ctx:FightContex){
         this.relife();
@@ -243,7 +244,7 @@ export abstract class FightUnit {
             if (buff.useInputTurn() == inputTurn){
                 if (buff.doTurn(this,turn,ctx)){
                     if (this.findBuff(buff.getId()) === buff) {
-                        this.removeBuff(this, "turn", buff.getId(), ctx);
+                        this.expireBuff(buff, "turn", ctx);
                     }
                 }
             }
@@ -292,19 +293,23 @@ export abstract class FightUnit {
     }
 
     // passive skills 不会add remove
-    passiveSkills : PassiveSkill[] = [];
-    setPassiveSkills(passiveSkills: PassiveSkill[]){
-        this.passiveSkills = passiveSkills;
-        this.calcAttr();
+    passiveSkills : PassiveSkill[] ;
+    setPassiveSkills(passiveSkills: IdLevelArray){
+        this.passiveSkills = createPassiveSkills(passiveSkills);
+        for (const skill of this.passiveSkills){
+            skill.onInit(this);
+        }
+        if (this.attr) this.calcAttr();
     }
 
     //buff status and forbid
     buffs = new Map<number,FightBuff>();
-    clearBuff(){
-        const removed = Array.from(this.buffs.values());
-        this.buffs.clear();
+    clearBuffByDie(){
+        const removed = Array.from(this.buffs.values()).filter((v) => v.canRemoveByDie());
+        // this.buffs.clear();
         for (const buff of removed){
             buff.onRemoved(this);
+            this.buffs.delete(buff.getId());
         }
         this.onBuffChanged("clear", removed);
     }
@@ -331,6 +336,11 @@ export abstract class FightUnit {
 
     findBuff(id: number) : FightBuff{
         return this.buffs.get(id);
+    }
+
+    findRemoveBuffsByTag(tag: string, power: number) : FightBuff[]{
+        return Array.from(this.buffs.values()).filter((v) =>
+            v.hasTag(tag) && v.canRemove(power));
     }
 
     findBuffsByTag(tag: string) : FightBuff[]{
@@ -388,6 +398,17 @@ export abstract class FightUnit {
         return rt;
     }
 
+    addBuffsByPassiveSkill(addbuff: IdLevelArray){
+        const added: FightBuff[] = [];
+        for (const buff of addbuff) {
+            const [id, lv]  = buff;
+            const buf = this._addBuff(this, "passive", id, lv, null);
+            if (buf) added.push(buf);
+        }
+        // 构造期间统一在末尾计算；已有单位添加后立即生效。
+        if (this.attr) this.onBuffChanged("passive", added);
+    }
+
     addBuffs(attacker: FightUnit, why: string, addbuff: [number,number,number][], ctx: FightContex){
         const f = ctx.fight;
         const rts = []
@@ -409,48 +430,66 @@ export abstract class FightUnit {
             // replace
             this.deleteBuff(buf);
         }
-        const b = createBuff(attacker, buff, lv, this.fight.turn, this.myInputTurn);
+        const b = createBuff(attacker, buff, lv, this.fight?.turn ?? 0, this.myInputTurn);
         if (!b) return;
         this.buffs.set(b.getId(), b);
         b.onAdded(this);
-        ctx.msgs.push(["addBuff", why, this.uid, attacker.uid, buff, lv])
-        this.emitContext("addBuff", ctx, attacker, why, b);
+        if (ctx) {
+            ctx.msgs.push(["addBuff", why, this.uid, attacker.uid, buff, lv])
+            this.emitContext("addBuff", ctx, attacker, why, b);
+        }
         return b;
     }
 
-    removeBuff(attacker: FightUnit, why: string, buff: number, ctx:FightContex) : FightBuff{
-        const buf = this._removeBuff(attacker, why, buff, ctx);
+    removeBuff(attacker: FightUnit, why: string, buff: number, power: number, ctx:FightContex) : FightBuff{
+        const buf = this._removeBuff(attacker, why, buff, power, ctx);
         if (buf) this.onBuffChanged("remove", buf);
         return buf;
     }
 
-    removeBuffs(attacker: FightUnit, why: string, buffs: [number,number][], ctx:FightContex) : FightBuff[]{
+    removeBuffs(attacker: FightUnit, why: string, buffs: IdRand[], power: number, ctx:FightContex) : FightBuff[]{
         const f = ctx.fight;
         const rts = []
         for (const buff of buffs) {
             const [id, rand]  = buff;
             if (rand < 1 && f.randomGreat(rand)) continue;
-            const buf = this._removeBuff(attacker, why, id, ctx);
+            const buf = this._removeBuff(attacker, why, id, power, ctx);
             if (buf) rts.push(buf);
         }
         this.onBuffChanged("remove", rts);
         return rts;
     }
 
-    _removeBuff(attacker: FightUnit, why: string, buff: number, ctx:FightContex) : FightBuff{
+    _removeBuff(attacker: FightUnit, why: string, buff: number, power:number, ctx:FightContex) : FightBuff{
         const buf = this.findBuff(buff);
-        if (!buf) return ;
+        if (!buf || !buf.canRemove(power)) return ;
+        return this.finishRemoveBuff(attacker, why, buf, ctx);
+    }
+
+    // 自然结束不受驱散标签或强度限制；实例检查避免误删同编号的新 Buff。
+    expireBuff(buff: FightBuff, why: string, ctx: FightContex) {
+        if (this.findBuff(buff.getId()) !== buff) return;
+        this.finishRemoveBuff(this, why, buff, ctx);
+        this.onBuffChanged(why, buff);
+    }
+
+    private finishRemoveBuff(attacker: FightUnit, why: string, buf: FightBuff, ctx: FightContex): FightBuff {
+        const buff = buf.getId();
         this.deleteBuff(buf);
         ctx.msgs.push(["removeBuff", why, this.uid, attacker.uid, buff])
         this.emitContext("removeBuff", ctx, attacker, why, buf);
         return buf;
     }
 
-    removeBuffByTag(attacker: FightUnit, why: string, tag: string, num: number, ctx:FightContex) : FightBuff[]{
-        const bufs = this.findBuffsByTag(tag);        
+    removeBuffByTag(attacker: FightUnit, why: string, tag: string, num: number, power:number, ctx:FightContex) : FightBuff[]{
+        const bufs = this.findRemoveBuffsByTag(tag, power);
         const f = ctx.fight;
         const bs = (num > 0 && bufs.length > num) ? f.shuffleArray(bufs).slice(0, num) : bufs ;
-        const rts = bs.map((v) => this._removeBuff(attacker, why, v.getId(), ctx));
+        const rts: FightBuff[] = [];
+        for (const buff of bs) {
+            const removed = this._removeBuff(attacker, why, buff.getId(), power, ctx);
+            if (removed) rts.push(removed);
+        }
         this.onBuffChanged("remove", rts);
         return rts;
     }

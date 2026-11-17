@@ -52,10 +52,11 @@ export function calcAttack(f: Fight, a: BaseAttack, d: BaseAttack, ctx: FightCon
 }
 
 // _a _b的字段必须匹配！
-export function mergeTable(_a: Object , _b: Object) : any{
-    const a = _a as Record<string, number>;
-    const b = _b as Record<string, number>;
-    const c: any = {...a}
+export function mergeTable(base: Object , add: Object) : any{
+    const c: any = {...base}
+    if (!add) return c;
+    const a = base as Record<string, number>;
+    const b = add as Record<string, number>;
     for (const k in b) {
         c[k] = (a[k] || 0) + b[k];
     }
@@ -63,20 +64,41 @@ export function mergeTable(_a: Object , _b: Object) : any{
     return c;
 };
 
+export function mergeTableLevel(base: Object , add: Object, mul:Object, level:number) : any{
+    if (!mul || level === 0) return mergeTable(base, add);
+    const a = (base ?? {}) as Record<string, number>;
+    const b = (add ?? {}) as Record<string, number>;
+    const d = mul as Record<string, number>;
+    const c: any = {...a}
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b), ...Object.keys(d)])) {
+        c[k] = (a[k] ?? 0) + (b[k] ?? 0) + (d[k] ?? 0) * level;
+    }
+    assert.ok(Object.values(c).every(value => Number.isFinite(value)), "merged attributes must be finite");
+    return c;
+};
+
+//use level here!
 export function calcAttr(ori: FightAttr , objs: FightStatic[]) : FightAttr{
     const result = clone(ori);
 
     for (const obj of objs) {
         const data = obj.getData();
         const attackType = data.attackType;
+        const level = obj.getLevel();
 
         if (attackType === "heal" || attackType === "poison") {
-            if (data.attack && Object.keys(data.attack).length) {
-                result[attackType] = mergeTable(result[attackType], data.attack);
+            if ((data.attack && Object.keys(data.attack).length) ||
+                (data.attackLevel && Object.keys(data.attackLevel).length)) {
+                result[attackType] = mergeTableLevel(
+                    result[attackType],
+                    data.attack,
+                    data.attackLevel,
+                    level,
+                );
             }
-            if (data.final && Object.keys(data.final).length) {
-                throw new Error(`Final attributes are not supported for ${attackType}`);
-            }
+            // if (data.final && Object.keys(data.final).length) {
+            //     throw new Error(`Final attributes are not supported for ${attackType}`);
+            // }
             continue;
         }
 
@@ -94,11 +116,23 @@ export function calcAttr(ori: FightAttr , objs: FightStatic[]) : FightAttr{
                 throw new Error(`Unsupported attack type: ${attackType}`);
         }
 
-        if (data.attack && Object.keys(data.attack).length) {
-            attackGroup[attackKey] = mergeTable(attackGroup[attackKey], data.attack);
+        if ((data.attack && Object.keys(data.attack).length) ||
+            (data.attackLevel && Object.keys(data.attackLevel).length)) {
+            attackGroup[attackKey] = mergeTableLevel(
+                attackGroup[attackKey],
+                data.attack,
+                data.attackLevel,
+                level,
+            );
         }
-        if (data.final && Object.keys(data.final).length) {
-            attackGroup.final = mergeTable(attackGroup.final, data.final);
+        if ((data.final && Object.keys(data.final).length) ||
+            (data.finalLevel && Object.keys(data.finalLevel).length)) {
+            attackGroup.final = mergeTableLevel(
+                attackGroup.final,
+                data.final,
+                data.finalLevel,
+                level,
+            );
         }
     }
 

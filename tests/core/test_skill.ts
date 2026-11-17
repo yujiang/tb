@@ -310,6 +310,65 @@ test("calcAttr applies modifiers to the selected attack type without mutating or
     assert.equal(original.magic.next.attack, 20);
 });
 
+// 测试：属性修正按实例等级应用成长，等级为 0 时只应用基础加成。
+test("calcAttr applies level-based attack and final bonuses", () => {
+    const original = new FightAttr();
+    original.point = { hp: 100, hpMax: 100, mp: 50, mpMax: 50 };
+    original.speed = 100;
+    original.physic = fightType(baseAttack({ attack: 10 }));
+    original.magic = fightType(baseAttack({ attack: 20 }));
+    original.heal = baseAttack({ attack: 30 });
+    original.poison = baseAttack({ attack: 40 });
+
+    const levelTwoBuff = new FightStatic({
+        id: 306,
+        name: "level-two",
+        desc: "",
+        status: [],
+        tags: [],
+        magic: false,
+        attackType: "base",
+        attack: { attack: 2 },
+        final: { immunity: 1 },
+        attackLevel: { attack: 3 },
+        finalLevel: { immunity: 0.5 },
+    }, 2);
+    const levelZeroBuff = new FightStatic({
+        id: 307,
+        name: "level-zero",
+        desc: "",
+        status: [],
+        tags: [],
+        magic: false,
+        attackType: "base",
+        attack: { defend: 1 },
+        final: {},
+        attackLevel: { defend: 5 },
+        finalLevel: {},
+    }, 0);
+    const levelThreeHeal = new FightStatic({
+        id: 308,
+        name: "level-three-heal",
+        desc: "",
+        status: [],
+        tags: [],
+        magic: false,
+        attackType: "heal",
+        attack: { attack: 2 },
+        final: {},
+        attackLevel: { attack: 4 },
+    }, 3);
+
+    const result = calcAttr(original, [levelTwoBuff, levelZeroBuff, levelThreeHeal]);
+
+    assert.equal(result.physic.base.attack, 18);
+    assert.equal(result.physic.base.defend, 1);
+    assert.equal(result.physic.final.immunity, 2);
+    assert.equal(result.heal.attack, 44);
+    assert.equal(original.physic.base.attack, 10);
+    assert.equal(original.heal.attack, 30);
+});
+
 // 测试：单位深拷贝嵌套属性，同时保留 FightAttr 的方法。
 test("fight units clone nested attributes while preserving FightAttr methods", () => {
     const fight = new Fight(3, { maxTurn: 10, waitInputSec: 1, duiwei: false });

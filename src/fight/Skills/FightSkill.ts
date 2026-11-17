@@ -3,7 +3,7 @@
 import { Fight } from "../Fight";
 import { BaseAttack, FinalAttack } from "../FightAttr";
 import { FightUnit } from "../Unit/FightUnit";
-import { calcAttack, calcHurt, mergeTable } from "./Calc";
+import { calcAttack, calcHurt, mergeTable, mergeTableLevel } from "./Calc";
 import { FightContex } from "./NormalAttack";
 import { getSkillData, SkillData } from "./SkillDatas";
 
@@ -21,6 +21,14 @@ export class FightSkill {
     constructor(xls: SkillData, level: number) {
         this.xls = xls;
         this.level = level;
+        // 未与单位属性合并的技能（周期 Buff、复活、普攻）也能直接读取等级数值。
+        this.attack = mergeTableLevel({
+            property: 0, rand: 0, hit: 0, dodge: 0, attack: 0, defend: 0,
+            hurt: 0, hurtP: 0, hurtAnti: 0, hurtPAnti: 0,
+            critP: 0, critPAnit: 0, critDeep: 0, critDeepAnit: 0,
+        }, xls.attack, xls.attackLevel, level);
+        this.final = mergeTableLevel({bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0},
+            xls.final, xls.finalLevel, level);
     }
 
     getName() {
@@ -95,10 +103,10 @@ export class FightSkill {
         return this.xls.sel;
     }
 
-    getAttack(){
+    getXlsAttack(){
         return this.xls.attack;
     }
-    getFinal(){
+    getXlsFinal(){
         return this.xls.final;
     }
 
@@ -121,10 +129,23 @@ export class FightSkill {
 
     // 动态的才调用
     mergeAttack(attack: BaseAttack, final: FinalAttack){
-        this.xls = {...this.xls};
-        // TODO: xls.attack 可能有等级成长，
-        this.xls.attack = mergeTable(this.xls.attack, attack);
-        this.xls.final = mergeTable(this.xls.final, final);
+        // 每次由单位属性与原始配置重算，避免重复合并时累计等级成长。
+        this.attack = mergeTableLevel(attack, this.xls.attack, this.xls.attackLevel, this.level);
+        this.final = mergeTableLevel(final, this.xls.final, this.xls.finalLevel, this.level);
+    }
+
+    attack: BaseAttack;
+    getAttack(){
+        return this.attack;
+    }
+
+    final: FinalAttack;
+    getFinal(){
+        return this.final;
+    }
+
+    getPower(){
+        return this.xls.power ?? this.level;
     }
 }
 

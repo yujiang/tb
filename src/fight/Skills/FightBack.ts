@@ -64,10 +64,10 @@ export function tryFBack(attacker: FightUnit, defender: FightUnit, ctx: FightCon
 
 
 // 尝试吸血
-export function tryBlood(attacker: FightUnit, defender: FightUnit, magic: boolean, damage: number, ctx: FightContex) {
-    const p = magic ? 
+export function tryBlood(attacker: FightUnit, defender: FightUnit, magic: boolean, damage: number, ctx: FightContex, bloodP?: number) {
+    const p = bloodP ?? (magic ?
         attacker.attr.magic.final.bloodP :
-        attacker.attr.physic.final.bloodP ;
+        attacker.attr.physic.final.bloodP);
     if (p > 0) {
         damage *= p;
         attacker.onHeal(attacker, "blood", damage, ctx);

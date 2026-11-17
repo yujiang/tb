@@ -1,8 +1,9 @@
 // 治疗
 
 import { Fight } from "../Fight";
+import { BaseAttack } from "../FightAttr";
 import { FightUnit } from "../Unit/FightUnit";
-import { calcAttack, calcPoison, mergeTable } from "./Calc";
+import { calcAttack, calcPoison, mergeTable, mergeTableLevel } from "./Calc";
 import { FightSkill, } from "./FightSkill";
 import { FightContex } from "./NormalAttack";
 import { getSkillData, SkillData } from "./SkillDatas";
@@ -29,8 +30,8 @@ export class AttrSkill extends FightSkill {
     }
 
     mergeAttr(attacker: FightUnit){
-        this.xls = {...this.xls};
-        this.xls.attack = mergeTable(this.xls.attack, this.getAttr(attacker));
+        // this.xls = {...this.xls};
+        this.attack = mergeTableLevel(this.getAttr(attacker), this.xls.attack, this.xls.attackLevel, this.level);
     }
 
     calcHeal(f: Fight, defender: FightUnit, ctx: FightContex){

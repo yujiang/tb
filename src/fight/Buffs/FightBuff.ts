@@ -4,6 +4,8 @@ import { BuffData, getBuffData } from "./BuffDatas";
 import { buffFunc } from "./BuffFuncType";
 import { FightStatic } from "./StaticData";
 
+export const MAX_POWER = 99;
+
 export class FightBuff extends FightStatic{
     protected override xls: BuffData;
     start = 0;
@@ -11,6 +13,8 @@ export class FightBuff extends FightStatic{
     times = 0;
     attacker: FightUnit;
     private lastProcessedTurn: number;
+
+    //level用于
     constructor(xls: BuffData, level: number, attacker: FightUnit, turn:number) {        
         super(xls, level);
         this.attacker = attacker;
@@ -26,7 +30,7 @@ export class FightBuff extends FightStatic{
         if (this.times > 0){
             this.times --;
             if (this.times <= 0 ){
-                unit.removeBuff(unit, "times", this.getId(), ctx);
+                unit.expireBuff(this, "times", ctx);
             }
         }
     }
@@ -82,6 +86,22 @@ export class FightBuff extends FightStatic{
         }
         return this.lastTurn > 0 && turn >= end;
     }
+
+    getPower() {
+        return this.xls.power ?? this.getLevel();
+    }
+
+    // 武器装备的buf可能死亡也需要保留
+    canRemoveByDie(){
+        return !this.hasTag("nodie");
+    }
+
+    // 被动技能的无法remove
+    canRemove(power: number){
+        if (this.hasTag("noremove")) return false;
+        return power >= this.getPower();
+    }
+
 }
 
 export function createBuff(attacker: FightUnit, buff: number, lv: number, turn: number, inputTurn: number){

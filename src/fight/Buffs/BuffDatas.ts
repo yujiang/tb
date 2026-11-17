@@ -25,6 +25,8 @@ export interface BuffData extends StaticData{
     func?: string;
     skill: number;
     skillLevel: number;
+
+    power?: number; //removeBuff用到， 低power不能移除高power的buff
 }
 
 const buffs = new Map<number,BuffData>();

@@ -71,7 +71,7 @@ export function skillAttack(attacker: FightUnit, defender: FightUnit, skill:Figh
     afterHurt(attacker, defender, skill, ctx);
     if (damage > 1) {
         if (skill.canBlood()){
-            tryBlood(attacker, defender, ismagic, damage, ctx);
+            tryBlood(attacker, defender, ismagic, damage, ctx, skill.getFinal().bloodP);
         }
         if (skill.canDBack()){
             tryDBack(attacker, defender, ismagic, damage, ctx);

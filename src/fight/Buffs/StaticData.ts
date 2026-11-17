@@ -10,8 +10,11 @@ export interface StaticData {
 
     magic: boolean;
     attackType: string;     // base, next, kill, spread, fback, heal, poison
+
     attack: Partial<BaseAttack>;
     final: Partial<FinalAttack>;
+    attackLevel?: Partial<BaseAttack>; // 升级的加成
+    finalLevel?: Partial<FinalAttack>; // 升级的加成
 }
 
 
@@ -21,6 +24,10 @@ export class FightStatic {
     constructor(xls: StaticData, level: number) {
         this.xls = xls;
         this.level = level;
+    }
+
+    getLevel(){
+        return this.level;
     }
 
     getXls() {
@@ -44,6 +51,6 @@ export class FightStatic {
     }
 
     hasAttr(){
-        return this.xls.attack || this.xls.final;
+        return this.xls.attack || this.xls.final || this.xls.attackLevel || this.xls.finalLevel;
     }
 }

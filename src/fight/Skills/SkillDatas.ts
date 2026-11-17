@@ -1,5 +1,5 @@
 import { BaseAttack, FinalAttack } from "../FightAttr";
-import { SelectParam } from "../struct";
+import { IdLevelRand, IdRand, SelectParam } from "../struct";
 import { SkillCost } from "./FightSkill";
 
 //表格化数据
@@ -17,8 +17,10 @@ export interface SkillData {
 
     rand: number;       // 发生概率；不是闪避
 
-    attack: BaseAttack;
-    final: FinalAttack;
+    attack: Partial<BaseAttack>;
+    final: Partial<FinalAttack>;
+    attackLevel?: Partial<BaseAttack>; // 升级的加成
+    finalLevel?: Partial<FinalAttack>; // 升级的加成
 
     cost?: SkillCost;   // 消耗
 
@@ -31,12 +33,14 @@ export interface SkillData {
 
     // 技能命中可能加buff，减buff！
     noHurt?: boolean; // 并没有伤害，仅仅加buff
-    addBuff?: [number,number,number][]; //id,level,rand,
-    rmeoveBuff?: [number,number][]; //id,rand,
+    addBuff?: IdLevelRand[]; //id,level,rand,
+    rmeoveBuff?: IdRand[]; //id,rand,
     removeBuffTag?: string;
     removeBuffNum?:  number;
 
     tags?: string[];
+
+    power?: number; //removeBuff用到， 低power不能移除高power的buff
 }
 
 const skills = new Map<number,SkillData>();

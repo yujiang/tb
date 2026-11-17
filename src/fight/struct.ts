@@ -72,3 +72,8 @@ export interface FightInput {
     skill?: number;
     target?: number;
 }
+
+export type IdLevel = [number,number];
+export type IdRand = IdLevel;
+export type IdLevelRand = [number,number,number];
+export type IdLevelArray = IdLevel[];
