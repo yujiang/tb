@@ -1,7 +1,9 @@
-import { Fight } from "./Fight";
-import { FightContex, fightMsg, initFightContex } from "./Skills/NormalAttack";
+import { Fight, FightContex, initFightContex } from "./Fight";
 import { FightUnit, sortByAttr } from "./Unit/FightUnit";
-import { FightInput } from "./struct";
+import { FightInput, fightMsg } from "./struct";
+import EventEmitter from "node:events";
+
+export type bcMsgFunc = (msgs: fightMsg | fightMsg[])=>void;
 
 export abstract class FightLoop {
     fight: Fight;
@@ -60,12 +62,17 @@ export abstract class FightLoop {
         for (const u of all){
             u.startFight(this.fight);
         }
+        this.emitEvent("start");
     }
 
-    end() {}
+    end() {
+        this.emitEvent("end");
+    }
 
     nextTurn() {
-        return this.fight.nextTurn();
+        const turn = this.fight.nextTurn();
+        this.emitEvent("turn")
+        return turn;
     }
 
     // return 0: 超时, 1: 正常结束
@@ -89,10 +96,30 @@ export abstract class FightLoop {
         return all;
     }
 
+    msgFunc: bcMsgFunc[] = [];
+    onMsg(func: bcMsgFunc){
+        this.msgFunc.push(func);
+    }
     bcMsg(msgs: fightMsg | fightMsg[]){
         // 暂时没有发消息, 直接打印
         if (!msgs?.length) return;
-        console.log(msgs);
+        if (this.msgFunc.length > 0) {
+            for (const msgFunc of this.msgFunc) {
+                msgFunc(msgs);
+            }
+        }
+        else {
+            console.log(msgs);
+        }
     }    
+
+
+    private emit = new EventEmitter();
+    on(event: string, func: (...args: any[]) => void){
+        this.emit.on(event, func);
+    }
+    emitEvent(event: string, ...args: any[]){
+        this.emit.emit(event, ...args);
+    }
 }
 

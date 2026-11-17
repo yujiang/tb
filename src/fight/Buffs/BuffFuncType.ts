@@ -1,7 +1,7 @@
 import { AttrSkill } from "../Skills/AttrSkill";
-import { heal } from "../Skills/Heal";
-import { FightContex } from "../Skills/NormalAttack";
-import { poison } from "../Skills/Poison";
+import { heal } from "../Skills/Funcs/Heal";
+import { FightContex } from "../Fight";
+import { poison } from "../Skills/Funcs/Poison";
 import { getSkillData } from "../Skills/SkillDatas";
 import { FightUnit } from "../Unit/FightUnit";
 import { FightBuff } from "./FightBuff";

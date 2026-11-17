@@ -11,9 +11,14 @@ export enum OverlapEnum {
 // 3. 每个回合起作用，加血和扣血
 // 4. 有次数，比如减伤3次后消失
 export type FightUnitEvent = 
-    'die' | 'relife' | 'hurt' | 'heal' | 'addBuff' | "removeBuff" | "attr" | "speed";
+    'beforeHurt' | 'beforeHeal' | 'afterTurn' | 'die' | 'relife' | 'hurt' | 'heal' | 'addBuff' | "removeBuff" | "attr" | "speed";
 
 export interface BuffData extends StaticData{
+    class?: string;  // 特殊的类，省略时使用普通 FightBuff
+    classParam?: any; // 针对class的参数, 比如自动复活就是血量比例
+    // class="relife"：classParam 为 (0, 1] 的数值，省略默认 0.2。
+    // class="reflect"：classParam.magicOnly 默认 true，false 时也反射物理伤害。
+
     overlap: OverlapEnum;    
 
     useInputTurn: boolean; //使用inputTurn还是fight.Turn，默认false
@@ -21,10 +26,15 @@ export interface BuffData extends StaticData{
     
     times: number; //使用次数
     event: FightUnitEvent; //times的时机
+    prior?: number; //带 ctx 事件的监听优先级，默认 0，小的先执行，同优先级按注册顺序
 
     func?: string;
     skill: number;
     skillLevel: number;
+
+    notRemove?: boolean; //不能驱散
+    dieNotRemove?: boolean; //die不删除
+    notDisplay?: boolean; //客户端不显示
 
     power?: number; //removeBuff用到， 低power不能移除高power的buff
 }

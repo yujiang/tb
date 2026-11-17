@@ -1,10 +1,12 @@
-import { BaseAttack, FightTypeAttr } from "../FightAttr";
-import { FightUnit } from "../Unit/FightUnit";
-import { afterHurt } from "./Buff";
-import { tryBlood, tryDBack, tryFBack } from "./FightBack";
-import { FightSkill, } from "./FightSkill";
-import { FightContex } from "./NormalAttack";
-import { getSkillData } from "./SkillDatas";
+import { BaseAttack, FightTypeAttr } from "../../FightAttr";
+import { FightUnit } from "../../Unit/FightUnit";
+import { afterHurt, afterSelfBuff } from "./Buff";
+import { tryBlood, tryDBack, tryFBack } from "../FightBack";
+import { FightSkill, } from "../FightSkill";
+import { FightContex } from "../../Fight";
+import { getSkillData } from "../SkillDatas";
+
+export type AttackReaction = "next" | "kill" | "fback";
 
 class MagicSkill extends FightSkill {
     ft: FightTypeAttr;
@@ -42,7 +44,7 @@ class MagicSkill extends FightSkill {
 
 
 // 普通技能
-export function skillAttack(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
+export function skillAttack(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex, reaction?: AttackReaction) {
     // assert(skill);
     const f = ctx.fight;
     if (attacker.isDied() || defender.isDied()) return false;
@@ -50,24 +52,32 @@ export function skillAttack(attacker: FightUnit, defender: FightUnit, skill:Figh
     if (ctx.reactionSteps > 64) throw new Error("Reaction limit exceeded (64 effects per action)");
     
     // 发动概率, 比如连击...
-    if (f.randomGreat(skill.getRand())) return false;
+    if (f.randomGreat(skill.getRand())) {
+        if (!reaction && skill.getId() !== 0) {
+            ctx.msgs.push(["skillFailed", attacker.uid, defender.uid, skill.getId(), skill.getXls().name]);
+        }
+        return false;
+    }
     
     const aname = attacker.getName();
+    const skillName = skill.getId() === 0 ? "普通攻击" : skill.getXls().name;
 
     // 命中概率
     if (skill.isPhysic() && !skill.physicHitTest(f,defender)){
-        ctx.msgs.push([aname, "miss", attacker.uid, defender.uid])
+        ctx.msgs.push([aname, "miss", attacker.uid, defender.uid, reaction ?? null, skillName])
+        // 已发动但未命中，仍支付该段配置的施放后效果。
+        afterSelfBuff(attacker, skill, ctx);
         return false;            
     }
 
     // 方便客户端绘制
-    ctx.msgs.push([aname, skill.getId(), attacker.uid, defender.uid])
+    ctx.msgs.push([aname, skill.getId(), attacker.uid, defender.uid, reaction ?? null, skillName])
     ctx.effects = [];
 
     const ismagic = skill.isMagic();
     
     let damage = skill.calcHurt(f, defender, ctx);
-    damage = defender.onHurt(attacker, aname, damage, ctx);
+    damage = defender.onHurt(attacker, aname, damage, ctx, { magic: ismagic });
     afterHurt(attacker, defender, skill, ctx);
     if (damage > 1) {
         if (skill.canBlood()){
@@ -81,29 +91,37 @@ export function skillAttack(attacker: FightUnit, defender: FightUnit, skill:Figh
     return true;
 }
 
-function skillKill(attacker: FightUnit, sk:FightSkill, ctx: FightContex) {
+function skillKill(attacker: FightUnit, previous: FightUnit, sk:FightSkill, ctx: FightContex) {
     const skill = sk.getKillSkill();
     if (!skill) return false;
     const f = ctx.fight;
     if (skill.getRand() <= 0) return false;
 
-    const des = f.randomEnemyAlive(attacker.side);    
+    const configured = sk.getKill() != null;
+    const des = configured && skill.getSel() ? f.selectMainTarget(attacker, skill.getSel(), previous) :
+        f.randomEnemyAlive(attacker.side);
     if (!des) return false;
     ctx.killNum = (ctx.killNum || 0) + 1;
-    skillAttack(attacker, des, skill, ctx);
+    if (configured) return magicAttackFunc(attacker, des, skill, ctx, "kill");
+    // 普攻的内置追击保留单次触发，不因通用技能链扩展而递归追击。
+    skillAttack(attacker, des, skill, ctx, "kill");
     return true;
 }
 
-function skillNext(attacker: FightUnit, sk:FightSkill, ctx: FightContex) {
+function skillNext(attacker: FightUnit, previous: FightUnit, sk:FightSkill, ctx: FightContex) {
     const skill = sk.getNextSkill();
     if (!skill) return false;
     const f = ctx.fight;
     if (skill.getRand() <= 0) return false;
 
-    const des = f.randomEnemyAlive(attacker.side);    
+    const configured = sk.getNext() != null;
+    const des = configured && skill.getSel() ? f.selectMainTarget(attacker, skill.getSel(), previous) :
+        f.randomEnemyAlive(attacker.side);
     if (!des) return false;
     ctx.nextNum = (ctx.nextNum || 0) + 1;
-    skillAttack(attacker, des, skill, ctx);
+    if (configured) return magicAttackFunc(attacker, des, skill, ctx, "next");
+    // 普攻的内置概率连击仍只执行一次。
+    skillAttack(attacker, des, skill, ctx, "next");
     return true;
 }
 
@@ -113,14 +131,15 @@ export function skillAttackFunc(attacker: FightUnit, defender: FightUnit, skill:
     return magicAttackFunc(attacker, defender, magic, ctx);
 }
 
-export function magicAttackFunc(attacker: FightUnit, defender: FightUnit, magic:FightSkill, ctx: FightContex) {
+export function magicAttackFunc(attacker: FightUnit, defender: FightUnit, magic:FightSkill, ctx: FightContex, reaction?: AttackReaction) {
     return ctx.fight.resolveAction(() => {
-        const rt = skillAttack(attacker, defender, magic, ctx);
+        const rt = skillAttack(attacker, defender, magic, ctx, reaction);
         if (!rt) return false;
         if (!attacker.isDied()) {
             spread(attacker, defender, magic, ctx);
             afterSkillAttack(attacker, defender, magic, ctx);
         }
+        afterSelfBuff(attacker, magic, ctx);
         return true;
     });
 }
@@ -151,7 +170,7 @@ export function afterSkillAttack(attacker: FightUnit, defender: FightUnit, skill
     if (attacker.isDied()) return;
     if (defender.isDied()){
         //追击
-        skillKill(attacker, skill, ctx);
+        skillKill(attacker, defender, skill, ctx);
     }
     else {
         //反击 
@@ -161,7 +180,7 @@ export function afterSkillAttack(attacker: FightUnit, defender: FightUnit, skill
             back = tryFBack(defender, attacker, ctx);
         }
         if (!back) {
-            skillNext(attacker, skill, ctx);
+            skillNext(attacker, defender, skill, ctx);
         }
     }    
 }

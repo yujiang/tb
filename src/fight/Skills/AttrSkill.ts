@@ -1,11 +1,9 @@
 // 治疗
 
-import { Fight } from "../Fight";
-import { BaseAttack } from "../FightAttr";
+import { Fight, FightContex } from "../Fight";
 import { FightUnit } from "../Unit/FightUnit";
-import { calcAttack, calcPoison, mergeTable, mergeTableLevel } from "./Calc";
+import { calcAttack, calcPoison } from "./Calc";
 import { FightSkill, } from "./FightSkill";
-import { FightContex } from "./NormalAttack";
 import { getSkillData, SkillData } from "./SkillDatas";
 
 export type AttrFunc =(attacker: FightUnit, defender: FightUnit, skill:AttrSkill, name: string, ctx: FightContex)=>boolean;
@@ -31,7 +29,7 @@ export class AttrSkill extends FightSkill {
 
     mergeAttr(attacker: FightUnit){
         // this.xls = {...this.xls};
-        this.attack = mergeTableLevel(this.getAttr(attacker), this.xls.attack, this.xls.attackLevel, this.level);
+        this.attack = this.mergeAttackData(this.getAttr(attacker));
     }
 
     calcHeal(f: Fight, defender: FightUnit, ctx: FightContex){

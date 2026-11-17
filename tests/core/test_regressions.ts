@@ -8,11 +8,31 @@ import { FightUnitMonster } from "../../src/fight/Unit/FightUnitMonster";
 import { FightUnitSummon, FightUnitUser } from "../../src/fight/Unit/FightUnitUser";
 import { BuffData, initBuffs, OverlapEnum } from "../../src/fight/Buffs/BuffDatas";
 import { FightSkill } from "../../src/fight/Skills/FightSkill";
-import { FightContex, initFightContex, attackFunc } from "../../src/fight/Skills/NormalAttack";
+import { FightContex, initFightContex } from "../../src/fight/Fight";
+import { attackFunc } from "../../src/fight/Skills/Funcs/NormalAttack";
 import { tryBlood, tryDBack } from "../../src/fight/Skills/FightBack";
 import { initSkills, SkillData } from "../../src/fight/Skills/SkillDatas";
-import { relifeFunc } from "../../src/fight/Skills/Relife";
+import { relifeFunc } from "../../src/fight/Skills/Funcs/Relife";
 import { DiedSelectEnum, FightCmdEnum, FightSideEnum, TargetSelectEnum } from "../../src/fight/struct";
+import { FightReport } from "../../src/fight/Client/FightReport";
+
+test("regression: failed primary skill activation reports why the actor did nothing", () => {
+    const { f, u, v } = pair();
+    initSkills([skill(97404, { name: "普通魔法", rand: 0.8 })]);
+    u.addSkill(97404, 1);
+    let samples = 0;
+    f.random = () => { samples++; return 0.9; };
+    const ctx = f.processUnit(u, { cmd: FightCmdEnum.skill, skill: 97404, target: v.uid });
+    assert.ok(ctx);
+    assert.equal(v.getHp(), 100);
+    assert.equal(samples, 1);
+    assert.deepEqual(ctx.msgs, [["skillFailed", u.uid, v.uid, 97404, "普通魔法"]]);
+    const report = new FightReport(() => {});
+    report.onMsg([["start", f.fid], ["side", 0, [u.getUnitMsg()]], ["side", 1, [v.getUnitMsg()]],
+        ["actor", u.uid, u.getSpeed()], ...ctx.msgs]);
+    assert.match(report.toString(), /A（#1）.*\[普通魔法\]未发动/);
+    assert.doesNotMatch(report.toString(), /造成|未识别消息|未命中/);
+});
 
 function base(extra: Partial<BaseAttack> = {}): BaseAttack {
     return { property: 0, rand: 0, hit: 100, dodge: 0, attack: 20, defend: 0,
@@ -67,14 +87,14 @@ function buff(id: number): BuffData {
 // 测试：技能反击只触发一次，并使用反击属性计算伤害。
 test("regression: skill counterattacks stop after one reaction and use fback attributes", () => {
     const {f, u, v} = pair();
-    initSkills([skill(8001, {tags: ["fback"]})]);
+    initSkills([skill(8001, {fback: true})]);
     for (const unit of [u, v]) {
         unit.attr.point.hp = 1000000;
         unit.attr.point.hpMax = 1000000;
         unit.attr.magic.fback.attack = 7;
         unit.addSkill(8001, 1); unit.backSkill = 8001;
     }
-    initSkills([skill(8002, {tags: ["fback"]})]);
+    initSkills([skill(8002, {fback: true})]);
     u.addSkill(8002, 1);
     const ctx = f.processUnit(u, {cmd: FightCmdEnum.skill, skill: 8002, target: v.uid});
     assert.equal(ctx.msgs.filter(m => m[0] === "hurt").length, 2);
@@ -324,6 +344,41 @@ function addAlly(f: Fight) {
     f.getSide(FightSideEnum.attack).units.push(healer);
     return healer;
 }
+
+// 测试：吸血、反伤和反击由技能字段决定，省略或 false 时关闭，旧标签不再控制行为。
+test("skill reaction switches use fields rather than tags", () => {
+    for (const enabled of [false, true]) {
+        const sk = new FightSkill({...skill(9700), tags: ["blood", "dback", "fback"],
+            ...{blood: enabled, dback: enabled, fback: enabled}}, 1);
+        assert.equal(sk.canBlood(), enabled);
+        assert.equal(sk.canDBack(), enabled);
+        assert.equal(sk.canFBack(), enabled);
+    }
+    const sk = new FightSkill(skill(9700), 1);
+    assert.equal(sk.canBlood(), false);
+    assert.equal(sk.canDBack(), false);
+    assert.equal(sk.canFBack(), false);
+});
+
+// 测试：三个技能字段分别控制实际吸血、受反伤和触发对方反击，关闭后不受同名标签影响。
+test("skill reaction fields control actual healing reflection and counterattacks", () => {
+    for (const field of ["blood", "dback", "fback"] as const) {
+        for (const enabled of [false, true]) {
+            const {f, u, v} = pair();
+            u.attr.point.hp = 50;
+            u.attr.magic.final.bloodP = 0.2;
+            v.attr.magic.final.dbackP = 0.2;
+            v.attr.physic.fback = {...v.attr.physic.fback, attack: 7, rand: 1};
+            initSkills([{...skill(9701), tags: ["blood", "dback", "fback"],
+                ...{blood: false, dback: false, fback: false, [field]: enabled}}]);
+            u.addSkill(9701, 1);
+            f.processUnit(u, {cmd: FightCmdEnum.skill, skill: 9701, target: v.uid});
+            const hp = field === "blood" ? 54 : field === "dback" ? 46 : 43;
+            assert.equal(u.getHp(), enabled ? hp : 50, `${field}=${enabled}`);
+            assert.equal(v.getHp(), 80);
+        }
+    }
+});
 
 // 测试：死亡玩家和召唤物可提交、取消并重新提交网络指令。
 test("regression: dead players and summons submit, cancel and resubmit network input", async () => {

@@ -1,6 +1,5 @@
 import { BaseAttack, FinalAttack } from "../FightAttr";
-import { IdLevelRand, IdRand, SelectParam } from "../struct";
-import { SkillCost } from "./FightSkill";
+import { IdLevelRand, IdRand, SelectParam, SkillCost } from "../struct";
 
 //表格化数据
 export interface SkillData {
@@ -23,6 +22,9 @@ export interface SkillData {
     finalLevel?: Partial<FinalAttack>; // 升级的加成
 
     cost?: SkillCost;   // 消耗
+    attackRate?: number; // 单位攻击力倍率，默认 1；先缩放单位 attack，再加技能固定值及等级成长
+    damageRate?: number; // 最终伤害倍率，默认 1，应用于 onHurt 前
+    afterSelfBuff?: IdLevelRand[]; // 当前技能及后续链结束后给自身添加 [Buff ID, 等级, 概率]
 
     // 溅射的skill， 比如有的溅射不减伤，就自己写skill
     spread?: number;
@@ -39,6 +41,10 @@ export interface SkillData {
     removeBuffNum?:  number;
 
     tags?: string[];
+
+    blood?: boolean; //允许吸血
+    dback?: boolean; //允许受到反伤
+    fback?: boolean; //允许触发目标反击
 
     power?: number; //removeBuff用到， 低power不能移除高power的buff
 }

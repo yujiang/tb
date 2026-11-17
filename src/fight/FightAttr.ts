@@ -16,9 +16,9 @@ export interface BaseAttack {
     hurtAnti: number;       //减伤
     hurtPAnti: number;      //减伤比
 
-    critP: number;           //暴击率
+    critP: number;           //暴击率，比例值：0.2 表示 20%
     critDeep: number;        //暴击增伤
-    critPAnit: number;       //暴击减免
+    critPAnit: number;       //暴击率减免，与 critP 同为比例值
     critDeepAnit: number;    //暴击增伤
 }
 

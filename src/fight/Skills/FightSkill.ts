@@ -1,18 +1,11 @@
 // 战斗技能
 
-import { Fight } from "../Fight";
+import { Fight, FightContex } from "../Fight";
 import { BaseAttack, FinalAttack } from "../FightAttr";
 import { FightUnit } from "../Unit/FightUnit";
-import { calcAttack, calcHurt, mergeTable, mergeTableLevel } from "./Calc";
-import { FightContex } from "./NormalAttack";
+import { calcAttack, calcHurt, mergeTableLevel } from "./Calc";
 import { getSkillData, SkillData } from "./SkillDatas";
-
-
-export interface SkillCost {
-    hp?: number;
-    mp?: number;
-}
-
+import { strict as assert } from "node:assert";
 
 
 export class FightSkill {
@@ -22,11 +15,11 @@ export class FightSkill {
         this.xls = xls;
         this.level = level;
         // 未与单位属性合并的技能（周期 Buff、复活、普攻）也能直接读取等级数值。
-        this.attack = mergeTableLevel({
+        this.attack = this.mergeAttackData({
             property: 0, rand: 0, hit: 0, dodge: 0, attack: 0, defend: 0,
             hurt: 0, hurtP: 0, hurtAnti: 0, hurtPAnti: 0,
             critP: 0, critPAnit: 0, critDeep: 0, critDeepAnit: 0,
-        }, xls.attack, xls.attackLevel, level);
+        });
         this.final = mergeTableLevel({bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0},
             xls.final, xls.finalLevel, level);
     }
@@ -39,13 +32,13 @@ export class FightSkill {
         return this.xls.tags?.indexOf(tag) >= 0;
     }
     canBlood(){
-        return this.hasTag("blood");
+        return this.xls.blood ?? false;
     }
     canDBack(){
-        return this.hasTag("dback");
+        return this.xls.dback ?? false;
     }
     canFBack(){
-        return this.hasTag("fback");
+        return this.xls.fback ?? false;
     }
 
     getXls() {
@@ -119,7 +112,9 @@ export class FightSkill {
     calcHurt(f: Fight, defender: FightUnit, ctx: FightContex){
         const ismagic = this.isMagic();
         const dft = ismagic ? defender.attr.magic  : defender.attr.physic;
-        return calcHurt(f, this.getAttack(), dft.base, this.getFinal(), dft.final, ctx);
+        const rate = this.xls.damageRate ?? 1;
+        assert.ok(Number.isFinite(rate) && rate >= 0, "damageRate must be finite and nonnegative");
+        return calcHurt(f, this.getAttack(), dft.base, this.getFinal(), dft.final, ctx) * rate;
     }
 
     calcAttack(f: Fight, defender: FightUnit, ctx: FightContex){
@@ -130,8 +125,15 @@ export class FightSkill {
     // 动态的才调用
     mergeAttack(attack: BaseAttack, final: FinalAttack){
         // 每次由单位属性与原始配置重算，避免重复合并时累计等级成长。
-        this.attack = mergeTableLevel(attack, this.xls.attack, this.xls.attackLevel, this.level);
+        this.attack = this.mergeAttackData(attack);
         this.final = mergeTableLevel(final, this.xls.final, this.xls.finalLevel, this.level);
+    }
+
+    protected mergeAttackData(attack: BaseAttack): BaseAttack {
+        const rate = this.xls.attackRate ?? 1;
+        assert.ok(Number.isFinite(rate) && rate >= 0, "attackRate must be finite and nonnegative");
+        const unitAttack = { ...attack, attack: attack.attack * rate };
+        return mergeTableLevel(unitAttack, this.xls.attack, this.xls.attackLevel, this.level);
     }
 
     attack: BaseAttack;

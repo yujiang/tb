@@ -1,37 +1,11 @@
 // 普通攻击
-import { Fight } from "../Fight";
-import { BaseAttack, FightTypeAttr, FinalAttack } from "../FightAttr";
-import { FightUnit } from "../Unit/FightUnit";
-import { FightSkill, } from "./FightSkill";
-import { magicAttackFunc} from "./NomalSkill";
-import { SkillData } from "./SkillDatas";
 
-export type fightMsg = [string, ...any[]];
-
-// 上下文, 因为反击,连击, 需要回溯堆栈来得到上下文
-export interface FightContex {
-    fight: Fight;
-    attack: FightUnit;
-    defend: FightUnit;    
-    
-    msgs: fightMsg[];
-    effects: string[];
-
-    //miss?: boolean; // 是否闪避  
-    //crit?: boolean; // 是否暴击
-    
-    damage?: number; // 伤害值
-
-    killNum?: number; // 追击次数
-    nextNum?: number; // 追击次数
-    fbackNum?: number; // 反击次数
-    dbackNum?: number; // 反震次数
-    reactionSteps?: number; // 单次动作共享的结算预算，防止回调无限触发
-}
-
-export function initFightContex(f:Fight) : FightContex{
-    return { fight: f, attack: null, defend: null, msgs: [], effects: []}
-}
+import { FightContex } from "../../Fight";
+import { FightTypeAttr, BaseAttack, FinalAttack } from "../../FightAttr";
+import { FightUnit } from "../../Unit/FightUnit";
+import { FightSkill } from "../FightSkill";
+import { SkillData } from "../SkillDatas";
+import { magicAttackFunc } from "./NomalSkill";
 
 // const AttackBaseRand = {
 //     next : 0,

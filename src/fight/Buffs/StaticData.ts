@@ -6,6 +6,7 @@ export interface StaticData {
     desc: string;
  
     status: string[];       //封印，沉默，禁疗等
+    // tags一般作为数据的逻辑，而不要作为程序的逻辑。
     tags: string[];         //增益，减益，封印，毒 ... speed, attack.....  
 
     magic: boolean;

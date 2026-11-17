@@ -1,8 +1,7 @@
-import { Fight} from "../Fight";
-import { FightContex } from "../Skills/NormalAttack";
+import { Fight, FightContex} from "../Fight";
 import { FightAttr } from "../FightAttr";
-import { DiedSelectEnum, FightCmdEnum, FightDisplay, FightInput, FightSideEnum, IdLevelArray, IdRand } from "../struct";
-import { FightSkill, SkillCost } from "../Skills/FightSkill";
+import { DiedSelectEnum, FightCmdEnum, FightDisplay, FightInput, FightSideEnum, IdLevelArray, IdRand, SkillCost } from "../struct";
+import { FightSkill } from "../Skills/FightSkill";
 import { getSkillData } from "../Skills/SkillDatas";
 import { createBuff, FightBuff} from "../Buffs/FightBuff";
 import { findForbidStatusByAction } from "../Buffs/FightStatus";
@@ -10,6 +9,7 @@ import { FightUnitEvent, OverlapEnum } from "../Buffs/BuffDatas";
 import { createPassiveSkills, PassiveSkill } from "../Buffs/PassiveSkill";
 import { calcAttr } from "../Skills/Calc";
 import EventEmitter from "node:events";
+import { OrderedEventEmitter } from "../../public/OrderedEventEmitter";
 
 export enum UnitType{
     user,
@@ -19,6 +19,27 @@ export enum UnitType{
 
 export type UnitEventFunc = (unit: FightUnit, ...args: any[]) => void;
 export type UnitContextEventFunc = (unit: FightUnit, ctx:FightContex, ...args: any[]) => void;
+
+// 每次受伤独立创建，后续监听读取前一个监听修改后的伤害。
+export interface HurtOptions {
+    magic?: boolean;
+    reflected?: boolean; // 已反射的伤害不再次反射
+}
+
+export interface PendingHurt extends HurtOptions {
+    damage: number;
+    cancelled?: boolean;
+}
+
+export interface HealOptions {
+    reflected?: boolean;
+    revive?: boolean; // 复活恢复生命，不参与治疗转移，避免存活单位为 0 血
+}
+
+export interface PendingHeal extends HealOptions {
+    heal: number;
+    cancelled?: boolean;
+}
 
 
 // 战斗单元
@@ -80,12 +101,15 @@ export abstract class FightUnit {
     
     
     minHp = 0; //boss锁血         
-    onHurt(attacker: FightUnit, why: string, hp: number, ctx:FightContex){
+    onHurt(attacker: FightUnit, why: string, hp: number, ctx:FightContex, options: HurtOptions = {}){
         if (this.isDied()) return 0;
         if (this.isDefend()) {
             hp *= 0.5;
         }     
-        hp = Math.min(this.getHp(), Math.max(0, Math.floor(hp)));
+        const pending: PendingHurt = { ...options, damage: hp };
+        this.emitContext("beforeHurt", ctx, attacker, pending);
+        if (pending.cancelled || this.isDied()) return 0;
+        hp = Math.min(this.getHp(), Math.max(0, Math.floor(pending.damage)));
 
         const point = this.attr.point;
         point.hp -= hp;
@@ -121,8 +145,11 @@ export abstract class FightUnit {
         return arr.slice(0, num).map((v) => v[0]);
     }
         
-    onHeal(attacker: FightUnit, why: string, hp: number, ctx:FightContex){
-        hp = Math.floor(hp);
+    onHeal(attacker: FightUnit, why: string, hp: number, ctx:FightContex, options: HealOptions = {}){
+        const pending: PendingHeal = { ...options, heal: hp };
+        this.emitContext("beforeHeal", ctx, attacker, pending);
+        if (pending.cancelled) return;
+        hp = Math.floor(pending.heal);
 
         const point = this.attr.point;
         ctx.msgs.push(["heal", why, this.uid, attacker.uid, hp, point.hp, ctx.effects])
@@ -132,7 +159,9 @@ export abstract class FightUnit {
     }
 
     emitter = new EventEmitter();
+    readonly contextEmitter = new OrderedEventEmitter<FightUnitEvent>();
     emitContext(event: FightUnitEvent, ctx:FightContex, ...args: any[]){
+        this.contextEmitter.emit(event, this, ctx, ...args);
         this.emitter.emit(event, this, ctx, ...args);
         this.fight?.emitUnitEvent(event, this, ctx, ...args);
     }
@@ -145,14 +174,14 @@ export abstract class FightUnit {
     on(event: FightUnitEvent, listener: UnitEventFunc) {
         this.emitter.on(event, listener);
     }
-    onContex(event: FightUnitEvent, listener: UnitContextEventFunc) {
-        this.emitter.on(event, listener);
+    onContex(event: FightUnitEvent, listener: UnitContextEventFunc, prior = 0) {
+        this.contextEmitter.on(event, listener, prior);
     }
     off(event: FightUnitEvent, listener: UnitEventFunc) {
         this.emitter.off(event, listener);
     }
     offContex(event: FightUnitEvent, listener: UnitContextEventFunc) {
-        this.emitter.off(event, listener);
+        this.contextEmitter.off(event, listener);
     }    
 
 
@@ -182,15 +211,16 @@ export abstract class FightUnit {
         return this.dead;
     }
     onDie(attacker: FightUnit, why: string, ctx:FightContex){
-        this.die();
+        this.die(ctx);
         this.emitContext("die", ctx, attacker, why);
     }
-    die() {
+    die(ctx?: FightContex) {
         this.dead = true;
-        this.clearBuffByDie();
+        this.clearBuffByDie(ctx);
     }
     onRelife(attacker: FightUnit, why: string, ctx:FightContex){
         this.relife();
+        ctx.msgs.push(["relife", this.uid]);
         this.emitContext("relife", ctx, attacker, why);
     }
     relife(){
@@ -230,7 +260,9 @@ export abstract class FightUnit {
         this.onBuffTurn(turn, false, ctx);
     }
     // 回合后处理, dead...
-    processAfterTurn(turn: number, ctx: FightContex){}
+    processAfterTurn(turn: number, ctx: FightContex){
+        this.emitContext("afterTurn", ctx, turn);
+    }
     processOneTurn(turn: number){
         if (this.isDied()) return;
         const input = this.input || {cmd: FightCmdEnum.none};
@@ -304,12 +336,16 @@ export abstract class FightUnit {
 
     //buff status and forbid
     buffs = new Map<number,FightBuff>();
-    clearBuffByDie(){
+    getActionBlockBuff(): FightBuff | undefined {
+        return [...this.buffs.values()].find(buff => buff.blocksAction());
+    }
+    clearBuffByDie(ctx?: FightContex){
         const removed = Array.from(this.buffs.values()).filter((v) => v.canRemoveByDie());
         // this.buffs.clear();
         for (const buff of removed){
             buff.onRemoved(this);
             this.buffs.delete(buff.getId());
+            if (ctx) ctx.msgs.push(["removeBuff", "die", this.uid, this.uid, buff.getId(), buff.getXls().name]);
         }
         this.onBuffChanged("clear", removed);
     }
@@ -435,7 +471,8 @@ export abstract class FightUnit {
         this.buffs.set(b.getId(), b);
         b.onAdded(this);
         if (ctx) {
-            ctx.msgs.push(["addBuff", why, this.uid, attacker.uid, buff, lv])
+            // 附带本次新增实例的展示数据；隐藏 Buff 使用 null，不要求客户端读取配置。
+            ctx.msgs.push(["addBuff", why, this.uid, attacker.uid, buff, lv, b.getDisplayMsg() ?? null, b.getXls().name])
             this.emitContext("addBuff", ctx, attacker, why, b);
         }
         return b;
@@ -476,7 +513,7 @@ export abstract class FightUnit {
     private finishRemoveBuff(attacker: FightUnit, why: string, buf: FightBuff, ctx: FightContex): FightBuff {
         const buff = buf.getId();
         this.deleteBuff(buf);
-        ctx.msgs.push(["removeBuff", why, this.uid, attacker.uid, buff])
+        ctx.msgs.push(["removeBuff", why, this.uid, attacker.uid, buff, buf.getXls().name])
         this.emitContext("removeBuff", ctx, attacker, why, buf);
         return buf;
     }
@@ -494,6 +531,23 @@ export abstract class FightUnit {
         return rts;
     }
 
+    getUnitMsg(){
+        const buffs = Array.from(this.buffs.values()).map(b => b.getDisplayMsg()).filter(b => b);
+        const buffNames: Record<number, string> = {};
+        for (const buff of this.buffs.values()) {
+            if (!buff.notDisplay()) buffNames[buff.getId()] = buff.getXls().name;
+        }
+        return {
+            uid: this.uid, 
+            pos: this.pos,
+            dead: this.dead,
+            display: structuredClone(this.display),
+            point: {...this.attr.getPointAttr()},
+            // 被动技能不传输，但是buff要传
+            buffs,
+            buffNames,
+        }
+    }
 }
 
 // descend降序

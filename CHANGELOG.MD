@@ -29,3 +29,11 @@
 1. buff添加了无法remove的tag
 2. 被动技能可能为fightunit添加buff
 3. 补充5个标签及被动初始化测试；修复nodie判断反向、初始化访问未绑定fight、被动Buff属性未重算和noremove阻止自然过期。完整80个测试通过。
+
+# 0.1.0
+1. 程序的逻辑不再用hasTag, tags一般用在数据的逻辑。
+
+# 0.1.1
+1. 添加了几种特殊的buff
+2. 并且因此完善了buff的机制
+3. 完成了fightClient用于check， fightReport用于看简报

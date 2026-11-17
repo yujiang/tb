@@ -1,17 +1,17 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { Fight } from "../../src/fight/Fight";
-import { BaseAttack, FightAttr } from "../../src/fight/FightAttr";
-import { FightSide } from "../../src/fight/FightSide";
-import { BuffData, initBuffs, OverlapEnum } from "../../src/fight/Buffs/BuffDatas";
-import { MAX_POWER } from "../../src/fight/Buffs/FightBuff";
-import { initFightContex } from "../../src/fight/Skills/NormalAttack";
-import { initSkills, SkillData } from "../../src/fight/Skills/SkillDatas";
-import { FightSkill } from "../../src/fight/Skills/FightSkill";
-import { mergeTableLevel } from "../../src/fight/Skills/Calc";
-import { initPassives, PassiveData } from "../../src/fight/Buffs/PassiveDatas";
-import { FightUnitMonster } from "../../src/fight/Unit/FightUnitMonster";
-import { FightCmdEnum, TargetSelectEnum } from "../../src/fight/struct";
+import { Fight } from "../../../src/fight/Fight";
+import { BaseAttack, FightAttr } from "../../../src/fight/FightAttr";
+import { FightSide } from "../../../src/fight/FightSide";
+import { BuffData, initBuffs, OverlapEnum } from "../../../src/fight/Buffs/BuffDatas";
+import { MAX_POWER } from "../../../src/fight/Buffs/FightBuff";
+import { initFightContex } from "../../../src/fight/Fight";
+import { initSkills, SkillData } from "../../../src/fight/Skills/SkillDatas";
+import { FightSkill } from "../../../src/fight/Skills/FightSkill";
+import { mergeTableLevel } from "../../../src/fight/Skills/Calc";
+import { initPassives, PassiveData } from "../../../src/fight/Buffs/PassiveDatas";
+import { FightUnitMonster } from "../../../src/fight/Unit/FightUnitMonster";
+import { FightCmdEnum, TargetSelectEnum } from "../../../src/fight/struct";
 
 function attackData(attack = 0): BaseAttack {
     return {
@@ -135,7 +135,7 @@ test("type 4: damage reduction protects three hits then disappears", () => {
         assert.equal(!!defender.findBuff(9304), hit < 3);
     }
     assert.equal(defender.attr.physic.final.immunityP, 0);
-    assert.equal(defender.emitter.listenerCount("hurt"), 0);
+    assert.equal(defender.contextEmitter.listenerCount("hurt"), 0);
     attack();
     assert.equal(defender.getHp(), 50);
 });
@@ -223,7 +223,7 @@ test("high-power buffs still expire on turns and exhausted charges", () => {
     defender.addBuff(attacker, "test", 9441, 1, ctx);
     defender.onHurt(attacker, "test", 1, ctx);
     assert.equal(defender.findBuff(9441), undefined);
-    assert.equal(defender.emitter.listenerCount("hurt"), 0);
+    assert.equal(defender.contextEmitter.listenerCount("hurt"), 0);
 });
 
 // 测试：非法驱散强度不能绕过 power 比较或产生移除事件。
@@ -240,7 +240,7 @@ test("NaN removal power cannot bypass buff protection", () => {
 test("skill lifesteal growth affects actual healing", () => {
     const {fight, attacker, defender} = setup();
     attacker.attr.point.hp = 50;
-    initSkills([{id: 9450, name: "成长吸血", magic: true, rand: 1, tags: ["blood"],
+    initSkills([{id: 9450, name: "成长吸血", magic: true, rand: 1, blood: true,
         sel: {target: TargetSelectEnum.enmey}, attack: {}, final: {}, finalLevel: {bloodP: 0.1}}]);
     attacker.addSkill(9450, 2);
     fight.processUnit(attacker, {cmd: FightCmdEnum.skill, skill: 9450, target: defender.uid});
@@ -249,9 +249,9 @@ test("skill lifesteal growth affects actual healing", () => {
 });
 
 // 测试：不可驱散 Buff 拒绝按编号、批量及标签移除，但不占用可驱散数量。
-test("noremove blocks every dispel path without wasting tag removal slots", () => {
+test("notRemove blocks every dispel path without wasting tag removal slots", () => {
     const {attacker, defender, ctx} = setup();
-    initBuffs([buff(9501, {tags: ["noremove", "增益"], attack: {attack: 10}}),
+    initBuffs([buff(9501, {notRemove: true, tags: ["增益"], attack: {attack: 10}}),
         buff(9502, {tags: ["增益"], attack: {attack: 5}})]);
     const protectedBuff = defender.addBuff(attacker, "test", 9501, 1, ctx);
     const removable = defender.addBuff(attacker, "test", 9502, 1, ctx);
@@ -262,26 +262,26 @@ test("noremove blocks every dispel path without wasting tag removal slots", () =
     assert.equal(defender.attr.physic.base.attack, 30);
 });
 
-// 测试：死亡只保留带 nodie 的 Buff；noremove 本身不提供死亡保留能力。
-test("death retains nodie buffs and removes ordinary and noremove-only buffs", () => {
+// 测试：死亡只保留带 dieNotRemove 的 Buff；notRemove 本身不提供死亡保留能力。
+test("death retains dieNotRemove buffs and removes ordinary and notRemove-only buffs", () => {
     const {attacker, defender, ctx} = setup();
     initBuffs([buff(9503, {times: 2, attack: {attack: 3}}),
-        buff(9504, {tags: ["noremove"], times: 2, attack: {attack: 4}}),
-        buff(9505, {tags: ["nodie", "noremove"], times: 2, attack: {attack: 5}})]);
+        buff(9504, {notRemove: true, times: 2, attack: {attack: 4}}),
+        buff(9505, {dieNotRemove: true, notRemove: true, times: 2, attack: {attack: 5}})]);
     for (const id of [9503, 9504, 9505]) defender.addBuff(attacker, "test", id, 1, ctx);
     defender.die();
     assert.deepEqual([...defender.buffs.keys()], [9505]);
     assert.equal(defender.attr.physic.base.attack, 25);
-    assert.equal(defender.emitter.listenerCount("hurt"), 1);
+    assert.equal(defender.contextEmitter.listenerCount("hurt"), 1);
     defender.relife();
     assert.equal(defender.attr.physic.base.attack, 25);
 });
 
 // 测试：不可驱散不妨碍持续时间结束或次数耗尽时自然移除。
-test("noremove buffs naturally expire by duration and charges", () => {
+test("notRemove buffs naturally expire by duration and charges", () => {
     const {attacker, defender, ctx} = setup();
-    initBuffs([buff(9506, {tags: ["noremove"], lastTurn: 1, attack: {attack: 3}}),
-        buff(9507, {tags: ["noremove"], times: 1, attack: {attack: 4}})]);
+    initBuffs([buff(9506, {notRemove: true, lastTurn: 1, attack: {attack: 3}}),
+        buff(9507, {notRemove: true, times: 1, attack: {attack: 4}})]);
     defender.addBuff(attacker, "test", 9506, 1, ctx);
     defender.processBeforeTurn(1, ctx);
     assert.equal(defender.findBuff(9506), undefined);
@@ -289,7 +289,7 @@ test("noremove buffs naturally expire by duration and charges", () => {
     defender.onHurt(attacker, "test", 1, ctx);
     assert.equal(defender.findBuff(9507), undefined);
     assert.equal(defender.attr.physic.base.attack, 20);
-    assert.equal(defender.emitter.listenerCount("hurt"), 0);
+    assert.equal(defender.contextEmitter.listenerCount("hurt"), 0);
 });
 
 function passive(id: number, extra: Partial<PassiveData>): PassiveData {
@@ -306,7 +306,7 @@ test("passive grants leveled buffs during construction before fight binding", ()
     assert.equal(unit.findBuff(9510)?.attacker, unit);
     assert.equal(unit.attr.physic.base.attack, 35);
     assert.equal(unit.attrOri.physic.base.attack, 20);
-    assert.equal(unit.emitter.listenerCount("hurt"), 1);
+    assert.equal(unit.contextEmitter.listenerCount("hurt"), 1);
 });
 
 // 测试：已有单位通过被动添加 Buff 后立即更新属性，且遵守不叠加规则。
@@ -316,5 +316,30 @@ test("passive buff additions update current attributes without duplicate listene
     defender.addBuffsByPassiveSkill([[9512, 1]]);
     defender.addBuffsByPassiveSkill([[9512, 1]]);
     assert.equal(defender.attr.physic.base.attack, 25);
-    assert.equal(defender.emitter.listenerCount("hurt"), 1);
+    assert.equal(defender.contextEmitter.listenerCount("hurt"), 1);
+});
+
+// 测试：隐藏 Buff 不出现在单位展示数据中，但属性效果仍然生效。
+test("notDisplay hides buff display data while preserving its effects", () => {
+    const {attacker, defender, ctx} = setup();
+    initBuffs([buff(9530, {notDisplay: true, attack: {attack: 10}}),
+        buff(9531, {}), buff(9532, {notDisplay: false})]);
+    for (const id of [9530, 9531, 9532]) defender.addBuff(attacker, "test", id, 2, ctx);
+    assert.equal(defender.findBuff(9530)?.getDisplayMsg(), undefined);
+    assert.deepEqual(defender.getUnitMsg().buffs.map(b => b[0]), [9531, 9532]);
+    assert.equal(defender.attr.physic.base.attack, 30);
+    assert.equal(defender.buffs.size, 3);
+});
+
+// 测试：显示、驱散和死亡保留字段相互独立，显式 false 不启用保护。
+test("display and removal fields are independent and false keeps default behavior", () => {
+    const {attacker, defender, ctx} = setup();
+    initBuffs([buff(9533, {notDisplay: true, notRemove: false, dieNotRemove: false}),
+        buff(9534, {notRemove: true, dieNotRemove: true, notDisplay: false})]);
+    defender.addBuff(attacker, "test", 9533, 1, ctx);
+    defender.addBuff(attacker, "test", 9534, 1, ctx);
+    assert.ok(defender.removeBuff(attacker, "驱散隐藏效果", 9533, 1, ctx));
+    assert.equal(defender.removeBuff(attacker, "驱散保护效果", 9534, 99, ctx), undefined);
+    defender.die();
+    assert.deepEqual(defender.getUnitMsg().buffs.map(b => b[0]), [9534]);
 });

@@ -1,0 +1,78 @@
+import { strict as assert } from "node:assert";
+import { test } from "node:test";
+import { initFightContex, initBuffs, getBuffData, FightCmdEnum, FightResultEnum } from "../../../src";
+import { setupChain, chainIds as ids } from "../../fixtures/skill_chain";
+
+test("rest: next turn skips attacks, skills and defense, then expires after the full turn", () => {
+    const { fight, actor, target, loop, cast, flush, report } = setupChain();
+    cast();
+    const firstEnd = initFightContex(fight);
+    loop.processAfterTurn(1, firstEnd); flush(firstEnd);
+    assert.ok(actor.findBuff(ids.rest));
+    loop.nextTurn();
+    const before = initFightContex(fight);
+    loop.processBeforeTurn(2, before); actor.inputStart(2, before); flush(before);
+    assert.ok(actor.findBuff(ids.rest));
+    const hp = target.getHp(), mp = actor.attr.point.mp;
+    let samples = 0;
+    fight.random = () => { samples++; return 0.99; };
+    for (const input of [{ cmd: FightCmdEnum.attack, target: target.uid },
+        { cmd: FightCmdEnum.skill, skill: ids.first, target: target.uid }, { cmd: FightCmdEnum.defend }]) {
+        const ctx = fight.processUnit(actor, input);
+        assert.ok(ctx);
+        assert.ok(ctx.msgs.some(msg => msg[0] === "skipAction"));
+        flush(ctx);
+    }
+    assert.equal(actor.isDefend(), false);
+    assert.equal(target.getHp(), hp);
+    assert.equal(actor.attr.point.mp, mp);
+    assert.equal(samples, 0);
+    const secondEnd = initFightContex(fight);
+    loop.processAfterTurn(2, secondEnd); flush(secondEnd);
+    assert.equal(actor.findBuff(ids.rest), undefined);
+    loop.nextTurn();
+    const resumed = fight.processUnit(actor, { cmd: FightCmdEnum.attack, target: target.uid });
+    assert.ok(resumed); flush(resumed);
+    assert.ok(target.getHp() < hp);
+    assert.match(report.toString(), /\[休息\].*跳过行动/);
+});
+
+test("rest: controlled resting units still submit inputs normally", async () => {
+    const { fight, actor, target, loop, cast } = setupChain();
+    cast(); loop.nextTurn();
+    const wait = loop.waitInput(fight.turn, initFightContex(fight));
+    loop.onInput(actor.uid, { turn: fight.turn, cmd: FightCmdEnum.attack, target: target.uid });
+    assert.equal(await wait, 1);
+    const ctx = fight.processUnit(actor, actor.input);
+    assert.ok(ctx?.msgs.some(msg => msg[0] === "skipAction"));
+});
+
+test("rest: replacement, dispel and death unregister after-turn listeners", () => {
+    const { fight, actor, target, flush } = setupChain({ rootSelfBuff: false });
+    initBuffs([{ ...getBuffData(ids.rest), notRemove: false }]);
+    const ctx = initFightContex(fight);
+    const first = actor.addBuff(actor, "test", ids.rest, 1, ctx);
+    actor.addBuff(actor, "replace", ids.rest, 2, ctx);
+    assert.notEqual(actor.findBuff(ids.rest), first);
+    assert.equal(actor.contextEmitter.listenerCount("afterTurn"), 1);
+    actor.removeBuff(actor, "dispel", ids.rest, 99, ctx);
+    assert.equal(actor.contextEmitter.listenerCount("afterTurn"), 0);
+    actor.addBuff(actor, "test", ids.rest, 1, ctx);
+    fight.resolveAction(() => actor.onHurt(target, "test", 10000, ctx));
+    assert.equal(actor.findBuff(ids.rest), undefined);
+    assert.equal(actor.contextEmitter.listenerCount("afterTurn"), 0);
+    flush(ctx);
+});
+
+test("rest: duration zero does not expire and ended battles do not emit skip actions", () => {
+    const { fight, actor, loop, flush } = setupChain({ rootSelfBuff: false });
+    initBuffs([{ ...getBuffData(ids.rest), lastTurn: 0 }]);
+    const ctx = initFightContex(fight);
+    actor.addBuff(actor, "test", ids.rest, 1, ctx);
+    flush(ctx); ctx.msgs.length = 0;
+    loop.processAfterTurn(1, ctx); loop.nextTurn(); loop.processAfterTurn(2, ctx);
+    assert.ok(actor.findBuff(ids.rest));
+    flush(ctx);
+    fight.win = FightResultEnum.attack;
+    assert.equal(fight.processUnit(actor, { cmd: FightCmdEnum.attack }), undefined);
+});

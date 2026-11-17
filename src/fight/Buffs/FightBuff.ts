@@ -1,6 +1,6 @@
-import { FightContex } from "../Skills/NormalAttack";
+import { FightContex } from "../Fight";
 import { FightUnit, UnitContextEventFunc, UnitEventFunc } from "../Unit/FightUnit";
-import { BuffData, getBuffData } from "./BuffDatas";
+import { BuffData } from "./BuffDatas";
 import { buffFunc } from "./BuffFuncType";
 import { FightStatic } from "./StaticData";
 
@@ -38,7 +38,7 @@ export class FightBuff extends FightStatic{
     onAdded(unit: FightUnit){
         if (this.xls.event && this.times > 0){
             const func = this.onEvent.bind(this)
-            unit.onContex(this.xls.event, func);
+            unit.onContex(this.xls.event, func, this.xls.prior ?? 0);
             this.func = func;
         }
     }
@@ -64,6 +64,15 @@ export class FightBuff extends FightStatic{
 
     getFunc() {
         return this.xls.func;
+    }
+
+    // 特殊目标约束由具体 Buff 提供，普通 Buff 不改变目标。
+    getTauntTarget(): FightUnit | undefined {
+        return undefined;
+    }
+
+    blocksAction(): boolean {
+        return false;
     }
 
     // onTurn(turn: number){
@@ -93,20 +102,24 @@ export class FightBuff extends FightStatic{
 
     // 武器装备的buf可能死亡也需要保留
     canRemoveByDie(){
-        return !this.hasTag("nodie");
+        return !this.xls.dieNotRemove;
     }
 
     // 被动技能的无法remove
     canRemove(power: number){
-        if (this.hasTag("noremove")) return false;
+        if (this.xls.notRemove) return false;
         return power >= this.getPower();
     }
 
+    notDisplay(){
+        return this.xls.notDisplay;
+    }
+
+    getDisplayMsg(){
+        if (this.notDisplay()) return;
+        return [this.getId(), this.level, this.start, this.lastTurn];
+    }
 }
 
-export function createBuff(attacker: FightUnit, buff: number, lv: number, turn: number, inputTurn: number){
-    const xls = getBuffData(buff);
-    if (!xls) return null;
-    const t = xls.useInputTurn ? inputTurn : turn;
-    return new FightBuff(xls, lv, attacker, t);
-}
+// 具体子类的创建集中到工厂，这里保留原有导出路径。
+export { createBuff } from "./BuffFactory";

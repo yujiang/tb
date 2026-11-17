@@ -4,6 +4,8 @@ import { initSkills, SkillData } from '../../src/fight/Skills/SkillDatas';
 import { MapShapeEnum, SelectParam, TargetSelectEnum } from '../../src/fight/struct';
 import { FightUnitMonster } from '../../src/fight/Unit/FightUnitMonster';
 import { createFightAndSide } from './help';
+import { FightClient } from '../../src/fight/Client/FightClient';
+import { FightReport } from '../../src/fight/Client/FightReport';
 
 const sel : SelectParam = {
     target: TargetSelectEnum.enmey,
@@ -40,20 +42,20 @@ const normalSkill:SkillData = {
     name: "普通魔法",
     magic: true,
     sel:{target: TargetSelectEnum.enmey,},
-    rand: 0.8,
+    rand: 1,
 
     cost : {mp: 10},
 
     attack: baseAttack(20),
     final: finalAttack,
-    tags: ["blood"],
+    blood: true,
 }
 
 const healSkill:SkillData = {
     id: 2,
     name: "治疗",
     magic: true,
-    sel:{target: TargetSelectEnum.friend, num: 3},
+    sel:{target: TargetSelectEnum.friend, sortAttr: "hp", num: 3},
     func: "heal",
 
     rand: 1,
@@ -112,6 +114,12 @@ async function run(){
 
     const loop = new FightLoopWest(fight);
     fight.xls.waitInputSec = 1;
+
+    const client = new FightClient();
+    client.bindFightLoop(loop);
+    const report = new FightReport();
+    report.bindFightLoop(loop);
+   
     const win = await loop.run();
     
     // 大概率0win， 因为用了技能有加成

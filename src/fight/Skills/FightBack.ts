@@ -1,7 +1,7 @@
+import { FightContex } from "../Fight";
 import { FightUnit } from "../Unit/FightUnit";
 import { FightSkill } from "./FightSkill";
-import { magicAttackFunc } from "./NomalSkill";
-import { FightContex } from "./NormalAttack";
+import { magicAttackFunc } from "./Funcs/NomalSkill";
 import { SkillData } from "./SkillDatas";
 
 // 优先用装备的技能反击，最后采用attackBack
@@ -41,7 +41,7 @@ class MagicFBackSkill extends FightSkill {
 // 物理反击
 function attackFback(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
     const skill = new PhysicFBackSkill(attacker);
-    return magicAttackFunc(attacker, defender, skill, ctx);
+    return magicAttackFunc(attacker, defender, skill, ctx, "fback");
 }
 
 export function skillFBack(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
@@ -51,7 +51,7 @@ export function skillFBack(attacker: FightUnit, defender: FightUnit, skill:Fight
     const ft = skill.isMagic() ? attacker.attr.magic : attacker.attr.physic;
     magic.mergeAttack(ft.fback, ft.final);
 
-    return magicAttackFunc(attacker, defender, magic, ctx);
+    return magicAttackFunc(attacker, defender, magic, ctx, "fback");
 }
 
 export function tryFBack(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
@@ -81,6 +81,6 @@ export function tryDBack(attacker: FightUnit, defender: FightUnit, magic: boolea
         defender.attr.physic.final.dbackP ;
      if (p > 0) {
         damage *= p;
-        attacker.onHurt(defender, "dback", damage, ctx);
+        attacker.onHurt(defender, "dback", damage, ctx, { magic });
     }
 }

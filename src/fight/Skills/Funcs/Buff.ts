@@ -1,9 +1,9 @@
 
 // 没有伤害的
 
-import { FightUnit } from "../Unit/FightUnit";
-import { FightSkill } from "./FightSkill";
-import { FightContex } from "./NormalAttack";
+import { FightUnit } from "../../Unit/FightUnit";
+import { FightSkill } from "../FightSkill";
+import { FightContex } from "../../Fight";
 
 export function addBuffFunc(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
     const addbuff = skill.getXls().addBuff;
@@ -31,4 +31,9 @@ export function removeBuffFunc(attacker: FightUnit, defender: FightUnit, skill:F
 export function afterHurt(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
     addBuffFunc(attacker, defender, skill, ctx);
     removeBuffFunc(attacker, defender, skill, ctx);
+}
+
+export function afterSelfBuff(attacker: FightUnit, skill: FightSkill, ctx: FightContex) {
+    const buffs = skill.getXls().afterSelfBuff;
+    if (!attacker.isDied() && buffs?.length) attacker.addBuffs(attacker, "skill", buffs, ctx);
 }

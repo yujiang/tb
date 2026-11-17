@@ -1,10 +1,10 @@
 // 治疗
 
-import { FightUnit } from "../Unit/FightUnit";
-import { attrFunc, AttrSkill } from "./AttrSkill";
+import { FightUnit } from "../../Unit/FightUnit";
+import { attrFunc, AttrSkill } from "../AttrSkill";
 import { afterHurt } from "./Buff";
-import { FightSkill } from "./FightSkill";
-import { FightContex } from "./NormalAttack";
+import { FightSkill } from "../FightSkill";
+import { FightContex } from "../../Fight";
 
 export function heal(attacker: FightUnit, defender: FightUnit, skill:AttrSkill, name: string, ctx: FightContex) {
     if (defender.inStatus("禁疗")) {

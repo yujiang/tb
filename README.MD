@@ -37,6 +37,20 @@ tb = turnbase 回合制
 
 当前 TypeScript 实现以 `Fight` 为战斗对象，`FightLoopWest` 驱动每轮收齐指令后按速度行动的流程。`FightUnit`、`FightSkill`、`FightBuff` 和 `FightMap` 分别负责单位、技能、Buff 与站位。
 
+`FightClient` 接收 `fightMsg` 或消息数组，独立保存 `fid/turn/win`、两方单位 `sides`、剩余行动顺序 `sort` 和当前行动者 `actor`，可通过 `getUnitById(id)` 查询单位。本地调试调用 `client.bindFightLoop(loop)`，会订阅循环消息，并在回合及结束消息处理后检查一致性，发现差异时抛出断言；第二个参数传 `false` 可关闭自动检查。
+
+网络接入使用 `loop.onMsg(msgs => transport.send(msgs))`，客户端收到后调用 `client.onMsg(msgs)`。`start/side` 仅用于初始化；单位展示数据包含 `uid/pos/dead/display/point/buffs/buffNames`，客户端保存独立副本，Buff 列表及名称表仅包含可见 Buff。初始化后通过伤害、治疗、费用、Buff 增删、死亡和复活消息逐步更新，不发送 `sync` 或按动作覆盖完整单位数据；空消息也不修正差异。
+
+`addBuff` 保留原有参数，并追加本次实例的展示数据 `[id, level, start, lastTurn]` 及 Buff 名称，隐藏 Buff 的展示数据为 `null`；同编号新增消息替换旧实例。死亡清理逐个发送 `removeBuff`，只移除实际清除的 Buff，移除消息在 Buff ID 后追加名称；复活发送 `["relife", uid]`，随后治疗消息更新血量。客户端无需加载技能和 Buff 配置，也不重新判定保留规则或运行结算。`checkSame(fight)` 只比较双方单位展示状态，不修复差异。直接改写服务端站位、display 或资源等字段而未发送相应消息时，客户端不会自动获知，检查应失败。
+
+`FightReport` 将同一条增量消息链转成中文简报，与 `FightClient` 可同时绑定到循环：`report.bindFightLoop(loop)`。也可直接传入单条或批量消息：`report.onMsg(msgs)`。默认逐行打印，仅治疗量数字为绿色、伤害量数字为红色、暴击伤害量数字为橙色，单位名称、其余文字和当前/剩余生命不着色；死亡整句为暗红色，复活整句为亮绿色（ANSI 颜色，着色部分结束立即复位）。`new FightReport(line => save(line), false)` 可自定义输出并关闭颜色，传入 `() => {}` 可静默收集。`report.lines` 和 `report.toString()` 始终保存不含颜色控制码的纯文本；收到新 `start` 时清空上一场简报和名称缓存。简报包含回合、行动顺序、技能、伤害、实际治疗量、费用、Buff 增删、死亡复活及胜负；技能和 Buff 用 `[名称]` 显示，同名单位通过编号区分，旧消息缺少名称时回退到编号，未知消息保留原始数据。报告不读取服务端状态，不推测未收到的动作，也不提供逻辑战斗恢复功能。
+
+未命中消息只将“未命中”三个字显示为蓝色，其他文字保持原色；每个回合标题及每条单位“行动”消息前增加一个空行，打印输出和保存文本均保留。关闭颜色时输出纯文本。
+
+普通主动攻击技能的发动概率判定失败时，发送 `["skillFailed", 行动者ID, 目标ID, 技能ID, 技能名称]`，简报显示 `[技能名称]未发动（发动概率判定失败）`，与发动后未命中的情况区分。不会因此自动改用普通攻击。
+
+攻击/未命中消息在原有四个参数后追加动作类型（`next/kill/fback` 或 `null`）及技能名称，简报对应显示 `【连击】/【追击】/【反击】`。这些字段只用于展示，不改变结算及随机抽样。运行 `npm run test:build` 后执行 `node .test-build/tests/simple/test_report_reactions.js`，可查看固定种子、两回合的完整示例：连击、追击、反击、50% 吸血和 20% 反伤，并在初始化收齐后逐批验证客户端一致性。
+
 已支持：
 
 - 两个敌对阵营、固定站位、对位及数量/横线/竖线/十字选目标。
@@ -50,6 +64,122 @@ tb = turnbase 回合制
 Buff 已支持周期回血/扣血和事件次数限制：`func` 配置 `heal` 或 `poison`，通过 `skill/skillLevel` 引用技能；`useInputTurn=false` 在全局回合前触发，`true` 按单位自己的输入次数触发。`lastTurn=3` 表示添加后的三个对应边界生效，最后一次生效后移除；`0` 不按回合过期。同一边界不重复触发。
 
 `times=3, event="hurt"` 可让属性减伤维持三次受伤，第三次仍享受减伤，随后移除。次数扣除使用带 `ctx` 的单位事件；移除、替换和死亡清理都会解绑监听。周期遍历固定本次名单，回调中新加的 Buff 下次处理，已移除或替换的旧实例跳过。
+
+带上下文的单位事件通过 `unit.onContex(event, listener, prior = 0)` 注册，回调签名仍为 `(unit, ctx, ...args)`；`prior` 为有限数值，小的先执行，支持负数，同优先级严格按注册顺序执行。Buff 配置 `prior` 控制其事件监听优先级，省略时为 `0`。`unit.offContex(event, listener)` 根据原函数解绑；重复注册同一函数时只解绑最近的一次。公开的 `OrderedEventEmitter` 提供同样的 `on/off/emit/listenerCount` 基础能力，`unit.contextEmitter.listenerCount(event)` 可检查上下文监听是否清理。
+
+每次触发固定监听实例名单：本次新增的等待下一次触发，执行前已解绑的跳过，同一函数移除后重加也不会让旧实例执行；嵌套触发独立取得当时的名单。监听同步执行，异常向外抛出并停止后续通知。普通 `on/off/emit` 仍使用 Node 的 `EventEmitter`；`emitContext` 先按优先级执行单位上下文监听，再通知普通单位监听和 `fight.onUnitEvent`，优先级不跨这三个范围排序。
+
+`beforeHurt` 在防御减伤之后、扣血及发送 `hurt` 消息之前触发，回调为 `(unit, ctx, attacker, pending: PendingHurt)`。监听可修改 `pending.damage`，后面的监听读取修改后的值；整个链结束后才向下取整并限制到当前生命值，不能先将过量伤害截断再做比例减伤。伤害对象是本次调用的局部数据，不占用反应链共享的 `ctx.damage`。普通伤害、周期扣血及反伤都会经过这个入口。
+
+`onHurt(attacker, why, amount, ctx, options?)` 的 `HurtOptions.magic` 明确标记本次是否为魔法伤害，省略按物理处理；技能、周期毒和反伤入口均传递对应类型。`PendingHurt` 还携带 `magic/reflected`，监听可以设置 `cancelled` 取消原受伤，此时原单位不发出 `hurt` 消息、不扣血、不消耗不屈，也不统计本次受伤贡献。`beforeHeal` 对应 `(unit, ctx, healer, pending: PendingHeal)`，可在向下取整及血量上限截断前修改 `pending.heal` 或设置 `cancelled`。这些信息均属于本次效果，不在共享战斗上下文中存储全局标志。
+
+Buff 配置 `class: "buqu"` 创建 `BuffBuqu`，省略 `class` 仍创建普通 `FightBuff`。不屈固定监听 `beforeHurt`，只有伤害最终会致命时才消耗一次机会，将本次伤害限制为 `当前生命 - 1`，随后自然移除 Buff、解绑监听并重算属性；非致命伤害不消耗，1 血时也可以抵挡一次致命伤害。已有 `minHp > 0` 锁血时不消耗不屈。每个单位在同一个 `Fight` 对象中只能触发一次，移除、替换、复活或重新施加均不刷新；进入新的 `Fight` 可再次触发。
+
+不屈默认 `prior: 1000`，应配置在其他伤害修改 Buff 之后；显式 `prior: 0` 有效。它固定有一次触发机会，`times` 不用于增加不屈次数；持续时间、驱散及死亡保留仍使用原有字段。被动可通过 `addbuff: [[不屈BuffID, 等级]]` 在构造时附加，不要求当时已绑定战斗。关键配置例如（其他通用字段照常填写）：
+
+```ts
+{
+    class: "buqu",
+    event: "beforeHurt",
+    prior: 1000,
+    times: 1,
+    lastTurn: 0,
+    notRemove: true,
+    dieNotRemove: true,
+}
+```
+
+不屈触发发送 `["buffTrigger", unitId, buffId, buffName, "保留 1 点生命"]`，然后发送 `removeBuff` 和实际扣血的 `hurt` 消息；客户端据此增量更新，简报显示 `[不屈]触发（保留 1 点生命）`。不发送死亡或治疗消息，吸血、反伤和贡献统计都使用实际扣血值。楚楚可怜的性别条件效果尚未实现，可通过同一 `beforeHurt` 扩展点接入。
+
+自动复活配置 `class: "relife"` 创建 `BuffRelife`。它固定监听 `die`，默认 `prior: 1000`、每场成功触发一次；`classParam` 为自身最大生命的恢复比例，省略默认 `0.2`，合法范围为数值 `(0, 1]`，恢复量向下取整且至少 1 血。必须设置 `dieNotRemove: true`，否则该 Buff 会按正常规则在死亡清理阶段移除，无法收到死亡事件。配置要点如下（其他通用字段照常填写）：
+
+```ts
+{
+    class: "relife",
+    classParam: 0.3, // 复活到自身最大生命的 30%
+    event: "die",
+    prior: 1000,
+    times: 1,
+    lastTurn: 0,
+    notRemove: true,
+    dieNotRemove: true,
+}
+```
+
+自动复活经历真实死亡：先发送 `die` 并清除普通 Buff，再触发自身，消耗并移除自动复活 Buff，随后发送 `relife` 和 `heal`。胜负仍在完整动作结束后判断，最后一个单位也能正常自复活；致命伤害按实际扣掉的全部生命统计，吸血和反伤继续结算。简报使用现有 `buffTrigger` 显示 `[名称]触发（自动复活）`，客户端只处理增量消息。
+
+`禁复活` 生效时不复活，发送 `无法复活`，且不消耗成功触发机会；状态解除并经其他方式复活后，下一次死亡仍可触发。成功后替换、重新施加和外部复活都不刷新本场机会，新的 `Fight` 可再次使用。若同时有不屈，不屈先拦截伤害，只有之后真正死亡时才消耗自动复活机会；两个机制分别计次。`notRemove`、持续时间与死亡保留字段仍按原规则处理，`times` 不用于增加自动复活次数。
+
+嘲讽配置 `class: "taunt"` 创建 `BuffTaunt`，Buff 挂在被嘲讽者身上，`buff.attacker` 是嘲讽来源。技能通过已有 `addBuff` 配置施加，或由宿主直接调用 `被嘲讽者.addBuff(嘲讽来源, 原因, BuffID, 等级, ctx)`。`tags` 只作分类，不控制嘲讽。配置要点例如（其他通用字段照常填写）：
+
+```ts
+{
+    class: "taunt",
+    prior: 0,
+    lastTurn: 2,
+    times: 0,
+    dieNotRemove: false,
+}
+```
+
+普通攻击、默认普攻及敌方技能的主动主目标受嘲讽影响：执行时自动把主目标变为有效嘲讽来源，即使原指令显式选择了另一个合法敌人，也接受指令并重定向，不因此禁止行动。提交和执行时仍校验原指令的基础合法性；原本不存在、阵营错误或不符合技能目标资格的显式目标仍拒绝。原始 `input.target` 保持不变，提交后新增、驱散嘲讽或来源状态变化，均以执行时状态决定是否重定向；没有有效嘲讽则按原指令执行。`getTauntTarget(unit, sel)` 查询当前强制目标，`isLegalTarget(unit, target, sel)` 只检查基础目标资格。多份嘲讽按 `prior` 从小到大选择第一个有效来源，同优先级按 Buff 实例添加顺序，替换实例重新排队。确定有效嘲讽目标不抽取随机数。
+
+来源必须是本场仍在场的同一个单位实例、存活的敌人，并符合当前技能的死亡过滤和对位等基础目标资格。来源死亡、离场、成为友方或不符合技能资格时忽略该来源，继续检查其他嘲讽；没有有效来源则恢复原选目标规则。普攻的自动对位可以被嘲讽覆盖，显式要求对位的技能仍只接受合乎对位的来源。手动守尸指令也会在有有效嘲讽时重定向到嘲讽者；没有有效嘲讽则照常守尸，目标仍死亡时跳过，不自动换人。治疗、自身技能、防御、取消不受嘲讽限制，群攻只重定向主目标，副目标仍走原选取规则；配置子技能若继承目标则锁定上一段实际目标，不重新嘲讽选人；重新选目标的配置子技能按其选择规则处理。普攻内置连击、追击和反击仍保留原目标规则。持续时间、驱散及死亡清理复用普通 Buff 流程，客户端和简报复用 Buff 增删及动作消息，不发送 `sync`。
+
+反射配置 `class: "reflect"` 创建 `BuffReflect`，同时监听 `beforeHurt/beforeHeal`，默认 `prior: 0`。默认只反射魔法伤害：取消自身这次扣血，把进入该监听时的伤害值交给原攻击者的 `onHurt` 结算，伤害来源记为反射者；物理伤害照常承受。反射前不按反射者当前生命截断伤害，接收者仍按自身的防御状态、伤害修改 Buff、不屈、生命上限及死亡/自动复活流程结算，不重新计算技能伤害。取消的原受伤不产生原攻击者吸血或普通反伤；反射数值不重新施放技能。原攻击者是自身、已死亡或已离场时，不转移伤害，按原流程受伤。关键配置例如：
+
+```ts
+{
+    class: "reflect",
+    classParam: { magicOnly: true }, // 默认 true；false 时魔法、物理均反射
+    prior: 0,                      // 应在不屈等最终致命伤害拦截之前
+    times: 0,                      // 不限次数；正数按实际拦截次数消耗
+    lastTurn: 2,
+}
+```
+
+收到普通治疗时，反射者不回血，治疗量在自身满血截断之前转交给随机一个存活敌人，归因于反射者；接收者仍受自身生命上限及禁疗状态约束。随机选择统一使用 `Fight.random()`，只选择一次；无存活敌人时保留原治疗，不抽样。`magicOnly` 只限制伤害，治疗始终参与转移。复活恢复生命使用 `onHeal(..., {revive: true})`，技能复活和自动复活已传递此标记，该恢复不参与转移，避免出现已经复活却仍为零血的单位。
+
+已反射的伤害或治疗携带本次效果的 `reflected: true`，不会被接收者再次反射；没有新建战斗上下文，转移使用原动作上下文并经过 `resolveAction`，仍受全局嵌套反应上限约束。`times` 为正时，伤害和治疗共用次数，物理伤害在仅反射魔法模式下不消耗；被转移到禁疗或满血目标也算一次拦截。替换、驱散、到期、次数耗尽和死亡清理都会解绑两个监听，`dieNotRemove` 等字段仍按原规则处理。客户端只接收最终目标的 `hurt/heal` 与 Buff 增删消息；简报用 `buffTrigger` 说明转移去向，并显示反射伤害/反射治疗，不使用 `sync`。
+
+配置技能的 `next/kill` 子技能可继续执行自身的配置链，各段使用各自的发动概率、吸血、反伤、反击和追击开关；只有根技能收取一次费用，子技能不重复收费，整条链共用同一个 `FightContex` 及原有的 64 次反应限制。普攻由单位属性产生的内置连击、追击仍保持单次触发，不会因扩展而自动递归。配置链循环或过长时会抛出 `Reaction limit`，不能将部分结算当作成功继续战斗。
+
+`SelectParam.inheritTarget` 默认 `false`。设为 `true` 时，子技能锁定上一段实际主目标（包含主技能嘲讽重定向后的目标），仍检查该实例是否在场、存活且满足本段目标资格；失效时停止，不自动换人。`selectMainTarget(unit, sel, previous?)` 支持传入上一段目标；要求继承却未提供目标时不自动选择。未继承时，配置子技能按自身 `sel` 的目标、排序等规则重新选择。攻击者死亡会终止链，目标死亡只执行当段显式配置的 `kill`；未配置追击时停止。反击成功仍会阻断当前段的 `next`，因此固定三连击的前两段配置 `fback: false`。
+
+`SkillData.attackRate` 是有限、非负的单位攻击力倍率，默认 `1`，显式 `0` 有效。合并公式为 `单位当前 attack × attackRate + 技能 attack.attack + attackLevel.attack × level`：只缩放单位的 `attack` 数值，不缩放命中、暴击、伤害加成等其他字段，也不缩放技能固定加成和成长。使用包含 Buff/被动加成的当前属性，主攻击、连击、追击、溅射及反击分别使用原管线对应的属性组；治疗、毒伤在合并单位属性时复用同一规则。重复合并始终从传入单位属性及原配置重算，不累计倍率，不修改 `attrOri`、单位属性或原配置。
+
+例如单位攻击力 100、技能等级 2，配置如下时，本次攻击力为 `100 × 1.5 + 20 + 5 × 2 = 180`，之后再参与防御、暴击等伤害公式：
+
+```ts
+attackRate: 1.5,
+attack: { attack: 20 },
+attackLevel: { attack: 5 },
+```
+
+`attackRate: 0` 可表达只使用技能固定值及成长。尚未合并单位的原始技能数值仍只有固定加成和等级成长（单位项为 0），不会把原始配置也乘上倍率；周期 Buff 等现有原始数值读取路径保持这一规则。
+
+`SkillData.damageRate` 是有限、非负的最终伤害倍率，默认 `1`，显式 `0` 有效；在普通伤害公式完成后、进入 `onHurt` 前相乘，再按正常减伤、反射、实际扣血、吸血和反伤流程处理。它与 `attackRate` 可以组合：`attackRate` 在减去防御之前缩放单位攻击力，`damageRate` 在普通伤害公式之后缩放最终伤害。各段 `attack/attackLevel` 等仍从对应单位属性合并，不改基础属性；倍率不改变配置或累计成长。0.4、0.7、1.0 的名义总倍率为 2.1，但逐段取整、属性差异、减伤及剩余生命会影响实际总和。
+
+`afterSelfBuff: [[BuffID, 等级, 概率]]` 在当前技能及其后续链结束后，为施放者添加 Buff；施放者已死亡则不加。普通攻击类已发动但未命中仍添加，发动概率未触发时不添加该段的效果；其他技能在执行成功后添加。配置在根技能上，表示整招结束后付出一次代价，即使中途击杀目标而停止，也会添加；配置在末段则要求末段实际发动。以下是三连击的关键字段，通用字段照常填写：
+
+```ts
+// 一式：主技能，费用只在这里收取，结束后附加休息
+{ id: 98001, next: 98002, damageRate: 0.4, rand: 1,
+  sel: { target: TargetSelectEnum.enmey }, fback: false, dback: false,
+  cost: { mp: 10 }, afterSelfBuff: [[98004, 1, 1]] }
+// 二式：锁定同一人，不反击、不反伤、不追击
+{ id: 98002, next: 98003, damageRate: 0.7, rand: 1,
+  sel: { target: TargetSelectEnum.enmey, inheritTarget: true }, fback: false, dback: false }
+// 终式：按需开启反击、反伤，追击可另配 kill
+{ id: 98003, damageRate: 1, rand: 1,
+  sel: { target: TargetSelectEnum.enmey, inheritTarget: true }, fback: true, dback: true }
+```
+
+休息 Buff 配置 `class: "rest", lastTurn: 1`。`Fight.processUnit()` 发现该 Buff 会直接跳过主动行动，包括普通攻击、技能和防御，不选目标、不扣费、不抽样，并发送 `["skipAction", unitId, buffId, buffName]` 供简报显示。它不禁止提交指令，也不改变 `needInput()`。`lastTurn` 表示添加后的完整全局回合数，默认 `1`：第 N 回合施放后添加，N+1 回合跳过行动，到 N+1 回合结束后移除，N+2 恢复；`0` 不自然到期。只要 Buff 存在，额外主动行动也会被跳过；反击等反应仍按原技能流程处理。
+
+`FightUnit.processAfterTurn()` 新增 `afterTurn` 上下文事件 `(unit, ctx, turn)`，休息通过它在回合后到期，不会在回合前或输入时提前移除。`useInputTurn` 不改变休息按全局回合结束计时的规则；`notRemove/dieNotRemove` 等仍按原规则执行。替换、驱散、死亡与自然到期都会解绑监听，客户端通过原有 Buff 增删消息保持一致。运行 `npm run test:build` 后执行 `node .test-build/tests/simple/test_skill_chain.js`，可查看三连击、休息一回合、恢复行动的三轮简报展示（不模拟完整胜负）。
+
+补齐配置子技能链后，子技能的选目标及后续反应配置会实际生效，相同旧配置/种子的结果可能因此改变；未配置新字段的普通攻击内置次数规则保持原状。
 
 `FightLoopPC` 和 `FightLoopYY` 仍是待实现的驱动骨架。冷却、多波、剧情暂停、快照恢复、录像与通用数据校验尚未实现。当前使用 Node 的事件、断言和定时器 API；浏览器接入仍需适配。
 
@@ -65,7 +195,7 @@ npm test
 npm run example
 ```
 
-`npm run build` 将当前源码编译到 `bin-debug/`，同时生成声明文件和 source map。包入口是 `bin-debug/index.js`，不再使用旧 `lib/` 目录里的遗留产物。`npm test` 运行包入口检查及 `tests/core/` 下的全部自动测试。
+`npm run build` 将当前源码编译到 `bin-debug/`，同时生成声明文件和 source map。包入口是 `bin-debug/index.js`，不再使用旧 `lib/` 目录里的遗留产物。`npm test` 运行包入口检查及 `tests/core/`、`tests/core/buff/`、`tests/core/skill/` 下的全部自动测试；Buff 通用行为及各特殊 Buff 测试放在 `tests/core/buff/`，三连击等特殊技能测试放在 `tests/core/skill/`。
 
 `npm run example` 编译并运行手写示例 `tests/simple/test_loop.ts`，输出多单位战斗日志和最终结果。该示例不提供录像校验。`tests/simple/` 保留手写流程示例；自动回归测试位于 `tests/core/`。
 
@@ -91,10 +221,14 @@ loop.onInput(unitId, {
 
 相同种子、初始数据及指令在相同规则版本下可重复运行；当前尚无随机状态或战斗快照的导出/恢复接口。
 
+暴击率 `critP` 及暴击率减免 `critPAnit` 使用比例值，`0.2` 表示 20%；命中 `hit/dodge` 仍按百分数计算，不能混用。`createSimpleMonster()` 的默认物理暴击率为 20%～30%，魔法暴击率为 10%～15%，显式 `critP: 0` 保持零。旧默认值误用了 `20～30/10～15`，在比例概率判断中会变成必暴；修正后默认示例的暴击及随机抽样过程发生变化，与修正前相同种子的结果不兼容。
+
 技能与属性 Buff 的等级公式为：`单位基础属性 + 配置固定加成 + 每级加成 × level`。成长分别配置在 `attackLevel`、`finalLevel` 中；0 级只应用固定加成。直接读取技能数值时不包含单位基础属性，进入技能流程后按对应单位属性重新合并，避免重复累计。周期 Buff 引用的技能按 `skillLevel` 计算，自身的属性加成则按 Buff 的 `level` 计算。
+
+技能的吸血、受反伤和触发目标反击分别由 `blood`、`dback`、`fback` 布尔字段控制，省略时关闭；同名 tags 不再控制这些程序行为。例如 `blood: true` 允许使用最终属性中的吸血比例。普通攻击保留这三个能力，反击技能仍禁止再次触发反击。
 
 移除 Buff 时必须满足 `移除方 power >= Buff power`。技能和 Buff 未配置 `power` 时默认使用各自的等级，显式 `power: 0` 有效。技能的 power 不自动变成所添加 Buff 的 power；Buff 的强度取自其自身配置或等级。按编号、批量及标签驱散均遵守此规则；持续时间到期、次数耗尽和死亡清理仍正常移除。
 
-Buff 的 `noremove` 标签禁止驱散，`nodie` 标签使其在死亡时保留，两者独立。`noremove` 不阻止持续时间到期和次数耗尽；普通 Buff 在死亡时移除并清理监听，`nodie` Buff 保留属性和剩余次数。
+Buff 的 `notRemove` 字段禁止驱散，`dieNotRemove` 字段使其在死亡时保留，`notDisplay` 字段使其不出现在单位展示数据中，三者独立，省略或 false 时不启用。`notRemove` 不阻止持续时间到期和次数耗尽；普通 Buff 在死亡时移除并清理监听，`dieNotRemove` Buff 保留属性和剩余次数。隐藏只影响展示，Buff 仍参与逻辑结算。`tags` 用于增益、减益等分类。
 
 单位构造参数中的被动技能使用 `[[被动ID, 等级]]`。被动配置的 `addbuff: [[Buff ID, Buff 等级]]` 在初始化时为自身添加 Buff，无需先绑定战斗；被动属性和附加 Buff 属性均参与最终重算。Buff 等级取自 `addbuff` 的配置，不自动继承被动等级。

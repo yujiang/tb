@@ -6,9 +6,10 @@ import { FightSide } from "../../src/fight/FightSide";
 import { FightStatic } from "../../src/fight/Buffs/StaticData";
 import { calcAttack, calcAttr, calcHurt, calcPoison, mergeTable } from "../../src/fight/Skills/Calc";
 import { FightSkill } from "../../src/fight/Skills/FightSkill";
-import { healFunc } from "../../src/fight/Skills/Heal";
-import { skillAttackFunc } from "../../src/fight/Skills/NomalSkill";
-import { attackFunc, FightContex } from "../../src/fight/Skills/NormalAttack";
+import { healFunc } from "../../src/fight/Skills/Funcs/Heal";
+import { skillAttackFunc } from "../../src/fight/Skills/Funcs/NomalSkill";
+import { attackFunc } from "../../src/fight/Skills/Funcs/NormalAttack";
+import { FightContex } from "../../src/fight/Fight";
 import { getSkillData, initSkills, SkillData } from "../../src/fight/Skills/SkillDatas";
 import { TargetSelectEnum } from "../../src/fight/struct";
 import { FightUnit } from "../../src/fight/Unit/FightUnit";
@@ -32,6 +33,33 @@ function baseAttack(overrides: Partial<BaseAttack> = {}): BaseAttack {
         ...overrides,
     };
 }
+
+test("simple monsters: default critical chances are fractional and do not force critical hits", () => {
+    const fight = new Fight(97401, { maxTurn: 1, waitInputSec: 1, duiwei: false }, 0);
+    fight.random = () => 0.5;
+    const side = new FightSide();
+    side.createSimpleMonster(fight, [{ id: 0, name: "默认暴击", pos: 0 }]);
+    const unit = side.units[0];
+    for (const [group, expected] of [[unit.attr.physic, 0.25], [unit.attr.magic, 0.125]] as const) {
+        assert.equal(group.base.critP, expected);
+        for (const sample of [0.1, 0.9]) {
+            fight.random = () => sample;
+            const ctx = contextFor(fight, unit, unit);
+            calcAttack(fight, group.base, baseAttack({ defend: 0 }), ctx);
+            assert.equal(ctx.effects.includes("crit"), sample < expected);
+        }
+    }
+});
+
+test("simple monsters: explicit zero critical chances stay zero", () => {
+    const fight = new Fight(97402, { maxTurn: 1, waitInputSec: 1, duiwei: false }, 0);
+    const side = new FightSide();
+    side.createSimpleMonster(fight, [{ id: 0, name: "不暴击", pos: 0,
+        physic: baseAttack({ critP: 0 }), magic: baseAttack({ critP: 0 }) }]);
+    const unit = side.units[0];
+    assert.equal(unit.attr.physic.base.critP, 0);
+    assert.equal(unit.attr.magic.base.critP, 0);
+});
 
 function finalAttack(overrides: Partial<FinalAttack> = {}): FinalAttack {
     return {

@@ -1,14 +1,14 @@
 // 核心的战斗对象
 import { removeArray } from "../public/Array";
-import { attackFunc, FightContex } from "./Skills/NormalAttack";
 import { FightMap } from "./FightMap";
 import { FightSide } from "./FightSide";
 import { FightUnit, UnitEventFunc, sortByAttr } from "./Unit/FightUnit";
 import { FightUnitEvent } from "./Buffs/BuffDatas";
-import { EnemySide, DiedSelectEnum, FightCmdEnum, FightInput, FightSideEnum, FightResultEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "./struct";
+import { EnemySide, DiedSelectEnum, FightCmdEnum, FightInput, FightSideEnum, FightResultEnum, SelectMainParam, SelectParam, TargetSelectEnum, fightMsg } from "./struct";
 import { strict as assert } from "node:assert";
 import EventEmitter from "node:events";
 import { skillFunc } from "./Skills/SkillFuncType";
+import { attackFunc } from "./Skills/Funcs/NormalAttack";
 
 export type AllUnitType = [FightUnit[], FightUnit[]];
 
@@ -17,6 +17,31 @@ export interface FightData {
     maxTurn: number;
     waitInputSec: number;
     duiwei: boolean; //是否对位战斗？    
+}
+
+// 上下文, 因为反击,连击, 需要回溯堆栈来得到上下文
+export interface FightContex {
+    fight: Fight;
+    attack: FightUnit;
+    defend: FightUnit;    
+    
+    msgs: fightMsg[];
+    effects: string[];
+
+    //miss?: boolean; // 是否闪避  
+    //crit?: boolean; // 是否暴击
+    
+    damage?: number; // 伤害值
+
+    killNum?: number; // 追击次数
+    nextNum?: number; // 追击次数
+    fbackNum?: number; // 反击次数
+    dbackNum?: number; // 反震次数
+    reactionSteps?: number; // 单次动作共享的结算预算，防止回调无限触发
+}
+
+export function initFightContex(f:Fight) : FightContex{
+    return { fight: f, attack: null, defend: null, msgs: [], effects: []}
 }
 
 export class Fight{
@@ -132,8 +157,16 @@ export class Fight{
     }
 
     // 主目标只有一个，通常的做法是先打主目标，命中之后，才产生后续的子目标！
-    selectMainTarget(attack: FightUnit, sel:SelectMainParam) : FightUnit {
+    selectMainTarget(attack: FightUnit, sel:SelectParam, previous?: FightUnit) : FightUnit {
         assert(!attack?.isDied());
+
+        if (sel.inheritTarget) {
+            return previous && !previous.isDied() && previous.fight === this && this.getAllUnits().includes(previous) &&
+                this.isLegalTarget(attack, previous, sel) ? previous : undefined;
+        }
+
+        const taunt = this.getTauntTarget(attack, sel);
+        if (taunt) return taunt;
 
         if (sel.target == TargetSelectEnum.duiwei) {
             return this.map.findDuiwei(attack, sel.die);    
@@ -196,12 +229,15 @@ export class Fight{
 
 
     getDefaultEnemy(unit: FightUnit){
+        const taunt = this.getTauntTarget(unit, { target: TargetSelectEnum.enmey });
+        if (taunt) return taunt;
         if (this.xls.duiwei){
             return this.map.findDuiwei(unit, DiedSelectEnum.alive);
         }
         return this.randomEnemyAlive(unit.side);
     }
 
+    // 校验原指令的基础目标资格，嘲讽只在执行时重定向主目标，不拒绝合法指令。
     isLegalTarget(unit: FightUnit, target: FightUnit, sel: SelectMainParam): boolean {
         if (!target || !target.isFillterDie(sel.die)) return false;
         if (sel.target === TargetSelectEnum.self) return target === unit;
@@ -209,6 +245,18 @@ export class Fight{
         if (target.side !== side) return false;
         if (sel.target === TargetSelectEnum.duiwei) return this.map?.findDuiwei(unit, sel.die) === target;
         return true;
+    }
+
+    getTauntTarget(unit: FightUnit, sel: SelectMainParam): FightUnit | undefined {
+        if (sel.target !== TargetSelectEnum.enmey && sel.target !== TargetSelectEnum.duiwei) return undefined;
+        // Map 保持添加顺序，稳定排序使同优先级按 Buff 实例注册顺序处理。
+        const buffs = [...unit.buffs.values()].sort((a, b) => (a.getXls().prior ?? 0) - (b.getXls().prior ?? 0));
+        for (const buff of buffs) {
+            const target = buff.getTauntTarget();
+            if (target && !target.isDied() && target.fight === this && this.getAllUnits().includes(target) &&
+                this.isLegalTarget(unit, target, sel)) return target;
+        }
+        return undefined;
     }
 
     validateInput(unit: FightUnit, input: FightInput): boolean {
@@ -225,7 +273,8 @@ export class Fight{
             return false;
         }
         if (input.target !== undefined) {
-            if (!Number.isSafeInteger(input.target) || !this.isLegalTarget(unit, this.getUnitById(input.target), sel)) return false;
+            const target = this.getUnitById(input.target);
+            if (!Number.isSafeInteger(input.target) || !this.isLegalTarget(unit, target, sel)) return false;
         }
         return true;
     }
@@ -233,7 +282,12 @@ export class Fight{
     // 提交后阵营、生命状态和封印都可能变化，执行时重新校验。
     processUnit(unit: FightUnit, input: FightInput) : FightContex{
         // 收指令时允许死亡，真正轮到行动时必须已经复活。
-        if (unit.isDied()) return;
+        if (unit.isDied() || this.isEnd() || !this.getAllUnits().includes(unit)) return;
+        const block = unit.getActionBlockBuff();
+        if (block) {
+            return { fight: this, attack: unit, defend: null, effects: [],
+                msgs: [["skipAction", unit.uid, block.getId(), block.getXls().name]] };
+        }
         if (!this.validateInput(unit, input)) return;
         return this.resolveAction(() => this.executeUnit(unit, input));
     }
@@ -252,6 +306,13 @@ export class Fight{
         if (cmd === FightCmdEnum.defend){
             unit.doDefend();
             return;
+        }
+
+        // 不改写提交的 input，只在实际执行时按当前有效嘲讽覆盖主目标。
+        if (cmd === FightCmdEnum.attack || cmd === FightCmdEnum.skill) {
+            const sel = cmd === FightCmdEnum.skill ? unit.findSkill(input.skill).getSel() :
+                { target: TargetSelectEnum.enmey };
+            des = this.getTauntTarget(unit, sel) ?? des;
         }
 
         if (!des) {

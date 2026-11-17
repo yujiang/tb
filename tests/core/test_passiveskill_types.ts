@@ -5,7 +5,7 @@ import { BaseAttack, FightAttr } from "../../src/fight/FightAttr";
 import { FightSide } from "../../src/fight/FightSide";
 import { BuffData, initBuffs, OverlapEnum } from "../../src/fight/Buffs/BuffDatas";
 import { initPassives, PassiveData } from "../../src/fight/Buffs/PassiveDatas";
-import { initFightContex } from "../../src/fight/Skills/NormalAttack";
+import { initFightContex } from "../../src/fight/Fight";
 import { initSkills } from "../../src/fight/Skills/SkillDatas";
 import { FightUnitMonster } from "../../src/fight/Unit/FightUnitMonster";
 import { FightCmdEnum, IdLevelArray, TargetSelectEnum } from "../../src/fight/struct";
@@ -95,7 +95,7 @@ test("passive type 3: initialization grants configured buffs with their own leve
         useInputTurn: false, lastTurn: 0, times: 0, event: "hurt", skill: 0, skillLevel: 1,
     };
     initBuffs([
-        {...common, id: 9620, tags: ["noremove", "nodie"], attack: {attack: 5}, attackLevel: {attack: 2}},
+        {...common, id: 9620, notRemove: true, dieNotRemove: true, attack: {attack: 5}, attackLevel: {attack: 2}},
         {...common, id: 9621, func: "heal", skill: 9622, lastTurn: 1},
     ]);
     initSkills([{id: 9622, name: "周期治疗", magic: true, rand: 1, func: "heal",

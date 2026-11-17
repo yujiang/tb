@@ -1,6 +1,5 @@
-import { SkillCost } from "../Skills/FightSkill";
-import { FightContex } from "../Skills/NormalAttack";
-import { FightCmdEnum } from "../struct";
+import { FightContex } from "../Fight";
+import { FightCmdEnum, SkillCost } from "../struct";
 import { FightUnit } from "./FightUnit";
 
 

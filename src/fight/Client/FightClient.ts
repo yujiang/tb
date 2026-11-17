@@ -1,0 +1,157 @@
+// 客户端跟服务器对应的战斗
+// ai修改不要删我的注释
+
+import { strict as assert } from "node:assert";
+import { isDeepStrictEqual } from "node:util";
+import { fightMsg } from "../struct";
+import { Fight } from "../Fight";
+import { FightLoop } from "../FightLoop";
+import { FightUnit } from "../Unit/FightUnit";
+import { FightResultEnum, FightSideEnum } from "../struct";
+
+export type FightClientUnit = ReturnType<FightUnit["getUnitMsg"]>;
+
+export class FightClient{
+    fid: number;
+    turn = 0;
+    win = FightResultEnum.ongoing;
+    sides: [FightClientUnit[], FightClientUnit[]] = [[], []];
+    sort: number[] = [];
+    actor: number | undefined;
+    private boundLoops = new WeakMap<FightLoop, { autocheck: boolean }>();
+
+    getUnitById(id: number): FightClientUnit | undefined {
+        return this.sides.flat().find(u => u.uid === id);
+    }
+
+    bindFightLoop(fl: FightLoop, autocheck = true){
+        const existing = this.boundLoops.get(fl);
+        if (existing) {
+            existing.autocheck = autocheck;
+            return;
+        }
+        const binding = { autocheck };
+        this.boundLoops.set(fl, binding);
+        // 跳过网络，直接导入消息
+        fl.onMsg((msgs: fightMsg | fightMsg[])=>{
+            this.onMsg(msgs)
+            // 每个回合检测一次
+            const batch = this.toBatch(msgs);
+            if (binding.autocheck && batch.some(msg => msg[0] === "turn" || msg[0] === "end")) {
+                assert.ok(this.checkSame(fl.fight), "FightClient state differs from server");
+            }
+        })
+    }
+
+    private toBatch(msgs: fightMsg | fightMsg[]): fightMsg[] {
+        if (!msgs?.length) return [];
+        return typeof msgs[0] === "string" ? [msgs as fightMsg] : msgs as fightMsg[];
+    }
+
+    // 接收消息
+    onMsg(msgs: fightMsg | fightMsg[]){
+        for (const msg of this.toBatch(msgs)) {
+            switch (msg[0]) {
+                case "start":
+                    this.fid = msg[1];
+                    this.turn = 0;
+                    this.win = FightResultEnum.ongoing;
+                    this.sides = [[], []];
+                    this.sort = [];
+                    this.actor = undefined;
+                    break;
+                case "side":
+                    this.sides[msg[1] as FightSideEnum] = structuredClone(msg[2]);
+                    break;
+                case "turn":
+                    this.turn = msg[1];
+                    this.actor = undefined;
+                    break;
+                case "end":
+                    this.win = msg[1];
+                    this.actor = undefined;
+                    this.sort = [];
+                    break;
+                case "sort":
+                    this.sort = [...msg[1]];
+                    break;
+                case "actor":
+                    this.actor = msg[1];
+                    this.sort = this.sort.filter(id => id !== this.actor);
+                    break;
+                case "hurt": {
+                    const unit = this.getUnitById(msg[2]);
+                    if (unit) unit.point.hp = msg[5];
+                    break;
+                }
+                case "heal": {
+                    const unit = this.getUnitById(msg[2]);
+                    // 现有 heal 消息携带的是治疗前血量。
+                    if (unit) unit.point.hp = Math.min(msg[5] + msg[4], unit.point.hpMax);
+                    break;
+                }
+                case "costHp":
+                case "costMp": {
+                    const unit = this.getUnitById(msg[1]);
+                    if (unit) unit.point[msg[0] === "costHp" ? "hp" : "mp"] = msg[3];
+                    break;
+                }
+                case "die": {
+                    const unit = this.getUnitById(msg[1]);
+                    if (unit) unit.dead = true;
+                    break;
+                }
+                case "relife": {
+                    const unit = this.getUnitById(msg[1]);
+                    if (unit) unit.dead = false;
+                    break;
+                }
+                case "addBuff": {
+                    const unit = this.getUnitById(msg[2]);
+                    if (unit) {
+                        // 替换同编号旧实例，包括可见实例被隐藏实例替换的情况。
+                        unit.buffs = unit.buffs.filter(buff => buff[0] !== msg[4]);
+                        if (unit.buffNames) delete unit.buffNames[msg[4]];
+                        if (msg[6]) {
+                            unit.buffs.push([...msg[6]]);
+                            if (msg[7]) (unit.buffNames ??= {})[msg[4]] = msg[7];
+                        }
+                    }
+                    break;
+                }
+                case "removeBuff": {
+                    const unit = this.getUnitById(msg[2]);
+                    if (unit) {
+                        unit.buffs = unit.buffs.filter(buff => buff[0] !== msg[4]);
+                        if (unit.buffNames) delete unit.buffNames[msg[4]];
+                    }
+                    break;
+                }
+                // 技能、特效等消息留给绘制层。
+            }
+        }
+    }
+
+    // 检测是否跟服务器的战况完全一致，包括位置，display，point, buffs
+    checkSame(f: Fight) : boolean{
+        if (this.fid !== f.fid || !f.Sides) return false;
+        for (const side of [FightSideEnum.attack, FightSideEnum.defend]) {
+            const units = this.sides[side];
+            const expected = f.getSide(side).units;
+            if (units.length !== expected.length) return false;
+            const byId = new Map(units.map(u => [u.uid, u]));
+            if (byId.size !== units.length) return false;
+            for (const unit of expected) {
+                const actual = byId.get(unit.uid);
+                const snapshot = unit.getUnitMsg();
+                if (!actual || actual.pos !== snapshot.pos || actual.dead !== snapshot.dead ||
+                    !isDeepStrictEqual(actual.display, snapshot.display) ||
+                    !isDeepStrictEqual(actual.point, snapshot.point) ||
+                    !isDeepStrictEqual(actual.buffNames ?? {}, snapshot.buffNames) ||
+                    !isDeepStrictEqual(actual.buffs, snapshot.buffs)) return false;
+            }
+        }
+        return true;
+    }
+
+}

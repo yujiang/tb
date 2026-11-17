@@ -1,4 +1,5 @@
-import { FightContex, fightMsg } from "../Skills/NormalAttack";
+import { FightContex } from "../Fight";
+import { fightMsg } from "../struct";
 import { FightLoop } from "../FightLoop";
 import { FightUnit } from "../Unit/FightUnit";
 import { FightInput } from "../struct";
@@ -50,13 +51,6 @@ export class FightLoopWest extends FightLoopOnline {
         return rt;
     }    
 
-    getUnitMsg(u: FightUnit){
-        return {
-            uid: u.uid, 
-            display:u.display,
-            point: u.attr.getPointAttr(),
-        }
-    }
 
     override start() {
         super.start();
@@ -64,7 +58,7 @@ export class FightLoopWest extends FightLoopOnline {
         for (let s of [0,1]){
             const side = this.fight.getSide(s);
             this.bcMsg(["side", s, side.units.map(
-                u => this.getUnitMsg(u))
+                u => u.getUnitMsg())
             ]);
         }
         this.fight.offUnitEvent("speed", this.speedListener);

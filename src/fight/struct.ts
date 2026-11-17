@@ -43,6 +43,7 @@ export interface SelectMainParam{
 }
 
 export interface SelectParam extends SelectMainParam { 
+    inheritTarget?: boolean; // 子技能继承上一段实际主目标；目标失效则停止，不自动换人
     num?: number;
     shape?: MapShapeEnum; // shape and num 一般只取其一
     //custom?: any;
@@ -77,3 +78,12 @@ export type IdLevel = [number,number];
 export type IdRand = IdLevel;
 export type IdLevelRand = [number,number,number];
 export type IdLevelArray = IdLevel[];
+
+
+export type fightMsg = [string, ...any[]];
+
+
+export interface SkillCost {
+    hp?: number;
+    mp?: number;
+}

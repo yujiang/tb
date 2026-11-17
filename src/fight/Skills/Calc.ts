@@ -1,7 +1,6 @@
 import { strict as assert } from "node:assert";
-import { Fight } from "../Fight";
+import { Fight, FightContex } from "../Fight";
 import { FinalAttack, BaseAttack, FightAttr, FightTypeAttr } from "../FightAttr";
-import { FightContex } from "./NormalAttack";
 import { FightStatic } from "../Buffs/StaticData";
 import { clone } from "../../public/Utilts";
 

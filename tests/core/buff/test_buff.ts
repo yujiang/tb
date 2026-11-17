@@ -1,17 +1,17 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { Fight } from "../../src/fight/Fight";
-import { FightSide } from "../../src/fight/FightSide";
-import { OverlapEnum, BuffData, initBuffs } from "../../src/fight/Buffs/BuffDatas";
-import { FightBuff, MAX_POWER } from "../../src/fight/Buffs/FightBuff";
-import { PassiveData } from "../../src/fight/Buffs/PassiveDatas";
-import { PassiveSkill } from "../../src/fight/Buffs/PassiveSkill";
-import { FightContex } from "../../src/fight/Skills/NormalAttack";
-import { initSkills, SkillData } from "../../src/fight/Skills/SkillDatas";
-import { skillFunc } from "../../src/fight/Skills/SkillFuncType";
-import { TargetSelectEnum } from "../../src/fight/struct";
-import { attackFunc } from "../../src/fight/Skills/NormalAttack";
-import { FightLoopWest } from "../../src/fight/Online/FightLoopOnline";
+import { Fight } from "../../../src/fight/Fight";
+import { FightSide } from "../../../src/fight/FightSide";
+import { OverlapEnum, BuffData, initBuffs } from "../../../src/fight/Buffs/BuffDatas";
+import { FightBuff, MAX_POWER } from "../../../src/fight/Buffs/FightBuff";
+import { PassiveData } from "../../../src/fight/Buffs/PassiveDatas";
+import { PassiveSkill } from "../../../src/fight/Buffs/PassiveSkill";
+import { FightContex } from "../../../src/fight/Fight";
+import { initSkills, SkillData } from "../../../src/fight/Skills/SkillDatas";
+import { skillFunc } from "../../../src/fight/Skills/SkillFuncType";
+import { TargetSelectEnum } from "../../../src/fight/struct";
+import { attackFunc } from "../../../src/fight/Skills/Funcs/NormalAttack";
+import { FightLoopWest } from "../../../src/fight/Online/FightLoopOnline";
 
 function createFightPair(random = () => 0) {
     const fight = new Fight(1, { maxTurn: 10, waitInputSec: 1, duiwei: false });
@@ -339,7 +339,7 @@ test("three-hit damage reduction expires after the third protected hit", () => {
         assert.equal(defender.getHp(), hit <= 3 ? 100 - hit * 10 : 50);
         assert.equal(!!defender.findBuff(9205), hit < 3);
     }
-    assert.equal(defender.emitter.listenerCount("hurt"), 0);
+    assert.equal(defender.contextEmitter.listenerCount("hurt"), 0);
 });
 
 // 测试：按回合过期的次数 Buff 同时移除属性加成和事件监听。
@@ -349,7 +349,7 @@ test("turn expiration unregisters counted buff listeners", () => {
     defender.addBuff(attacker, "test", 9206, 1, ctx);
     defender.processBeforeTurn(1, ctx);
     assert.equal(defender.findBuff(9206), undefined);
-    assert.equal(defender.emitter.listenerCount("hurt"), 0);
+    assert.equal(defender.contextEmitter.listenerCount("hurt"), 0);
     assert.equal(defender.attr.physic.final.immunityP, 0);
 });
 
@@ -362,9 +362,9 @@ test("replacement resets counts and death unregisters listeners", () => {
     const current = defender.addBuff(attacker, "test", 9207, 1, ctx);
     defender.onHurt(attacker, "test", 1, ctx);
     assert.equal(old.times, 2); assert.equal(current.times, 2);
-    assert.equal(defender.emitter.listenerCount("hurt"), 1);
+    assert.equal(defender.contextEmitter.listenerCount("hurt"), 1);
     defender.die();
-    assert.equal(defender.emitter.listenerCount("hurt"), 0);
+    assert.equal(defender.contextEmitter.listenerCount("hurt"), 0);
 });
 
 // 测试：前一个周期效果移除后续 Buff 后，后续 Buff 不再继续触发。
