@@ -24,6 +24,8 @@ export interface SkillData {
     cost?: SkillCost;   // 消耗
     attackRate?: number; // 单位攻击力倍率，默认 1；先缩放单位 attack，再加技能固定值及等级成长
     damageRate?: number; // 最终伤害倍率，默认 1，应用于 onHurt 前
+    healRate?: number; // 治疗公式结果倍率，默认 1；复活时表示目标最大生命的恢复比例
+    poisonRate?: number; // 毒伤公式结果倍率，默认 1
     afterSelfBuff?: IdLevelRand[]; // 当前技能及后续链结束后给自身添加 [Buff ID, 等级, 概率]
 
     // 溅射的skill， 比如有的溅射不减伤，就自己写skill

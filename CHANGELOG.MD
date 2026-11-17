@@ -37,3 +37,5 @@
 1. 添加了几种特殊的buff
 2. 并且因此完善了buff的机制
 3. 完成了fightClient用于check， fightReport用于看简报
+4. add 3 rate(attackRate, damageRate, healRate, poisonRate) for skill
+

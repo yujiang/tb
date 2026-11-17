@@ -33,11 +33,11 @@ export class AttrSkill extends FightSkill {
     }
 
     calcHeal(f: Fight, defender: FightUnit, ctx: FightContex){
-        return calcAttack(f, this.getAttack(), this.getAttr(defender), ctx);    
+        return calcAttack(f, this.getAttack(), this.getAttr(defender), ctx) * this.getHealRate();
     }
 
     calcPoison(f: Fight, defender: FightUnit, ctx: FightContex){
-        return calcPoison(f, this.getAttack(), this.getAttr(defender), defender.getHp(), ctx);    
+        return calcPoison(f, this.getAttack(), this.getAttr(defender), defender.getHp(), ctx) * this.getPoisonRate();
     }
 
     getAttr(u: FightUnit){

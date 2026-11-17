@@ -109,7 +109,7 @@ test("client: passive-granted dieNotRemove buff stays synchronized through death
     initSkills([{
         id: reviveId, name: "复活", magic: true, rand: 1, func: "relife",
         sel: { target: TargetSelectEnum.friend, die: DiedSelectEnum.die },
-        attack: { attack: 0.5 }, final: {},
+        attack: {}, final: {}, healRate: 0.5,
     }]);
     const { fight, loop, client, unit: healer, enemy } = setup();
     const report = new FightReport(() => {});

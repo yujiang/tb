@@ -33,6 +33,7 @@ export function afterHurt(attacker: FightUnit, defender: FightUnit, skill:FightS
     removeBuffFunc(attacker, defender, skill, ctx);
 }
 
+// 一般攻击给对方上buff，这个给自己上buff； 比如三连击自己休息一回合。
 export function afterSelfBuff(attacker: FightUnit, skill: FightSkill, ctx: FightContex) {
     const buffs = skill.getXls().afterSelfBuff;
     if (!attacker.isDied() && buffs?.length) attacker.addBuffs(attacker, "skill", buffs, ctx);

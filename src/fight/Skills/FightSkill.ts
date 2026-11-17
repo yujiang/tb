@@ -14,6 +14,10 @@ export class FightSkill {
     constructor(xls: SkillData, level: number) {
         this.xls = xls;
         this.level = level;
+        for (const field of ["healRate", "poisonRate"] as const) {
+            const rate = xls[field] ?? 1;
+            assert.ok(Number.isFinite(rate) && rate >= 0, `${field} must be finite and nonnegative`);
+        }
         // 未与单位属性合并的技能（周期 Buff、复活、普攻）也能直接读取等级数值。
         this.attack = this.mergeAttackData({
             property: 0, rand: 0, hit: 0, dodge: 0, attack: 0, defend: 0,
@@ -88,6 +92,12 @@ export class FightSkill {
 
     getCost(){
         return this.xls.cost;
+    }
+    getHealRate() {
+        return this.xls.healRate ?? 1;
+    }
+    getPoisonRate() {
+        return this.xls.poisonRate ?? 1;
     }
     getFunc(){
         return this.xls.func || "normal";

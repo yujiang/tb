@@ -132,9 +132,28 @@ test("regression: death clears attribute buffs and revival restores valid HP", (
     v.onHurt(u, "test", 250, c);
     assert.equal(v.attr.physic.base.attack, 20);
     assert.equal(v.getHp(), 0);
-    relifeFunc(u, v, new FightSkill(skill(8011, {attack: base({attack: 0.5})}), 1), c);
+    relifeFunc(u, v, new FightSkill(skill(8011, {healRate: 0.5}), 1), c);
     assert.equal(v.isDied(), false);
     assert.equal(v.getHp(), 50);
+});
+
+// 测试：复活比例以被复活者最大生命计算，与施法者血量及攻击配置无关。
+test("regression: revival healing scales with target maximum HP rather than caster HP", () => {
+    for (const casterHpMax of [100, 1000]) {
+        const {u, v, c} = pair();
+        u.attr.point.hp = u.attr.point.hpMax = casterHpMax;
+        v.attr.point.hp = v.attr.point.hpMax = 400;
+        v.onHurt(u, "test", 400, c);
+        assert.equal(v.isDied(), true);
+        const revive = new FightSkill(skill(98110, {
+            func: "relife", healRate: 0.3, attack: {attack: 999}, attackLevel: {attack: 5},
+        }), 2);
+        assert.equal(relifeFunc(u, v, revive, c), true);
+        assert.equal(v.isDied(), false);
+        assert.equal(v.getHp(), 120);
+        assert.equal(c.msgs.find(m => m[0] === "heal")[4], 120);
+        assert.equal(u.getHp(), casterHpMax);
+    }
 });
 
 // 测试：伤害仇恨和治疗贡献从零开始正确累加。
@@ -405,7 +424,7 @@ test("regression: dead players and summons submit, cancel and resubmit network i
 test("regression: a dead player acts on the submitted command after an earlier ally revives them", async () => {
     const {f, u, v, loop} = pair(true);
     const healer = addAlly(f);
-    initSkills([skill(8050, {func: "relife", attack: base({attack: 0.5}),
+    initSkills([skill(8050, {func: "relife", healRate: 0.5,
         sel: {target: TargetSelectEnum.friend, die: DiedSelectEnum.die}})]);
     healer.addSkill(8050, 1);
     u.attr.point.hp = 0; u.die();
@@ -441,7 +460,7 @@ test("regression: corpse guarding locks a dead enemy and attacks it if revived b
     await waiting;
     assert.equal(u.input?.target, v.uid);
     const healer = f.getUnitById(3);
-    initSkills([skill(8051, {func: "relife", attack: base({attack: 0.5}),
+    initSkills([skill(8051, {func: "relife", healRate: 0.5,
         sel: {target: TargetSelectEnum.friend, die: DiedSelectEnum.die}})]);
     healer.addSkill(8051, 1);
     healer.input = {cmd: FightCmdEnum.skill, skill: 8051, target: v.uid};

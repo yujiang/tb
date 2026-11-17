@@ -3,7 +3,6 @@ import { FightSkill } from "../FightSkill";
 import { FightContex } from "../../Fight";
 
 export function relifeFunc(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
-    // return attrFunc("heal", heal, attacker, defender, skill, ctx);
     if (!defender.isDied()) {
         ctx.msgs.push(["无效", defender.uid])
         return false;
@@ -14,8 +13,12 @@ export function relifeFunc(attacker: FightUnit, defender: FightUnit, skill:Fight
         return false;
     }
 
-    defender.onRelife(attacker, "relife", ctx);    
-    const heal = skill.getAttack().attack * attacker.getHpMax() ;
+    const heal = Math.floor(skill.getHealRate() * defender.getHpMax());
+    if (heal <= 0) {
+        ctx.msgs.push(["无法复活", defender.uid]);
+        return false;
+    }
+    defender.onRelife(attacker, "relife", ctx);
     defender.onHeal(attacker, "relife", heal, ctx, { revive: true });
     return true;
 }
