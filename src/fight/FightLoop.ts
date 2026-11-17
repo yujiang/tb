@@ -1,4 +1,5 @@
 import { Fight } from "./Fight";
+import { FightContex, fightMsg, initFightContex } from "./Skills/NormalAttack";
 import { FightUnit, sortByAttr } from "./Unit/FightUnit";
 import { FightInput } from "./struct";
 
@@ -8,31 +9,46 @@ export abstract class FightLoop {
         this.fight = fight;
     }
 
-    abstract processBeforeTurn(): void;
+    abstract processBeforeTurn(turn: number, ctx: FightContex): void;
 
-    abstract processOneTurn(): Promise<void>;
+    abstract processOneTurn(turn: number): Promise<void>;
 
-    abstract processAfterTurn(): void;
+    abstract processAfterTurn(turn: number, ctx: FightContex): void;
 
     async run() {
         const f = this.fight;
         this.start();
         f.checkOutcome();
         while(!f.isEnd()){
-            this.nextTurn();
+            const turn = this.nextTurn();
             //console.log(f);
             if (f.isEnd()) {
                 break;
             }
-            this.processBeforeTurn();             
+    
+            const f1 = initFightContex(f); 
+            this.processBeforeTurn(turn, f1);
+            this.bcMsg(f1.msgs)
+
             f.checkOutcome();
             if (f.isEnd()) {
                 break;
             }
-            await this.waitInput();
-            await this.processOneTurn();
+
+            const f2 = initFightContex(f); 
+            await this.waitInput(turn, f2);
+            this.bcMsg(f2.msgs)
+            f.checkOutcome();
+            if (f.isEnd()) break;
+
+            await this.processOneTurn(turn);
+
             await this.waitDrawOver();
-            this.processAfterTurn(); //回合后主要处理死亡等            
+            
+            const f3 = initFightContex(f); 
+            this.processAfterTurn(turn, f3); //回合后主要处理死亡等            
+            this.bcMsg(f3.msgs)
+            
             f.finishTurn();
         }
         this.end();
@@ -53,7 +69,7 @@ export abstract class FightLoop {
     }
 
     // return 0: 超时, 1: 正常结束
-    async waitInput(): Promise<number>{
+    async waitInput(turn: number, ctx: FightContex): Promise<number>{
         return 1;
     }
     abstract onInput(id: number, input: FightInput): void;
@@ -72,6 +88,11 @@ export abstract class FightLoop {
     
         return all;
     }
-    
+
+    bcMsg(msgs: fightMsg | fightMsg[]){
+        // 暂时没有发消息, 直接打印
+        if (!msgs?.length) return;
+        console.log(msgs);
+    }    
 }
 

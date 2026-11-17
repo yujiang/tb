@@ -83,6 +83,7 @@ function prepareSkills(){
     initSkills(datas);
 }
 
+// 测试：运行手写技能示例，观察攻击、治疗等配置下的战斗流程。
 async function run(){
     prepareSkills();
 

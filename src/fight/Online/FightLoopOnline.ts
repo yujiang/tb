@@ -1,4 +1,4 @@
-import { fightMsg } from "../Skills/NormalAttack";
+import { FightContex, fightMsg } from "../Skills/NormalAttack";
 import { FightLoop } from "../FightLoop";
 import { FightUnit } from "../Unit/FightUnit";
 import { FightInput } from "../struct";
@@ -6,18 +6,18 @@ import { setTimeout as delay } from 'node:timers/promises';
 
 export abstract class FightLoopOnline extends FightLoop {
     //回合前开始处理buff等
-    processBeforeTurn(){
+    processBeforeTurn(turn: number, ctx: FightContex){
         const all = this.fight.getAllUnits();
-        for (const u of all) {
-            u.processBeforeTurn();
-        }
+        this.fight.resolveAction(() => {
+            for (const u of all) u.processBeforeTurn(turn, ctx);
+        });
     }
 
     //回合后主要处理死亡等            
-    processAfterTurn(){
+    processAfterTurn(turn: number, ctx: FightContex){
         const all = this.fight.getAllUnits();
         for (const u of all) {
-            u.processAfterTurn();
+            u.processAfterTurn(turn, ctx);
         }
     }    
 }
@@ -26,14 +26,14 @@ export abstract class FightLoopOnline extends FightLoop {
 // 网游的常规流程, 指令全部下完,统一处理
 export class FightLoopWest extends FightLoopOnline {    
     loopUnits: FightUnit[];
-    override async processOneTurn(){
+    override async processOneTurn(turn: number){
         // 根据玩家速度来建立出手列表
         // 按出手列表顺序,依次处理
         let index = 0;
         let all = this.processUnits;
         while (all.length && !this.fight.isEnd()) {
             const u = all.shift();
-            let ctx = u.processOneTurn(); 
+            let ctx = u.processOneTurn(turn); 
             if (ctx){
                 ctx.msgs.unshift(["actor", u.uid, u.getSpeed()]);
                 this.bcMsg(ctx.msgs);
@@ -67,7 +67,7 @@ export class FightLoopWest extends FightLoopOnline {
                 u => this.getUnitMsg(u))
             ]);
         }
-        this.fight.emitUnit.off("speed", this.speedListener);
+        this.fight.offUnitEvent("speed", this.speedListener);
         this.fight.onUnitEvent("speed", this.speedListener);
     }
 
@@ -82,31 +82,26 @@ export class FightLoopWest extends FightLoopOnline {
     }
 
     override end() {
-        this.fight.emitUnit.off("speed", this.speedListener);
+        this.fight.offUnitEvent("speed", this.speedListener);
         this.bcMsg(["end", this.fight.win]);
-    }
-
-    bcMsg(msgs: fightMsg | fightMsg[]){
-        // 暂时没有发消息, 直接打印
-        console.log(msgs);
     }
 
     input = 0;
     inputed = 0;
     inputResolve: (value: number) => void = null;
-    override async waitInput(): Promise<number>{
+    override async waitInput(turn: number,ctx: FightContex): Promise<number>{
         const all = this.fight.getAllUnits();
         let input = 0;
-        for (const u of all) {
-            u.inputStart();
-            if (u.needInput()){                
-                input++;
+        this.fight.resolveAction(() => {
+            for (const u of all) {
+                u.inputStart(turn, ctx);
+                if (u.needInput()) input++;
             }
-        }
-        this.input = input;
+        });
+        this.input = this.fight.isEnd() ? 0 : input;
         this.inputed = 0;
         this.inputResolve = null;
-        if (input == 0) return 1;
+        if (this.input == 0) return 1;
         const p = new Promise<number>((resolve) => {
             this.inputResolve = resolve;
         })
@@ -147,7 +142,7 @@ export class FightLoopWest extends FightLoopOnline {
 // 烟雨江湖
 // 自动打, 玩家只需要按大招
 export class FightLoopYY extends FightLoopOnline {    
-    override async processOneTurn(){}
+    override async processOneTurn(turn: number){}
 
     onInput(id: number, input: FightInput){}
 }

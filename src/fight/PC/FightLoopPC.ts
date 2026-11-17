@@ -6,13 +6,13 @@ import { FightInput } from "../struct";
 
 // 每个单位单独下指令
 export class FightLoopPC extends FightLoop {    
-    processBeforeTurn(){};
+    processBeforeTurn(turn: number){};
 
-    async processOneTurn(){
+    async processOneTurn(turn: number){
 
     };
 
-    processAfterTurn(){};
+    processAfterTurn(turn: number){};
 
     onInput(id: number, input: FightInput){}
 }

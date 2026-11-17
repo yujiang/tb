@@ -23,6 +23,10 @@ export class FightStatic {
         this.level = level;
     }
 
+    getXls() {
+        return this.xls;
+    }
+
     getId() {
         return this.xls.id;
     }

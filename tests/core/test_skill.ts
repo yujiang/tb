@@ -98,6 +98,7 @@ function staticModifier(
     }, 1);
 }
 
+// 测试：技能表按编号注册，并以相同等级创建关联子技能。
 test("skill registry stores data by id and creates relative skills at the same level", () => {
     const childData: SkillData = {
         id: 102,
@@ -140,6 +141,7 @@ test("skill registry stores data by id and creates relative skills at the same l
     assert.equal(getSkillData(parentData.id), replacement);
 });
 
+// 测试：伤害计算应用暴击和防守方的固定及比例减伤。
 test("damage calculation applies critical hits and defender damage reduction", () => {
     const { fight, attacker, defender } = createFightPair();
     const ctx = contextFor(fight, attacker, defender);
@@ -157,6 +159,7 @@ test("damage calculation applies critical hits and defender damage reduction", (
     assert.deepEqual(ctx.effects, ["crit"]);
 });
 
+// 测试：攻击伤害计算结果最低为一点。
 test("damage calculation always returns at least one damage", () => {
     const { fight, attacker, defender } = createFightPair();
     const ctx = contextFor(fight, attacker, defender);
@@ -168,6 +171,7 @@ test("damage calculation always returns at least one damage", () => {
     assert.deepEqual(ctx.effects, []);
 });
 
+// 测试：属性合并累加对应字段，且不修改任一输入对象。
 test("attribute merging adds matching fields without mutating either input", () => {
     const base = { attack: 20, defend: 5 };
     const skill = { attack: 10, defend: 2 };
@@ -177,6 +181,7 @@ test("attribute merging adds matching fields without mutating either input", () 
     assert.deepEqual(skill, { attack: 10, defend: 2 });
 });
 
+// 测试：普通攻击和技能复用伤害流程，并应用技能属性加成。
 test("ordinary attacks and skills use the shared damage flow with skill attributes", () => {
     const ordinary = createFightPair();
     const ordinaryCtx = contextFor(ordinary.fight, ordinary.attacker, ordinary.defender);
@@ -207,6 +212,7 @@ test("ordinary attacks and skills use the shared damage flow with skill attribut
     assert.equal(skilled.attacker.attr.magic.base.attack, 20);
 });
 
+// 测试：简单怪物的技能伤害、治疗和中毒计算均产生有限数值。
 test("simple monsters have finite attributes for skill damage, healing, and poison", () => {
     const fight = new Fight(2, { maxTurn: 10, waitInputSec: 1, duiwei: false });
     fight.random = () => 0.99;
@@ -258,6 +264,7 @@ test("simple monsters have finite attributes for skill damage, healing, and pois
     )));
 });
 
+// 测试：伤害或属性计算出现非有限数值时触发断言。
 test("damage and attribute calculations assert when their result is non-finite", () => {
     const { fight, attacker, defender } = createFightPair();
     const ctx = contextFor(fight, attacker, defender);
@@ -272,6 +279,7 @@ test("damage and attribute calculations assert when their result is non-finite",
     );
 });
 
+// 测试：属性修正只作用于指定攻击类型，且不修改原始属性。
 test("calcAttr applies modifiers to the selected attack type without mutating original attributes", () => {
     const original = new FightAttr();
     original.point = { hp: 100, hpMax: 100, mp: 50, mpMax: 50 };
@@ -302,6 +310,7 @@ test("calcAttr applies modifiers to the selected attack type without mutating or
     assert.equal(original.magic.next.attack, 20);
 });
 
+// 测试：单位深拷贝嵌套属性，同时保留 FightAttr 的方法。
 test("fight units clone nested attributes while preserving FightAttr methods", () => {
     const fight = new Fight(3, { maxTurn: 10, waitInputSec: 1, duiwei: false });
     const side = new FightSide();

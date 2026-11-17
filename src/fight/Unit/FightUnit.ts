@@ -1,4 +1,4 @@
-import { Fight } from "../Fight";
+import { Fight} from "../Fight";
 import { FightContex } from "../Skills/NormalAttack";
 import { FightAttr } from "../FightAttr";
 import { DiedSelectEnum, FightCmdEnum, FightDisplay, FightInput, FightSideEnum } from "../struct";
@@ -6,9 +6,10 @@ import { FightSkill, SkillCost } from "../Skills/FightSkill";
 import { getSkillData } from "../Skills/SkillDatas";
 import { createBuff, FightBuff} from "../Buffs/FightBuff";
 import { findForbidStatusByAction } from "../Buffs/FightStatus";
-import { OverlapEnum } from "../Buffs/BuffDatas";
+import { FightUnitEvent, OverlapEnum } from "../Buffs/BuffDatas";
 import { PassiveSkill } from "../Buffs/PassiveSkill";
 import { calcAttr } from "../Skills/Calc";
+import EventEmitter from "node:events";
 
 export enum UnitType{
     user,
@@ -16,9 +17,8 @@ export enum UnitType{
     monster, //npc
 }
 
-
-export type FightUnitEvent = 
-    'die' | 'relife' | 'hurt' | 'heal' | 'addBuff' | "removeBuff" | "attr" | "speed";
+export type UnitEventFunc = (unit: FightUnit, ...args: any[]) => void;
+export type UnitContextEventFunc = (unit: FightUnit, ctx:FightContex, ...args: any[]) => void;
 
 
 // 战斗单元
@@ -77,6 +77,8 @@ export abstract class FightUnit {
         return arr.slice(0, num).map((v) => v[0]);
     }
     
+    
+    minHp = 0; //boss锁血         
     onHurt(attacker: FightUnit, why: string, hp: number, ctx:FightContex){
         if (this.isDied()) return 0;
         if (this.isDefend()) {
@@ -86,10 +88,16 @@ export abstract class FightUnit {
 
         const point = this.attr.point;
         point.hp -= hp;
+        if (point.hp < this.minHp) {
+            point.hp = this.minHp;
+        }
+
         ctx.msgs.push(["hurt", why, this.uid, attacker.uid, hp, point.hp, ctx.effects])
         this.addEnemy(attacker, hp);
-        this.emit("hurt", attacker, hp, ctx);
+        this.emitContext("hurt", ctx, attacker, hp);
+
         if(point.hp <= 0){  
+            point.hp = 0;
             ctx.msgs.push(["die",this.uid])
             this.onDie(attacker, why, ctx);
             this.fight.onDie(this);
@@ -119,12 +127,33 @@ export abstract class FightUnit {
         ctx.msgs.push(["heal", why, this.uid, attacker.uid, hp, point.hp, ctx.effects])
         this.addFriend(attacker, hp);
         point.hp = Math.min(point.hp + hp, point.hpMax);
-        this.emit("heal", attacker, why, hp, ctx);
+        this.emitContext("heal", ctx, attacker, why, hp);
+    }
+
+    emitter = new EventEmitter();
+    emitContext(event: FightUnitEvent, ctx:FightContex, ...args: any[]){
+        this.emitter.emit(event, this, ctx, ...args);
+        this.fight?.emitUnitEvent(event, this, ctx, ...args);
     }
 
     emit(event: FightUnitEvent, ...args: any[]){
-        this.fight?.emitUnitEvent(this, event, ...args);
+        this.emitter.emit(event, this, ...args);
+        this.fight?.emitUnitEvent(event, this, ...args);
     }
+
+    on(event: FightUnitEvent, listener: UnitEventFunc) {
+        this.emitter.on(event, listener);
+    }
+    onContex(event: FightUnitEvent, listener: UnitContextEventFunc) {
+        this.emitter.on(event, listener);
+    }
+    off(event: FightUnitEvent, listener: UnitEventFunc) {
+        this.emitter.off(event, listener);
+    }
+    offContex(event: FightUnitEvent, listener: UnitContextEventFunc) {
+        this.emitter.off(event, listener);
+    }    
+
 
     pos: number;
     setPos(pos: number) {
@@ -153,7 +182,7 @@ export abstract class FightUnit {
     }
     onDie(attacker: FightUnit, why: string, ctx:FightContex){
         this.die();
-        this.emit("die", attacker, why, ctx);
+        this.emitContext("die", ctx, attacker, why);
     }
     die() {
         this.dead = true;
@@ -161,7 +190,7 @@ export abstract class FightUnit {
     }
     onRelife(attacker: FightUnit, why: string, ctx:FightContex){
         this.relife();
-        this.emit("relife", attacker, why, ctx);
+        this.emitContext("relife", ctx, attacker, why);
     }
     relife(){
         this.dead = false;
@@ -196,19 +225,39 @@ export abstract class FightUnit {
 
     input: FightInput;
     // 回合前处理, buff
-    processBeforeTurn(){}
+    processBeforeTurn(turn: number, ctx: FightContex){
+        this.onBuffTurn(turn, false, ctx);
+    }
     // 回合后处理, dead...
-    processAfterTurn(){}
-    processOneTurn(){
+    processAfterTurn(turn: number, ctx: FightContex){}
+    processOneTurn(turn: number){
         if (this.isDied()) return;
         const input = this.input || {cmd: FightCmdEnum.none};
         return this.fight.processUnit(this, input);
     }
 
+    private onBuffTurn(turn: number, inputTurn: boolean, ctx: FightContex){
+        for (const buff of [...this.buffs.values()]){
+            if (this.isDied()) break;
+            if (this.findBuff(buff.getId()) !== buff) continue;
+            if (buff.useInputTurn() == inputTurn){
+                if (buff.doTurn(this,turn,ctx)){
+                    if (this.findBuff(buff.getId()) === buff) {
+                        this.removeBuff(this, "turn", buff.getId(), ctx);
+                    }
+                }
+            }
+        }
+    }
 
-    inputStart(): void{
+    // 维持一个自己动作的turn，解决一个回合多动的问题！
+    myInputTurn = 0;
+    inputStart(turn: number, ctx: FightContex): void{
         this.defend = false;
         this.input = null;
+        // 处理buff
+        this.myInputTurn ++;
+        this.onBuffTurn(this.myInputTurn, true, ctx);
     }
 
     onInput(input: FightInput){
@@ -228,6 +277,7 @@ export abstract class FightUnit {
         return this.skills.get(id);
     }
 
+    // 装配反击技能
     backSkill = 0;
     getBackSkill(){
         return this.findSkill(this.backSkill);
@@ -253,9 +303,11 @@ export abstract class FightUnit {
     clearBuff(){
         const removed = Array.from(this.buffs.values());
         this.buffs.clear();
+        for (const buff of removed){
+            buff.onRemoved(this);
+        }
         this.onBuffChanged("clear", removed);
     }
-
 
     //封印 - attack普攻，物品，skill技能，大招
     isForbid(action: string) {
@@ -286,6 +338,7 @@ export abstract class FightUnit {
     }
 
     deleteBuff(buff: FightBuff){
+        buff.onRemoved(this);
         this.buffs.delete(buff.getId());
     }
 
@@ -356,11 +409,12 @@ export abstract class FightUnit {
             // replace
             this.deleteBuff(buf);
         }
-        const b = createBuff(buff, lv);
+        const b = createBuff(attacker, buff, lv, this.fight.turn, this.myInputTurn);
         if (!b) return;
         this.buffs.set(b.getId(), b);
+        b.onAdded(this);
         ctx.msgs.push(["addBuff", why, this.uid, attacker.uid, buff, lv])
-        this.emit("addBuff", attacker, why, b, ctx);
+        this.emitContext("addBuff", ctx, attacker, why, b);
         return b;
     }
 
@@ -388,7 +442,7 @@ export abstract class FightUnit {
         if (!buf) return ;
         this.deleteBuff(buf);
         ctx.msgs.push(["removeBuff", why, this.uid, attacker.uid, buff])
-        this.emit("removeBuff", attacker, why, buf, ctx);
+        this.emitContext("removeBuff", ctx, attacker, why, buf);
         return buf;
     }
 

@@ -67,6 +67,7 @@ function secondaryTargets(main: FightUnit, shape: MapShapeEnum, die = DiedSelect
     return names(fight.selectTargets(main, param));
 }
 
+// 测试：主目标选择和副目标形状查询分成两个阶段执行。
 test("main target selection and secondary shape selection are separate stages", () => {
     const mainParam: SelectMainParam = {
         target: TargetSelectEnum.duiwei,
@@ -78,6 +79,7 @@ test("main target selection and secondary shape selection are separate stages", 
     assert.deepEqual(secondaryTargets(main, MapShapeEnum.x_line), ["b41"]);
 });
 
+// 测试：选择自身时以行动者作为主目标。
 test("self selects the attacker as the main target", () => {
     assert.equal(
         fight.selectMainTarget(a00, { target: TargetSelectEnum.self }),
@@ -85,6 +87,7 @@ test("self selects the attacker as the main target", () => {
     );
 });
 
+// 测试：选出的主目标保持为预期的敌方单位。
 test("an explicit main target is preserved", () => {
     assert.equal(
         fight.selectMainTarget(a00, { target: TargetSelectEnum.enmey }),
@@ -92,6 +95,7 @@ test("an explicit main target is preserved", () => {
     );
 });
 
+// 测试：对位选择根据死亡过滤决定包含尸体或跳过尸体。
 test("duiwei can select dead units or skip them according to the die filter", () => {
     b40.die();
     assert.equal(
@@ -105,6 +109,7 @@ test("duiwei can select dead units or skip them according to the die filter", ()
     b40.relife();
 });
 
+// 测试：主目标选择过滤死亡单位，并按指定属性排序。
 test("main-target selection filters dead units and honors sorting", () => {
     b40.attr.point.hp = 80;
     b41.attr.point.hp = 50;
@@ -119,15 +124,18 @@ test("main-target selection filters dead units and honors sorting", () => {
     );
 });
 
+// 测试：横线副目标选择排除主目标自身。
 test("secondary x-line targets exclude the main target", () => {
     assert.deepEqual(secondaryTargets(a00, MapShapeEnum.x_line), ["a01", "a20"]);
 });
 
+// 测试：竖线副目标选择按配置过滤死亡状态。
 test("secondary y-line targets filter dead units", () => {
     assert.deepEqual(secondaryTargets(a00, MapShapeEnum.y_line), ["a02"]);
     assert.deepEqual(secondaryTargets(a00, MapShapeEnum.y_line, DiedSelectEnum.die), ["a10"]);
 });
 
+// 测试：十字副目标选择包含相邻单位并排除主目标。
 test("secondary cross targets include adjacent units but exclude the main target", () => {
     assert.deepEqual(
         secondaryTargets(a22, MapShapeEnum.cross),
@@ -135,6 +143,7 @@ test("secondary cross targets include adjacent units but exclude the main target
     );
 });
 
+// 测试：按数量选择副目标时排序同阵营候选并排除主目标。
 test("numeric secondary selection chooses sorted allies and excludes the main target", () => {
     a01.attr.point.hp = 90;
     a11.attr.point.hp = 40;

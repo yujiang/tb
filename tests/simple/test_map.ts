@@ -2,6 +2,7 @@
 import { SelectMainParam, TargetSelectEnum } from '../../src/fight/struct';
 import { createFightAndSide } from './help';
 
+// 测试：运行手写地图示例，查看对位和敌方主目标的选择结果。
 function run(){
     const fight = createFightAndSide(100);
     const s0 = fight.Sides[0];

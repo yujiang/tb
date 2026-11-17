@@ -6,7 +6,7 @@ import { afterHurt } from "./Buff";
 import { FightSkill } from "./FightSkill";
 import { FightContex } from "./NormalAttack";
 
-function heal(attacker: FightUnit, defender: FightUnit, skill:AttrSkill, name: string, ctx: FightContex) {
+export function heal(attacker: FightUnit, defender: FightUnit, skill:AttrSkill, name: string, ctx: FightContex) {
     if (defender.inStatus("禁疗")) {
         ctx.msgs.push(["禁疗", defender.uid])
         return false;

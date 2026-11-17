@@ -10,6 +10,8 @@ import { FightContex } from "../../src/fight/Skills/NormalAttack";
 import { initSkills, SkillData } from "../../src/fight/Skills/SkillDatas";
 import { skillFunc } from "../../src/fight/Skills/SkillFuncType";
 import { TargetSelectEnum } from "../../src/fight/struct";
+import { attackFunc } from "../../src/fight/Skills/NormalAttack";
+import { FightLoopWest } from "../../src/fight/Online/FightLoopOnline";
 
 function createFightPair(random = () => 0) {
     const fight = new Fight(1, { maxTurn: 10, waitInputSec: 1, duiwei: false });
@@ -38,6 +40,7 @@ function buffData(
         name: `buff-${id}`,
         desc: "",
         overlap,
+        useInputTurn: false, lastTurn: 0, times: 0, event: "hurt", skill: 0, skillLevel: 1,
         status,
         tags,
         magic: false,
@@ -90,6 +93,7 @@ function skillData(id: number, func: string, extra: Partial<SkillData> = {}): Sk
     };
 }
 
+// 测试：Buff 和被动状态影响状态查询及动作禁止判断。
 test("buff statuses affect status queries and forbidden actions", () => {
     const { attacker, defender, ctx } = createFightPair();
     initBuffs([buffData(901, OverlapEnum.NOT, ["封印"], ["debuff"])]);
@@ -110,6 +114,7 @@ test("buff statuses affect status queries and forbidden actions", () => {
     assert.equal(defender.isForbid("escapse"), true);
 });
 
+// 测试：添加 Buff 遵守叠加规则，并发出对应添加事件。
 test("buff addition observes overlap rules and emits add events", () => {
     const { fight, attacker, defender, ctx } = createFightPair();
     initBuffs([
@@ -118,7 +123,7 @@ test("buff addition observes overlap rules and emits add events", () => {
     ]);
 
     const added: FightBuff[] = [];
-    fight.onUnitEvent("addBuff", (_unit, _attacker, _why, buff) => added.push(buff));
+    fight.onUnitEvent("addBuff", (_unit, _ctx, _attacker, _why, buff) => added.push(buff));
 
     const initial = defender.addBuff(attacker, "test", 902, 1, ctx);
     assert.ok(initial);
@@ -137,6 +142,7 @@ test("buff addition observes overlap rules and emits add events", () => {
     assert.deepEqual(ctx.msgs.map(msg => msg[0]), ["addBuff", "addBuff", "addBuff"]);
 });
 
+// 测试：移除 Buff 处理缺失编号和标签筛选，死亡清空剩余 Buff。
 test("buff removal reports missing ids, removes by tag, and death clears remaining buffs", () => {
     const { fight, attacker, defender, ctx } = createFightPair();
     initBuffs([
@@ -147,7 +153,7 @@ test("buff removal reports missing ids, removes by tag, and death clears remaini
     ]);
 
     const removed: number[] = [];
-    fight.onUnitEvent("removeBuff", (_unit, _attacker, _why, buff: FightBuff) => removed.push(buff.getId()));
+    fight.onUnitEvent("removeBuff", (_unit, _ctx, _attacker, _why, buff: FightBuff) => removed.push(buff.getId()));
 
     for (const id of [904, 905, 906, 907]) {
         defender.addBuff(attacker, "test", id, 1, ctx);
@@ -164,6 +170,7 @@ test("buff removal reports missing ids, removes by tag, and death clears remaini
     assert.equal(defender.isDied(), true);
 });
 
+// 测试：Buff 技能按概率添加效果，并按编号或标签移除效果。
 test("buff skills add only buffs whose chance succeeds and remove configured ids and tags", () => {
     const { attacker, defender, ctx } = createFightPair(() => 0.75);
     initBuffs([
@@ -206,6 +213,7 @@ test("buff skills add only buffs whose chance succeeds and remove configured ids
     ]);
 });
 
+// 测试：禁疗和禁毒状态阻止对应的治疗与中毒效果。
 test("buff statuses block healing and poison effects", () => {
     const { attacker, defender, ctx } = createFightPair();
     defender.attr.point.hp = 50;
@@ -224,4 +232,127 @@ test("buff statuses block healing and poison effects", () => {
 
     assert.equal(defender.attr.point.hp, 50);
     assert.deepEqual(ctx.msgs.map(msg => msg[0]), ["addBuff", "禁疗", "百毒不侵"]);
+});
+
+// 测试：周期治疗恰好持续三个回合，同一边界重复调用不重复触发。
+test("periodic healing lasts three turns and ticks once per boundary", () => {
+    const {fight, attacker, defender, ctx} = createFightPair(() => 0.99);
+    defender.attr.point.hp = 30;
+    const data = skillData(9201, "heal"); data.attack.attack = 10;
+    initSkills([data]);
+    initBuffs([{...buffData(9202), func: "heal", skill: 9201, lastTurn: 3}]);
+    defender.addBuff(attacker, "test", 9202, 1, ctx);
+    defender.processBeforeTurn(0, ctx);
+    assert.equal(defender.getHp(), 30);
+    for (let turn = 1; turn <= 3; turn++) {
+        fight.turn = turn;
+        defender.processBeforeTurn(turn, ctx);
+        defender.processBeforeTurn(turn, ctx);
+        assert.equal(defender.getHp(), 30 + turn * 10);
+        assert.equal(!!defender.findBuff(9202), turn < 3);
+    }
+    defender.processBeforeTurn(4, ctx);
+    assert.equal(defender.getHp(), 60);
+    assert.equal(ctx.msgs.filter(m => m[0] === "removeBuff").length, 1);
+});
+
+// 测试：单位自身计时的周期扣血不受全局回合推进影响。
+test("input-clock poison ticks on each input boundary only", () => {
+    const {attacker, defender, ctx} = createFightPair(() => 0.99);
+    const data = skillData(9203, "poison"); data.attack.attack = 10;
+    initSkills([data]);
+    initBuffs([{...buffData(9204), func: "poison", skill: 9203, lastTurn: 2, useInputTurn: true}]);
+    defender.addBuff(attacker, "test", 9204, 1, ctx);
+    defender.processBeforeTurn(100, ctx);
+    assert.equal(defender.getHp(), 100);
+    defender.inputStart(100, ctx);
+    assert.equal(defender.getHp(), 90);
+    defender.inputStart(100, ctx);
+    assert.equal(defender.getHp(), 80);
+    assert.equal(defender.findBuff(9204), undefined);
+});
+
+// 测试：减伤 Buff 在前三次命中生效，第三次后移除并恢复属性及监听数量。
+test("three-hit damage reduction expires after the third protected hit", () => {
+    const {attacker, defender, ctx} = createFightPair(() => 0.99);
+    attacker.attr.physic.base = {...attacker.attr.physic.base, attack: 20, hit: 100, critP: 0};
+    defender.attrOri.physic.base.defend = 0; defender.attrOri.physic.base.dodge = 0;
+    initBuffs([{...buffData(9205), times: 3, final: {immunityP: 0.5}}]);
+    defender.addBuff(attacker, "test", 9205, 1, ctx);
+    for (let hit = 1; hit <= 4; hit++) {
+        attackFunc(attacker, defender, {...ctx, msgs: [], effects: []});
+        assert.equal(defender.getHp(), hit <= 3 ? 100 - hit * 10 : 50);
+        assert.equal(!!defender.findBuff(9205), hit < 3);
+    }
+    assert.equal(defender.emitter.listenerCount("hurt"), 0);
+});
+
+// 测试：按回合过期的次数 Buff 同时移除属性加成和事件监听。
+test("turn expiration unregisters counted buff listeners", () => {
+    const {attacker, defender, ctx} = createFightPair();
+    initBuffs([{...buffData(9206), times: 3, lastTurn: 1, final: {immunityP: 0.5}}]);
+    defender.addBuff(attacker, "test", 9206, 1, ctx);
+    defender.processBeforeTurn(1, ctx);
+    assert.equal(defender.findBuff(9206), undefined);
+    assert.equal(defender.emitter.listenerCount("hurt"), 0);
+    assert.equal(defender.attr.physic.final.immunityP, 0);
+});
+
+// 测试：替换次数 Buff 后旧实例不再接收事件，新实例从完整次数开始。
+test("replacement resets counts and death unregisters listeners", () => {
+    const {attacker, defender, ctx} = createFightPair();
+    initBuffs([{...buffData(9207, OverlapEnum.REPLACE), times: 3}]);
+    const old = defender.addBuff(attacker, "test", 9207, 1, ctx);
+    defender.onHurt(attacker, "test", 1, ctx);
+    const current = defender.addBuff(attacker, "test", 9207, 1, ctx);
+    defender.onHurt(attacker, "test", 1, ctx);
+    assert.equal(old.times, 2); assert.equal(current.times, 2);
+    assert.equal(defender.emitter.listenerCount("hurt"), 1);
+    defender.die();
+    assert.equal(defender.emitter.listenerCount("hurt"), 0);
+});
+
+// 测试：前一个周期效果移除后续 Buff 后，后续 Buff 不再继续触发。
+test("removed periodic buffs are skipped within the same boundary", () => {
+    const {fight, attacker, defender, ctx} = createFightPair(() => 0.99);
+    const data = skillData(9208, "heal"); data.attack.attack = 10;
+    initSkills([data]);
+    initBuffs([9209, 9210].map(id => ({...buffData(id), func: "heal", skill: 9208, lastTurn: 3})));
+    defender.attr.point.hp = 30;
+    for (const id of [9209, 9210]) defender.addBuff(attacker, "test", id, 1, ctx);
+    fight.onUnitEvent("heal", () => defender.removeBuff(attacker, "test", 9210, ctx));
+    defender.processBeforeTurn(1, ctx);
+    assert.equal(defender.getHp(), 40);
+});
+
+// 测试：周期效果回调中新加的 Buff 从下一个边界起生效。
+test("periodic buffs added during a tick wait until the next boundary", () => {
+    const {fight, attacker, defender, ctx} = createFightPair(() => 0.99);
+    const data = skillData(9211, "heal"); data.attack.attack = 10;
+    initSkills([data]);
+    initBuffs([9212, 9213].map(id => ({...buffData(id), func: "heal", skill: 9211, lastTurn: 3})));
+    defender.attr.point.hp = 30;
+    defender.addBuff(attacker, "test", 9212, 1, ctx);
+    fight.onUnitEvent("heal", () => defender.addBuff(attacker, "test", 9213, 1, ctx));
+    fight.turn = 1;
+    defender.processBeforeTurn(1, ctx);
+    assert.equal(defender.getHp(), 40);
+    fight.turn = 2;
+    defender.processBeforeTurn(2, ctx);
+    assert.equal(defender.getHp(), 60);
+});
+
+// 测试：输入边界中毒致战斗结束后，不再执行原有行动队列。
+test("lethal input-clock poison stops the fight before normal actions", async () => {
+    const {fight, attacker, defender, ctx} = createFightPair(() => 0.99);
+    const data = skillData(9214, "poison"); data.attack.attack = 200;
+    initSkills([data]);
+    initBuffs([{...buffData(9215), func: "poison", skill: 9214, useInputTurn: true, lastTurn: 1}]);
+    defender.addBuff(attacker, "test", 9215, 1, ctx);
+    const loop = new FightLoopWest(fight); loop.bcMsg = () => {};
+    let acted = false;
+    loop.processOneTurn = async () => {acted = true;};
+    await loop.run();
+    assert.equal(acted, false);
+    assert.equal(defender.isDied(), true);
 });

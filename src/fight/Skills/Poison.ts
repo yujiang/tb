@@ -4,7 +4,7 @@ import { afterHurt } from "./Buff";
 import { FightSkill } from "./FightSkill";
 import { FightContex } from "./NormalAttack";
 
-function poison(attacker: FightUnit, defender: FightUnit, skill:AttrSkill, name: string, ctx: FightContex) {
+export function poison(attacker: FightUnit, defender: FightUnit, skill:AttrSkill, name: string, ctx: FightContex) {
     if (defender.inStatus("禁毒")) {
         ctx.msgs.push(["百毒不侵", defender.uid])
         return false;

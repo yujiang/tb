@@ -3,6 +3,7 @@ const {test} = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 
+// 测试：包入口导出当前战斗实现，并生成可用的类型声明。
 test('package entry exports the current Fight implementation and has declarations', () => {
     const pkg = require('../package.json');
     const api = require('..');

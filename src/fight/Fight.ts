@@ -3,14 +3,14 @@ import { removeArray } from "../public/Array";
 import { attackFunc, FightContex } from "./Skills/NormalAttack";
 import { FightMap } from "./FightMap";
 import { FightSide } from "./FightSide";
-import { FightUnit, FightUnitEvent, sortByAttr } from "./Unit/FightUnit";
+import { FightUnit, UnitEventFunc, sortByAttr } from "./Unit/FightUnit";
+import { FightUnitEvent } from "./Buffs/BuffDatas";
 import { EnemySide, DiedSelectEnum, FightCmdEnum, FightInput, FightSideEnum, FightResultEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "./struct";
 import { strict as assert } from "node:assert";
 import EventEmitter from "node:events";
 import { skillFunc } from "./Skills/SkillFuncType";
 
 export type AllUnitType = [FightUnit[], FightUnit[]];
-export type UnitEventFunc = (unit: FightUnit, ...args: any[]) => void;
 
 //表格化数据
 export interface FightData {
@@ -318,11 +318,15 @@ export class Fight{
     }
 
     // ***event start
-    emitUnit = new EventEmitter();
-    emitUnitEvent(unit: FightUnit, event: FightUnitEvent, ...args: any[]){
+    private emitUnit = new EventEmitter();
+    emitUnitEvent(event: FightUnitEvent,unit: FightUnit, ...args: any[]){
         this.emitUnit.emit(event, unit, ...args);
     }
     onUnitEvent(event: FightUnitEvent, func: UnitEventFunc){
         this.emitUnit.on(event, func);
     }
+    offUnitEvent(event: FightUnitEvent, func: UnitEventFunc){
+        this.emitUnit.off(event, func);
+    }
+    
 }

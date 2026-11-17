@@ -29,6 +29,10 @@ export interface FightContex {
     reactionSteps?: number; // 单次动作共享的结算预算，防止回调无限触发
 }
 
+export function initFightContex(f:Fight) : FightContex{
+    return { fight: f, attack: null, defend: null, msgs: [], effects: []}
+}
+
 // const AttackBaseRand = {
 //     next : 0,
 //     kill : 0,
