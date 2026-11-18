@@ -1,7 +1,9 @@
+import { BuffTurnEnum } from "../../../src/fight/Buffs/BuffDatas";
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight, FightSide, FightLoopWest, FightUnitMonster, FightClient, FightReport,
-    BuffData, initBuffs, getBuffData, initPassives, OverlapEnum, initFightContex, FightCmdEnum, FightResultEnum } from "../../../src";
+    BuffData, initBuffs, getBuffData, initPassives, OverlapEnum, initFightContex, FightCmdEnum, FightResultEnum,
+    initSkills, TargetSelectEnum } from "../../../src";
 
 const reviveId = 97701, ordinaryId = 97702, passiveId = 97703;
 
@@ -11,7 +13,7 @@ function setup(extra: Partial<BuffData> = {}, forbidden = false,
         id: reviveId, name: "涅槃", desc: "死亡自动复活", class: "relife", classParam: 0.3,
         overlap: OverlapEnum.REPLACE, status: [], tags: [], magic: false, attackType: "base",
         attack: {}, final: {}, lastTurn: 0, times: 1, event: "die", prior: 1000,
-        useInputTurn: false, skill: 0, skillLevel: 1, notRemove: true, dieNotRemove: true, ...extra,
+        turnType: BuffTurnEnum.thisTurn, skill: 0, skillLevel: 1, notRemove: true, dieNotRemove: true, ...extra,
     };
     initBuffs([data, { ...data, id: ordinaryId, class: undefined, name: "普通增益", event: "hurt",
         dieNotRemove: false, times: 2, attack: { attack: 10 } }]);
@@ -48,6 +50,124 @@ function setup(extra: Partial<BuffData> = {}, forbidden = false,
     return { fight, unit, attacker, loop, client, report, hurt };
 }
 
+// 测试：第二段致死时普通三连击不再攻击复活者，连招同样要等外层完整行动结束才复活。
+for (const field of ["next", "combo"] as const) {
+    // 测试：按配置连接三段，死亡保持到完整动作边界，复活在后续结算标记之后且胜负检查之前。
+    test(`auto relife: ${field} lethal second hit revives only after the whole action`, () => {
+        const { fight, attacker, unit, loop, client } = setup({}, false, (a, u) => {
+            a.attrOri.magic.base.attack = 100; a.attrOri.magic.base.critP = 0;
+            a.attrOri.magic.next.attack = 100; a.attrOri.magic.next.critP = 0;
+            u.attrOri.magic.base.defend = 0; u.attrOri.magic.final.immunity = 0;
+            a.calcAttr(); u.calcAttr();
+        });
+        const first = 97720, second = 97721, third = 97722;
+        const common = { magic: true, rand: 1, attack: {}, final: {}, sel: { target: TargetSelectEnum.enmey } };
+        initSkills([{ ...common, id: first, name: "一段", damageRate: 0.4, [field]: second },
+            { ...common, id: second, name: "二段", damageRate: 0.7, [field]: third },
+            { ...common, id: third, name: "三段" }]);
+        attacker.addSkill(first, 1);
+        const ctx = fight.resolveAction(() => {
+            const result = fight.processUnit(attacker, { cmd: FightCmdEnum.skill, skill: first, target: unit.uid });
+            assert.ok(result);
+            assert.equal(unit.isDied(), true, "内层技能执行完毕仍需等待整次行动结束");
+            assert.ok(!result.msgs.some(msg => msg[0] === "relife"));
+            result.msgs.push(["actionTail"]);
+            return result;
+        });
+        loop.bcMsg(ctx.msgs);
+        assert.deepEqual(ctx.msgs.filter(msg => msg[0] === "skill").map(msg => msg[1]), [first, second]);
+        assert.deepEqual(ctx.msgs.filter(msg => msg[0] === "hurt").map(msg => msg[4]), [40, 60]);
+        assert.ok(ctx.msgs.findIndex(msg => msg[0] === "actionTail") < ctx.msgs.findIndex(msg => msg[0] === "relife"));
+        assert.equal(unit.isDied(), false); assert.equal(unit.getHp(), 30);
+        assert.equal(fight.win, FightResultEnum.ongoing);
+        assert.ok(client.checkSame(fight));
+    });
+}
+
+// 测试：延迟复活前如果 Buff 被移除，待处理效果失效，不消耗本场复活机会。
+test("auto relife: removing a pending revival buff cancels revival", () => {
+    const { fight, unit, attacker, loop, client } = setup({ notRemove: false });
+    const ctx = initFightContex(fight);
+    fight.resolveAction(() => {
+        unit.onHurt(attacker, "test", 1000, ctx);
+        unit.removeBuff(attacker, "dispel", reviveId, 99, ctx);
+    });
+    loop.bcMsg(ctx.msgs);
+    assert.ok(unit.isDied());
+    assert.ok(!ctx.msgs.some(msg => msg[0] === "relife" || msg[0] === "buffTrigger"));
+    assert.equal(fight.win, FightResultEnum.attack);
+    assert.ok(client.checkSame(fight));
+});
+
+// 测试：本次行动中已被其他效果复活时，不再触发或消耗自动复活机会。
+test("auto relife: external revival before action end preserves the automatic opportunity", () => {
+    const { fight, unit, attacker, loop, client, hurt } = setup();
+    const ctx = initFightContex(fight);
+    fight.resolveAction(() => {
+        unit.onHurt(attacker, "test", 1000, ctx);
+        unit.onRelife(attacker, "test", ctx);
+        unit.onHeal(attacker, "test", 10, ctx, { revive: true });
+    });
+    loop.bcMsg(ctx.msgs);
+    assert.equal(unit.getHp(), 10);
+    assert.equal(unit.findBuff(reviveId)?.times, 1);
+    assert.equal(ctx.msgs.filter(msg => msg[0] === "relife").length, 1);
+    assert.ok(!ctx.msgs.some(msg => msg[0] === "buffTrigger"));
+    assert.ok(client.checkSame(fight));
+    hurt(1000);
+    assert.equal(unit.getHp(), 30);
+});
+
+// 测试：死亡时尚未禁复活，行动后续才增加的禁复活状态也能阻止收尾复活。
+test("auto relife: revival eligibility is checked again at action end", () => {
+    const { fight, unit, attacker, loop, client } = setup();
+    initBuffs([{ ...getBuffData(reviveId), id: 97723, class: undefined, name: "禁复活", status: ["禁复活"] }]);
+    const ctx = initFightContex(fight);
+    fight.resolveAction(() => {
+        unit.onHurt(attacker, "test", 1000, ctx);
+        unit.addBuff(attacker, "test", 97723, 1, ctx);
+    });
+    loop.bcMsg(ctx.msgs);
+    assert.ok(unit.isDied());
+    assert.equal(unit.findBuff(reviveId)?.times, 1);
+    assert.ok(ctx.msgs.some(msg => msg[0] === "无法复活"));
+    assert.ok(!ctx.msgs.some(msg => msg[0] === "relife"));
+    assert.ok(client.checkSame(fight));
+});
+
+// 测试：双方最后单位在同一行动死亡时，先完成双方自动复活再判断胜负，不能提前判平局。
+test("auto relife: both sides revive before mutual death is checked for an outcome", () => {
+    const { fight, unit, attacker, loop, client } = setup();
+    const ctx = initFightContex(fight);
+    attacker.addBuff(attacker, "test", reviveId, 1, ctx);
+    fight.resolveAction(() => {
+        unit.onHurt(attacker, "test", 1000, ctx);
+        attacker.onHurt(unit, "test", 1000, ctx);
+        assert.ok(unit.isDied()); assert.ok(attacker.isDied());
+        assert.equal(fight.win, FightResultEnum.ongoing);
+    });
+    loop.bcMsg(ctx.msgs);
+    assert.equal(ctx.msgs.filter(msg => msg[0] === "relife").length, 2);
+    assert.equal(unit.getHp(), 30); assert.equal(attacker.getHp(), 30);
+    assert.equal(fight.win, FightResultEnum.ongoing);
+    assert.ok(client.checkSame(fight));
+});
+
+// 测试：完整动作抛错时丢弃待复活任务，下一次动作不能执行失败动作的残留效果。
+test("auto relife: a failed action discards its pending revival tasks", () => {
+    const { fight, unit, attacker } = setup();
+    const ctx = initFightContex(fight);
+    assert.throws(() => fight.resolveAction(() => {
+        unit.onHurt(attacker, "test", 1000, ctx);
+        throw new Error("action failed");
+    }), /action failed/);
+    fight.resolveAction(() => {});
+    assert.ok(unit.isDied());
+    assert.equal(unit.findBuff(reviveId)?.times, 1);
+    assert.ok(!ctx.msgs.some(msg => msg[0] === "relife"));
+});
+
+// 测试：自动复活先经历真实死亡和普通 Buff 清理，再在胜负检查前恢复生命。
 test("auto relife: actual death clears normal buffs then revives before outcome checking", () => {
     const { fight, unit, report, hurt } = setup();
     const deadStates: boolean[] = [];
@@ -73,6 +193,7 @@ test("auto relife: actual death clears normal buffs then revives before outcome 
     assert.equal(fight.win, FightResultEnum.attack);
 });
 
+// 测试：自动复活成功后重新施加 Buff，不刷新本场战斗的一次复活机会。
 test("auto relife: reapplying the buff does not refresh the battle opportunity", () => {
     const { fight, unit, loop, hurt } = setup();
     hurt(1000);
@@ -86,6 +207,7 @@ test("auto relife: reapplying the buff does not refresh the battle opportunity",
     assert.ok(!next.ctx.msgs.some(msg => msg[0] === "relife" || msg[0] === "buffTrigger"));
 });
 
+// 测试：禁止复活时不触发效果，也不消耗本场复活机会。
 test("auto relife: forbidden revival does not trigger or consume the opportunity", () => {
     const { fight, unit, attacker, loop, hurt } = setup({}, true);
     const blocked = hurt(1000);
@@ -103,6 +225,7 @@ test("auto relife: forbidden revival does not trigger or consume the opportunity
     assert.equal(hurt(1000).ctx.msgs.filter(msg => msg[0] === "relife").length, 1);
 });
 
+// 测试：自动复活默认恢复五分之一生命，极小正比例至少恢复一点生命。
 test("auto relife: default ratio is one fifth and small positive ratios restore at least 1 HP", () => {
     for (const [ratio, hp] of [[undefined, 20], [0.001, 1], [1, 100]] as const) {
         const { unit, hurt } = setup({ classParam: ratio });
@@ -112,6 +235,7 @@ test("auto relife: default ratio is one fifth and small positive ratios restore 
     }
 });
 
+// 测试：未配置死亡保留时自动复活 Buff 随死亡清除，不能触发复活。
 test("auto relife: death removal is respected when dieNotRemove is false", () => {
     const { unit, hurt } = setup({ dieNotRemove: false });
     const result = hurt(1000);
@@ -120,6 +244,7 @@ test("auto relife: death removal is respected when dieNotRemove is false", () =>
     assert.ok(!result.ctx.msgs.some(msg => msg[0] === "relife"));
 });
 
+// 测试：致命攻击按完整实际扣血统计，自动复活后原反应链仍继续结算。
 test("auto relife: the attack pipeline counts full lethal damage and continues reactions", () => {
     const { fight, unit, attacker, loop, client } = setup({}, false, (a, u) => {
         a.attr.point.hp = 20;
@@ -146,12 +271,14 @@ test("auto relife: the attack pipeline counts full lethal damage and continues r
     assert.equal(client.checkSame(fight), true);
 });
 
+// 测试：非法复活比例被拒绝，避免产生存活但零血的单位。
 test("auto relife: invalid ratios are rejected instead of producing a living unit with zero HP", () => {
     for (const classParam of [0, -0.1, 1.1, NaN, Infinity, "0.5"]) {
         assert.throws(() => setup({ classParam }), /relife classParam must be a number in \(0, 1\]/);
     }
 });
 
+// 测试：替换、驱散和到期都解绑自动复活的死亡监听器。
 test("auto relife: replacement, dispel and expiration unregister death listeners", () => {
     const { unit, fight, loop, client, hurt } = setup({ notRemove: false, lastTurn: 1 });
     const ctx = initFightContex(fight);
@@ -171,6 +298,7 @@ test("auto relife: replacement, dispel and expiration unregister death listeners
     assert.equal(unit.isDied(), true);
 });
 
+// 测试：不屈优先抵挡第一次致命伤害，下一次真正死亡时才触发自动复活。
 test("auto relife: unyielding triggers first, then auto revival on the next lethal hit", () => {
     const { unit, fight, loop, hurt } = setup();
     initBuffs([{ ...getBuffData(reviveId), id: 97704, class: "buqu", name: "不屈", event: "beforeHurt" }]);
@@ -189,6 +317,7 @@ test("auto relife: unyielding triggers first, then auto revival on the next leth
     assert.equal(unit.isDied(), true);
 });
 
+// 测试：单位进入新的战斗后重新获得一次自动复活机会。
 test("auto relife: a new battle grants a reused unit another successful revival", () => {
     const { unit, attacker, hurt } = setup();
     hurt(1000);

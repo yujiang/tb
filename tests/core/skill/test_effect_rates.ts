@@ -12,6 +12,7 @@ function data(extra: Partial<SkillData> = {}): SkillData {
 }
 
 for (const func of ["heal", "poison"] as const) {
+    // 测试：治疗和毒伤在攻击力合并后应用各自倍率，默认一并支持显式零。
     test(`${func}Rate: scale formula result after attackRate, including default and explicit zero`, () => {
         for (const rate of [undefined, 0, 0.5, 2]) {
             const { fight, actor, target, flush } = setupChain({ actorHp: 100 });
@@ -29,6 +30,7 @@ for (const func of ["heal", "poison"] as const) {
         }
     });
 
+    // 测试：周期 Buff 使用的原始技能数值同样应用治疗或毒伤倍率。
     test(`${func}Rate: raw skills used by periodic buffs also apply the multiplier`, () => {
         const { fight, actor, target } = setupChain();
         const skill = new AttrSkill(data({ healRate: 0.5, poisonRate: 0.5 }), 2, func);
@@ -39,6 +41,7 @@ for (const func of ["heal", "poison"] as const) {
     });
 }
 
+// 测试：复活仅按治疗比例和目标最大生命恢复，不受攻击属性及等级加成影响。
 test("relife: healRate alone determines target HP, independently of attack and level bonuses", () => {
     for (const rate of [undefined, 0.3, 0.001]) {
         const { fight, actor, target } = setupChain();
@@ -52,6 +55,7 @@ test("relife: healRate alone determines target HP, independently of attack and l
     }
 });
 
+// 测试：复活比例为零时不产生存活但零血的单位。
 test("relife: zero healRate does not create an alive unit with zero HP", () => {
     const { fight, actor, target } = setupChain();
     const ctx = initFightContex(fight);
@@ -62,6 +66,7 @@ test("relife: zero healRate does not create an alive unit with zero HP", () => {
     assert.equal(ctx.msgs.some(msg => msg[0] === "relife"), false);
 });
 
+// 测试：负数和非有限效果倍率在产生任何效果前被拒绝。
 test("effect rates: reject negative and nonfinite values before any effect is executed", () => {
     for (const field of ["healRate", "poisonRate"] as const) {
         for (const rate of [-1, NaN, Infinity, -Infinity]) {

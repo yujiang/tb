@@ -18,6 +18,7 @@ function base(attack = 100): BaseAttack {
 
 const final = { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 };
 
+// 测试：攻击倍率只缩放单位攻击力后再加固定值和等级成长，重复合并不累计也不修改原数据。
 test("attackRate: scale only unit attack before adding fixed and level bonuses, without mutation or accumulation", () => {
     const config = data(0.5), unitAttack = base();
     const configBefore = structuredClone(config), baseBefore = structuredClone(unitAttack);
@@ -34,6 +35,7 @@ test("attackRate: scale only unit attack before adding fixed and level bonuses, 
     assert.deepEqual(config, configBefore);
 });
 
+// 测试：攻击倍率默认一且保留显式零，零级保留固定加成并支持只有成长的字段。
 test("attackRate: omitted means one, zero excludes unit attack, level zero retains fixed additions", () => {
     for (const [rate, level, expected] of [[undefined, 2, 130], [0, 2, 30], [0.5, 0, 70]] as const) {
         const skill = new FightSkill(data(rate), level);
@@ -45,10 +47,11 @@ test("attackRate: omitted means one, zero excludes unit attack, level zero retai
     assert.equal(growthOnly.getAttack().attack, 64);
 });
 
+// 测试：攻击倍率在防御前生效，最终伤害倍率在防御结算后生效。
 test("attackRate: attack scaling and final damage scaling operate on opposite sides of defense", () => {
     const { fight, actor, target, cast } = setupChain({ rootSelfBuff: false, finalReactions: false, change: skills => {
         Object.assign(skills[0], { attackRate: 0.5, damageRate: 0.4, attack: { attack: 20 },
-            attackLevel: { attack: 5 }, next: undefined });
+            attackLevel: { attack: 5 }, combo: undefined });
     } });
     target.attrOri.magic.base.defend = 30; target.calcAttr();
     const before = actor.attrOri.magic.base.attack;
@@ -60,6 +63,7 @@ test("attackRate: attack scaling and final damage scaling operate on opposite si
     assert.equal(fight.isEnd(), false);
 });
 
+// 测试：三段配置子技能分别使用自己的攻击倍率，费用仅在主技能收取。
 test("attackRate: three configured next skills use their own attack coefficients", () => {
     const { cast, target, actor } = setupChain({ rootSelfBuff: false, finalReactions: false, change: skills => {
         for (const [index, rate] of [0.4, 0.7, 1].entries()) Object.assign(skills[index], { attackRate: rate, damageRate: 1 });
@@ -70,9 +74,10 @@ test("attackRate: three configured next skills use their own attack coefficients
     assert.equal(actor.attr.point.mp, 90);
 });
 
+// 测试：攻击倍率使用包含 Buff 加成的当前攻击力，不修改原始基础属性。
 test("attackRate: current Buff-enhanced attack is used while base attributes stay intact", () => {
     const { fight, actor, target, flush, cast } = setupChain({ rootSelfBuff: false, finalReactions: false, change: skills => {
-        Object.assign(skills[0], { attackRate: 0.5, damageRate: 1, next: undefined });
+        Object.assign(skills[0], { attackRate: 0.5, damageRate: 1, combo: undefined });
     } });
     initBuffs([{ ...getBuffData(chainIds.rest), id: 98101, name: "攻击提升", class: undefined,
         magic: true, attack: { attack: 50 } }]);
@@ -84,6 +89,7 @@ test("attackRate: current Buff-enhanced attack is used while base attributes sta
     assert.equal(actor.attrOri.magic.base.attack, 100);
 });
 
+// 测试：治疗与毒伤合并单位属性时复用同一攻击倍率规则。
 test("attackRate: healing and poison reuse the same unit attack merge rule", () => {
     for (const func of ["heal", "poison"] as const) {
         const { fight, actor, target, flush } = setupChain({ actorHp: 100 });
@@ -97,18 +103,20 @@ test("attackRate: healing and poison reuse the same unit attack merge rule", () 
     }
 });
 
+// 测试：技能反击按反击属性应用攻击倍率，不误用普通攻击属性。
 test("attackRate: counterattack scales counterattack attributes instead of ordinary attack", () => {
     const { actor, target, cast } = setupChain({ rootSelfBuff: false, change: skills => {
-        skills[0].next = undefined; skills[0].fback = true; skills[0].damageRate = 1;
+        skills[0].combo = undefined; skills[0].fback = true; skills[0].damageRate = 1;
     } });
     initSkills([data(0.5, { id: 98103, name: "倍率反击", attack: { attack: 5 }, attackLevel: {} })]);
-    target.addSkill(98103, 1); target.backSkill = 98103;
+    target.addSkill(98103, 1); target.fbackSkill = 98103;
     target.attrOri.magic.fback.attack = 40; target.calcAttr();
     const ctx = cast();
     assert.equal(actor.getHp(), 975);
     assert.deepEqual(ctx.msgs.filter(msg => msg[0] === "hurt" && msg[2] === actor.uid).map(msg => msg[4]), [25]);
 });
 
+// 测试：负数和非有限攻击倍率被拒绝，避免产生非法伤害。
 test("attackRate: nonfinite and negative coefficients are rejected", () => {
     for (const rate of [NaN, Infinity, -Infinity, -1]) {
         assert.throws(() => new FightSkill(data(rate), 1), /attackRate must be finite and nonnegative/);

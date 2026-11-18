@@ -5,17 +5,23 @@
 // 2. 数字：加血用绿色，伤害用红色，暴击伤害用橙色，未命中三个字用蓝色
 // 3. 死亡整句用暗红色，复活用亮绿色
 // 4. 每个 行动 前多一个换行
+// 5. 技能名青色，Buff 名紫色
 
 import { FightLoop } from "../FightLoop"
 import { fightMsg } from "../struct";
 import { FightClient } from "./FightClient"
 import { FightResultEnum } from "../struct"
+import { getBuffData } from "../Buffs/BuffDatas";
+import { getSkillData } from "../Skills/SkillDatas";
 
+const colors = { red: "\x1b[31m", orange: "\x1b[38;5;208m", green: "\x1b[32m",
+    darkRed: "\x1b[38;5;88m", brightGreen: "\x1b[92m", blue: "\x1b[34m",
+    cyan: "\x1b[36m", purple: "\x1b[35m" };
+type ReportColor = keyof typeof colors;
 
 export class FightReport{
     readonly lines: string[] = [];
-    private client = new FightClient();
-    private buffNames = new Map<number, string>();
+    protected client = new FightClient();
 
     // 默认直接打印，也可传入自己的输出函数；lines 始终保存当前战斗的简报。
     constructor(private output: (line: string) => void = line => console.log(line), private color = true) {}
@@ -24,29 +30,43 @@ export class FightReport{
         return this.lines.join("\n");
     }
 
-    private name(id: number): string {
+    protected name(id: number): string {
         const unit = this.client.getUnitById(id);
         return unit ? `${unit.display.name}（#${id}）` : `单位 #${id}`;
     }
 
-    private buffName(id: number, suppliedName?: string): string {
-        if (suppliedName) this.buffNames.set(id, suppliedName);
-        const name = this.buffNames.get(id);
-        return name ? `[${name}]` : `Buff #${id}`;
+    protected buffName(id: number): string {
+        const name = getBuffData(id)?.name;
+        return this.paint(name ? `[${name}]` : `Buff #${id}`, "purple");
     }
 
-    private write(line: string, color?: "red" | "orange" | "green" | "darkRed" | "brightGreen" | "blue",
+    protected skillName(id: number): string {
+        const name = id === 0 ? "普通攻击" : getSkillData(id)?.name;
+        return this.paint(name ? `[${name}]` : `技能 #${id}`, "cyan");
+    }
+
+    protected paint(text: string, color: ReportColor): string {
+        return this.color ? `${colors[color]}${text}\x1b[0m` : text;
+    }
+
+    protected write(line: string, color?: ReportColor,
         highlight?: { start: number; length: number }) {
-        this.lines.push(line);
-        const colors = { red: "\x1b[31m", orange: "\x1b[38;5;208m", green: "\x1b[32m",
-            darkRed: "\x1b[38;5;88m", brightGreen: "\x1b[92m", blue: "\x1b[34m" };
+        const plain = line.replace(/\x1b\[[0-9;]*m/g, "");
+        this.lines.push(plain);
         if (this.color && color) {
+            // 整句着色覆盖局部颜色；局部着色保留前缀中的技能和 Buff 颜色。
+            const rendered = highlight ? line : plain;
             const start = highlight?.start ?? 0;
-            const end = highlight ? start + highlight.length : line.length;
-            this.output(`${line.slice(0, start)}${colors[color]}${line.slice(start, end)}\x1b[0m${line.slice(end)}`);
+            const end = highlight ? start + highlight.length : rendered.length;
+            this.output(`${rendered.slice(0, start)}${colors[color]}${rendered.slice(start, end)}\x1b[0m${rendered.slice(end)}`);
         } else {
-            this.output(line);
+            this.output(this.color ? line : plain);
         }
+    }
+
+    // 子类可接管文字描写；状态更新、颜色和日志保存仍走公共流程。
+    protected describe(_msg: fightMsg): boolean {
+        return false;
     }
 
     bindFightLoop(fl: FightLoop){
@@ -63,10 +83,10 @@ export class FightReport{
         for (const msg of batch) {
             if (msg[0] === "start") {
                 this.lines.length = 0;
-                this.buffNames.clear();
             }
             // 复用客户端的消息处理，仅从消息累计展示状态，不读取服务端战斗。
             this.client.onMsg(msg);
+            if (this.describe(msg)) continue;
             const name = (id: number) => this.name(id);
             switch (msg[0]) {
                 case "start":
@@ -78,7 +98,7 @@ export class FightReport{
                     this.write(`${side}：${units.map(u => `${name(u.uid)}，位置 ${u.pos ?? "未设置"}，生命 ${u.point.hp}/${u.point.hpMax}，法力 ${u.point.mp}/${u.point.mpMax}${u.dead ? "，已死亡" : ""}`).join("；") || "无单位"}`);
                     for (const unit of units) {
                         for (const buff of unit.buffs) {
-                            this.write(`${name(unit.uid)} 初始携带 ${this.buffName(buff[0], unit.buffNames?.[buff[0]])}（等级 ${buff[1]}）`);
+                            this.write(`${name(unit.uid)} 初始携带 ${this.buffName(buff[0])}（等级 ${buff[1]}）`);
                         }
                     }
                     break;
@@ -95,13 +115,16 @@ export class FightReport{
                     this.write(`${name(msg[1])} 行动（速度 ${msg[2]}）`);
                     break;
                 case "skillFailed":
-                    this.write(`${name(msg[1])} 的${msg[4] ? `[${msg[4]}]` : `技能 #${msg[3]}`}未发动（发动概率判定失败）`);
+                    this.write(`${name(msg[1])} 的${this.skillName(msg[3])}未发动（发动概率判定失败）`);
                     break;
                 case "skipAction":
-                    this.write(`${name(msg[1])} 因${this.buffName(msg[2], msg[3])}跳过行动`);
+                    this.write(`${name(msg[1])} 因${this.buffName(msg[2])}跳过行动`);
+                    break;
+                case "protect":
+                    this.write(`${name(msg[1])} 保护 ${name(msg[2])}`);
                     break;
                 case "hurt": {
-                    const reason = msg[1] === "dback" ? "反伤" : msg[1] === "reflect" ? "反射伤害" : msg[1] === "poison" ? "中毒" : "伤害";
+                    const reason = msg[1] === "dback" ? "反伤" : msg[1] === "share" ? "分担伤害" : msg[1] === "reflect" ? "反射伤害" : msg[1] === "poison" ? "中毒" : "伤害";
                     const effects = (msg[6] ?? []).map((effect: string) => effect === "crit" ? "暴击" : effect);
                     const prefix = `${name(msg[3])} 对 ${name(msg[2])} 造成 `;
                     const amount = String(msg[4]);
@@ -126,14 +149,20 @@ export class FightReport{
                     break;
                 }
                 case "addBuff":
-                    if (msg[6]) this.write(`${name(msg[3])} 为 ${name(msg[2])} 添加 ${this.buffName(msg[4], msg[7])}（等级 ${msg[5]}）`);
+                    if (msg[6]) this.write(`${name(msg[3])} 为 ${name(msg[2])} 添加 ${this.buffName(msg[4])}（等级 ${msg[5]}）`);
                     break;
                 case "removeBuff":
-                    this.write(`${name(msg[2])} 移除 ${this.buffName(msg[4], msg[5])}${msg[1] === "die" ? "（死亡清除）" : msg[1] === "turn" ? "（持续时间结束）" : msg[1] === "times" ? "（次数耗尽）" : ""}`);
+                    this.write(`${name(msg[2])} 移除 ${this.buffName(msg[4])}${msg[1] === "die" ? "（死亡清除）" : msg[1] === "turn" ? "（持续时间结束）" : msg[1] === "times" ? "（次数耗尽）" : ""}`);
                     break;
-                case "buffTrigger":
-                    this.write(`${name(msg[1])} 的${this.buffName(msg[2], msg[3])}触发${msg[4] ? `（${msg[4]}）` : ""}`);
+                case "buffTrigger": {
+                    const detail = msg[3] === "buqu" ? "保留 1 点生命" :
+                        msg[3] === "relife" ? "自动复活" :
+                        msg[3] === "reflectHurt" ? `向 ${name(msg[4])}反射伤害` :
+                        msg[3] === "protect" ? `由 ${name(msg[4])}分担伤害` :
+                        msg[3] === "reflectHeal" ? `将治疗转移给 ${name(msg[4])}` : "";
+                    this.write(`${name(msg[1])} 的${this.buffName(msg[2])}触发${detail ? `（${detail}）` : ""}`);
                     break;
+                }
                 case "die":
                     this.write(`${name(msg[1])}死亡`, "darkRed");
                     break;
@@ -156,13 +185,15 @@ export class FightReport{
                     this.write(`战斗结束：${result}`);
                     break;
                 }
+                case "skill":
+                case "miss":
                 default: {
-                    const reaction = msg[4] === "next" ? "连击" : msg[4] === "kill" ? "追击" :
-                        msg[4] === "fback" ? "反击" : "";
+                    const reaction = msg[4] === "next" ? "连击" : msg[4] === "combo" ? "连招" : msg[4] === "kill" ? "追击" :
+                        msg[4] === "fback" ? "反击" : msg[4] === "support" ? "协战" : "";
                     const prefix = reaction ? `【${reaction}】` : "";
-                    const skill = msg[5] ? `[${msg[5]}]` : msg[1] === 0 ? "[普通攻击]" : `技能 #${msg[1]}`;
-                    if (msg.length >= 4 && msg[1] === "miss") {
-                        const beforeMiss = `${prefix}${name(msg[2])} ${msg[5] ? `使用${skill}攻击` : "攻击"} ${name(msg[3])}，`;
+                    const skill = this.skillName(msg[1]);
+                    if (msg.length >= 4 && (msg[0] === "miss" || msg[1] === "miss")) {
+                        const beforeMiss = `${prefix}${name(msg[2])} ${msg[0] === "miss" ? `使用${skill}攻击` : "攻击"} ${name(msg[3])}，`;
                         this.write(`${beforeMiss}未命中`, "blue", { start: beforeMiss.length, length: 3 });
                     } else if (msg.length >= 4 && typeof msg[1] === "number") {
                         this.write(`${prefix}${name(msg[2])} 对 ${name(msg[3])} 使用${skill}`);

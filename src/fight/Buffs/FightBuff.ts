@@ -1,10 +1,11 @@
 import { FightContex } from "../Fight";
 import { FightUnit, UnitContextEventFunc, UnitEventFunc } from "../Unit/FightUnit";
-import { BuffData } from "./BuffDatas";
+import { BuffData, BuffTurnEnum } from "./BuffDatas";
 import { buffFunc } from "./BuffFuncType";
 import { FightStatic } from "./StaticData";
 
-export const MAX_POWER = 99;
+export const MAX_POWER = 9999;
+export const MAX_LEVEL = 100;
 
 export class FightBuff extends FightStatic{
     protected override xls: BuffData;
@@ -54,8 +55,8 @@ export class FightBuff extends FightStatic{
         return this.xls;
     }
 
-    useInputTurn() {
-        return this.xls.useInputTurn;
+    getTurnType() {
+        return this.xls.turnType ?? BuffTurnEnum.thisTurn;
     }
 
     getOverlap() {
@@ -76,12 +77,12 @@ export class FightBuff extends FightStatic{
     }
 
     // onTurn(turn: number){
-    //     if (this.useInputTurn()) return false;
+    //     if (this.getTurnType() !== BuffTurnEnum.thisTurn) return false;
     //     return this.doTurn(turn);
     // }
 
     // inputStart(turn: number, inputTurn: number){
-    //     if (!this.useInputTurn()) return false;
+    //     if (this.getTurnType() !== BuffTurnEnum.inputTurn) return false;
     //     return this.doTurn(inputTurn);
     // }
 
@@ -90,14 +91,18 @@ export class FightBuff extends FightStatic{
         this.lastProcessedTurn = turn;
         const end = this.start + this.lastTurn;
         if (this.lastTurn > 0 && turn > end) return true;
-        if (this.xls.func) {
+        if (this.xls.func && !unit.isDied() && !ctx.fight.isEnd()) {
             buffFunc(unit, this, ctx);
         }
         return this.lastTurn > 0 && turn >= end;
     }
 
     getPower() {
-        return this.xls.power ?? this.getLevel();
+        return this.xls.power ?? 0;
+    }
+
+    greatPower(power: number, lv: number){
+        return this.getPower() > power || (power == this.getPower() && this.level >= lv);
     }
 
     // 武器装备的buf可能死亡也需要保留

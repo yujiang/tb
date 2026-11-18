@@ -1,4 +1,4 @@
-// 自动复活：真实死亡后按自身最大生命比例复活，每场成功触发一次。
+// 自动复活：真实死亡后等完整动作结束，按自身最大生命比例复活，每场成功触发一次。
 import { FightBuff } from "../FightBuff";
 import type { BuffData } from "../BuffDatas";
 import type { Fight, FightContex } from "../../Fight";
@@ -31,6 +31,13 @@ export class BuffRelife extends FightBuff {
 
     override onEvent(unit: FightUnit, ctx: FightContex) {
         if (unit.findBuff(this.getId()) !== this || !unit.isDied()) return;
+        ctx.fight.afterAction(() => this.revive(unit, ctx));
+    }
+
+    private revive(unit: FightUnit, ctx: FightContex) {
+        // 排队期间可能被其他效果复活、驱散或替换，也可能离开战斗。
+        if (unit.fight !== ctx.fight || !ctx.fight.getAllUnits().includes(unit) ||
+            unit.findBuff(this.getId()) !== this || !unit.isDied()) return;
         let used = BuffRelife.used.get(ctx.fight);
         if (used?.has(unit)) {
             this.times = 0;
@@ -48,7 +55,7 @@ export class BuffRelife extends FightBuff {
         // 先消耗并解绑，防止移除/复活回调再次触发同一次机会。
         used.add(unit);
         this.times = 0;
-        ctx.msgs.push(["buffTrigger", unit.uid, this.getId(), this.xls.name, "自动复活"]);
+        ctx.msgs.push(["buffTrigger", unit.uid, this.getId(), "relife"]);
         unit.expireBuff(this, "times", ctx);
         const hp = Math.max(1, Math.floor(unit.getHpMax() * this.ratio));
         unit.onRelife(unit, "relife", ctx);

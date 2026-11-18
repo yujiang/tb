@@ -44,6 +44,9 @@ export class FightSkill {
     canFBack(){
         return this.xls.fback ?? false;
     }
+    canSupport(){
+        return this.xls.support ?? false;
+    }
 
     getXls() {
         return this.xls;
@@ -71,7 +74,7 @@ export class FightSkill {
         return this.getRelativeSkill(this.getKill());
     }
     getNext(){
-        return this.xls.next;
+        return this.xls.next ?? this.xls.combo;
     }
     getNextSkill(){
         return this.getRelativeSkill(this.getNext());

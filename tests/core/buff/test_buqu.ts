@@ -1,3 +1,4 @@
+import { BuffTurnEnum } from "../../../src/fight/Buffs/BuffDatas";
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight, FightSide, FightAttr, BaseAttack, FightUnitMonster, FightLoopWest,
@@ -27,7 +28,7 @@ function setup(extra: Partial<BuffData> = {}) {
         id: buffId, name: "不屈", desc: "每场一次，致命伤害保留1血", class: "buqu",
         overlap: OverlapEnum.REPLACE, status: [], tags: [], magic: false, attackType: "base",
         attack: {}, final: {}, lastTurn: 0, times: 1, event: "beforeHurt", prior: 1000,
-        useInputTurn: false, skill: 0, skillLevel: 1, notRemove: true, dieNotRemove: true, ...extra,
+        turnType: BuffTurnEnum.thisTurn, skill: 0, skillLevel: 1, notRemove: true, dieNotRemove: true, ...extra,
     }]);
     initPassives([{
         id: passiveId, name: "不屈被动", desc: "", status: [], tags: [], magic: false,
@@ -58,6 +59,7 @@ function setup(extra: Partial<BuffData> = {}) {
     return { fight, attacker, unit, ally, loop, client, report, hurt };
 }
 
+// 测试：非致命伤害不消耗不屈，致命伤害保留一点生命且每场只成功一次。
 test("buqu: nonlethal hits preserve the charge, lethal hits leave 1 HP once per battle", () => {
     const { fight, unit, ally, loop, client, report, hurt } = setup();
     const buff = unit.findBuff(buffId);
@@ -93,6 +95,7 @@ test("buqu: nonlethal hits preserve the charge, lethal hits leave 1 HP once per 
     assert.equal(second.ctx.msgs.some(msg => msg[0] === "buffTrigger"), false);
 });
 
+// 测试：普通减伤先执行，不屈在其后根据最终伤害判断是否致命。
 test("buqu: earlier damage reduction runs before the final lethal check", () => {
     const { unit, hurt } = setup();
     // 故意在不屈之后注册，依然应该按优先级先减半。
@@ -104,6 +107,7 @@ test("buqu: earlier damage reduction runs before the final lethal check", () => 
     assert.equal(unit.getHp(), 1);
 });
 
+// 测试：不屈抵挡后，吸血、反伤和贡献统计都按实际扣血计算。
 test("buqu: attacks use prevented damage for lifesteal, reflection and contribution", () => {
     const { fight, attacker, unit, loop, client } = setup();
     attacker.attrOri.physic.final.bloodP = 0.5;
@@ -119,6 +123,7 @@ test("buqu: attacks use prevented damage for lifesteal, reflection and contribut
     assert.equal(client.checkSame(fight), true);
 });
 
+// 测试：一点生命时遭受致命攻击仍消耗不屈，本次实际伤害为零。
 test("buqu: a lethal hit at 1 HP consumes the charge and deals zero damage", () => {
     const { unit, loop, hurt } = setup();
     const ctx = initFightContex(unit.fight);
@@ -132,6 +137,7 @@ test("buqu: a lethal hit at 1 HP consumes the charge and deals zero damage", () 
     assert.equal(unit.isDied(), true);
 });
 
+// 测试：替换、驱散和自然到期都会清理不屈监听器。
 test("buqu: replacement, dispel and natural expiration clean up listeners", () => {
     const { unit, ally, hurt, loop, client } = setup({ notRemove: false, lastTurn: 1 });
     const ctx = initFightContex(unit.fight);
@@ -154,6 +160,7 @@ test("buqu: replacement, dispel and natural expiration clean up listeners", () =
     assert.equal(unit.contextEmitter.listenerCount("beforeHurt"), 0);
 });
 
+// 测试：复用单位进入新战斗后重新获得一次不屈机会。
 test("buqu: reusing a unit in a new battle grants a new opportunity", () => {
     const { unit, attacker, ally, hurt } = setup();
     hurt(100);

@@ -45,6 +45,7 @@ function attackFback(attacker: FightUnit, defender: FightUnit, ctx: FightContex)
 }
 
 export function skillFBack(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
+    if (attacker.isForbid("attack")) return false;
     ctx.fbackNum = (ctx.fbackNum || 0) + 1;
     const magic = new MagicFBackSkill(skill.getXls(), skill.level);
 
@@ -55,9 +56,10 @@ export function skillFBack(attacker: FightUnit, defender: FightUnit, skill:Fight
 }
 
 export function tryFBack(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
-    const back = attacker.getBackSkill();
-    if (back) {
-        return skillFBack(attacker, defender, back, ctx);
+    if (attacker.isForbid("attack")) return false;
+    const fback = attacker.getFBackSkill();
+    if (fback) {
+        return skillFBack(attacker, defender, fback, ctx);
     }
     return attackFback(attacker, defender, ctx);
 }
@@ -81,6 +83,6 @@ export function tryDBack(attacker: FightUnit, defender: FightUnit, magic: boolea
         defender.attr.physic.final.dbackP ;
      if (p > 0) {
         damage *= p;
-        attacker.onHurt(defender, "dback", damage, ctx, { magic });
+        attacker.onHurt(defender, "dback", damage, ctx, { magic, source: "dback" });
     }
 }

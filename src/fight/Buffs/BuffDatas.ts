@@ -1,17 +1,29 @@
 import { StaticData } from "./StaticData";
 
 export enum OverlapEnum {
-    NOT = 0, // 不叠加
-    REPLACE = 1, // 替换
+    NOT = 0,                // 不叠加
+    REPLACE = 1,            // 替换
+    RELPACE_BYPOWER = 2,    // 高power替换低的: 比如2个毒buff，一个更深可以替换掉原来的
 }
 
-// buff 有 4种
+export enum BuffTurnEnum {
+    thisTurn,  // 全局回合前
+    inputTurn, // 单位输入次数
+    afterTurn, // 全局回合后
+}
+
+// buff 有 5种
 // 1. 状态，比如封印
 // 2. 改变属性attr， 比如增益和减益
-// 3. 每个回合起作用，加血和扣血
+// 3. 每个回合起作用，加血和毒（扣血）
 // 4. 有次数，比如减伤3次后消失
+// 5. 特殊的buff，用class, classParam字段来派生
+// 但是1~5并不互斥，可以同时存在，所以没有type字段
+
 export type FightUnitEvent = 
     'beforeHurt' | 'beforeHeal' | 'afterTurn' | 'die' | 'relife' | 'hurt' | 'heal' | 'addBuff' | "removeBuff" | "attr" | "speed";
+
+export type BuffFuncEnum = 'poison' | 'heal'
 
 export interface BuffData extends StaticData{
     class?: string;  // 特殊的类，省略时使用普通 FightBuff
@@ -21,22 +33,22 @@ export interface BuffData extends StaticData{
 
     overlap: OverlapEnum;    
 
-    useInputTurn: boolean; //使用inputTurn还是fight.Turn，默认false
-    lastTurn: number; //持续后续几个对应边界；0 不按回合过期
+    turnType?: BuffTurnEnum;    //计时/周期触发边界，默认 thisTurn
+    lastTurn: number;           //持续后续几个对应边界；0 不按回合过期
     
-    times: number; //使用次数
-    event: FightUnitEvent; //times的时机
-    prior?: number; //带 ctx 事件的监听优先级，默认 0，小的先执行，同优先级按注册顺序
+    times: number;              //使用次数
+    event: FightUnitEvent;      //times发生和扣除的时机
+    prior?: number;             //带 ctx 事件的监听优先级，默认 0，小的先执行，同优先级按注册顺序
 
-    func?: string;
-    skill: number;
-    skillLevel: number;
+    func?: BuffFuncEnum;        
+    skill?: number;             //类型3对应的skill
+    skillLevel?: number;
 
-    notRemove?: boolean; //不能驱散
-    dieNotRemove?: boolean; //die不删除
-    notDisplay?: boolean; //客户端不显示
+    notRemove?: boolean;        //不能驱散
+    dieNotRemove?: boolean;     //die不删除
+    notDisplay?: boolean;       //客户端不显示
 
-    power?: number; //removeBuff用到， 低power不能移除高power的buff
+    power?: number;             //removeBuff用到， 低power不能移除高power的buff
 }
 
 const buffs = new Map<number,BuffData>();

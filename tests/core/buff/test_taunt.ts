@@ -1,3 +1,4 @@
+import { BuffTurnEnum } from "../../../src/fight/Buffs/BuffDatas";
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight, FightAttr, BaseAttack, FightSide, FightUnitUser, FightUnitMonster,
@@ -22,7 +23,7 @@ function attr(hp = 1000): FightAttr {
 function setup(extra: Partial<BuffData> = {}) {
     const buff: BuffData = { id: tauntId, name: "嘲讽", desc: "强制选择施加者", class: "taunt",
         overlap: OverlapEnum.REPLACE, status: [], tags: [], magic: false, attackType: "base",
-        attack: {}, final: {}, lastTurn: 2, times: 0, event: "hurt", useInputTurn: false,
+        attack: {}, final: {}, lastTurn: 2, times: 0, event: "hurt", turnType: BuffTurnEnum.thisTurn,
         skill: 0, skillLevel: 1, ...extra };
     initBuffs([buff, { ...buff, id: secondTauntId }]);
     const common = { name: "测试技能", magic: true, rand: 1, attack: {}, final: {} };
@@ -50,6 +51,7 @@ function setup(extra: Partial<BuffData> = {}) {
     return { fight, actor, friend, source, other, second, ctx, add };
 }
 
+// 测试：被嘲讽者攻击编号为零的施加者，不再按随机或最低生命选敌人。
 test("taunt: bearer attacks source ID zero instead of random or lowest-HP enemy", () => {
     const { fight, actor, source, ctx, add } = setup();
     add();
@@ -67,6 +69,7 @@ test("taunt: bearer attacks source ID zero instead of random or lowest-HP enemy"
     assert.ok(ctx.msgs.every(msg => msg[0] !== "sync"));
 });
 
+// 测试：合法的显式敌方目标照常接受，执行时重定向且不修改已提交指令。
 test("taunt: explicit legal enemy targets are accepted and redirected without mutating input", () => {
     const { fight, actor, source, other, add } = setup();
     add();
@@ -90,6 +93,7 @@ test("taunt: explicit legal enemy targets are accepted and redirected without mu
     assert.equal(actor.onInput({ cmd: FightCmdEnum.cancel }), true);
 });
 
+// 测试：提交后新增嘲讽会改变执行目标，驱散后恢复原始目标意图。
 test("taunt: execution redirects after a new taunt and restores original intent after dispel", () => {
     const { fight, actor, source, other, ctx, add } = setup();
     assert.equal(actor.onInput({ cmd: FightCmdEnum.attack, target: other.uid }), true);
@@ -103,6 +107,7 @@ test("taunt: execution redirects after a new taunt and restores original intent 
     assert.equal(other.getHp(), 40);
 });
 
+// 测试：嘲讽不影响友方、自身技能和范围技能副目标的正常选择规则。
 test("taunt: friendly/self skills and secondary area targets keep their normal rules", () => {
     const { fight, actor, friend, source, other, second, add } = setup();
     add();
@@ -115,6 +120,7 @@ test("taunt: friendly/self skills and secondary area targets keep their normal r
     assert.deepEqual(ctx.msgs.filter(msg => msg[0] === "hurt").map(msg => msg[2]), [source.uid, other.uid, second.uid]);
 });
 
+// 测试：多个嘲讽按优先级和注册顺序选择第一个有效来源。
 test("taunt: priorities and registration order select the first valid source", () => {
     const { fight, actor, source, second, ctx, add } = setup();
     add(); add(second, secondTauntId);
@@ -132,6 +138,7 @@ test("taunt: priorities and registration order select the first valid source", (
     assert.equal(fight.selectMainTarget(actor, sel), second);
 });
 
+// 测试：死亡、离场、变为友方或不符合死亡过滤条件的嘲讽来源被忽略。
 test("taunt: dead, departed, friendly and death-filter-ineligible sources are ignored", () => {
     const { fight, actor, friend, source, other, second, add } = setup();
     add();
@@ -148,6 +155,7 @@ test("taunt: dead, departed, friendly and death-filter-ineligible sources are ig
     assert.equal(fight.selectMainTarget(actor, { target: TargetSelectEnum.enmey, die: DiedSelectEnum.die }), other);
 });
 
+// 测试：非正方形地图上的对位技能仍保留自身目标资格限制。
 test("taunt: position skills preserve their own target qualification on a rectangular map", () => {
     const { fight, actor, source, other, add } = setup();
     add();
@@ -157,6 +165,7 @@ test("taunt: position skills preserve their own target qualification on a rectan
     assert.equal(fight.processUnit(actor, { cmd: FightCmdEnum.skill, skill: positionId })?.defend, source);
 });
 
+// 测试：嘲讽到期或死亡清理后解除重定向，客户端通过增量消息保持一致。
 test("taunt: duration and death cleanup release restriction, with incremental client consistency", () => {
     const { fight, actor, source, other, ctx, add } = setup({ lastTurn: 1 });
     const loop = new FightLoopWest(fight), client = new FightClient();
@@ -175,6 +184,7 @@ test("taunt: duration and death cleanup release restriction, with incremental cl
     assert.equal(client.checkSame(fight), true);
 });
 
+// 测试：网络指令保存原选择，执行时才将攻击重定向到嘲讽者。
 test("taunt: network input preserves selected enemy and execution redirects to the taunter", async () => {
     const { fight, actor, source, other, add } = setup();
     add();
@@ -189,6 +199,7 @@ test("taunt: network input preserves selected enemy and execution redirects to t
     assert.equal(actor.input.target, other.uid);
 });
 
+// 测试：普通分类标签不会产生程序中的嘲讽选目标行为。
 test("taunt: ordinary classification tags do not impose targeting behavior", () => {
     const { fight, actor, other, add } = setup({ class: undefined, tags: ["taunt"] });
     add();
@@ -196,6 +207,7 @@ test("taunt: ordinary classification tags do not impose targeting behavior", () 
     assert.equal(actor.onInput({ cmd: FightCmdEnum.attack, target: other.uid }), true);
 });
 
+// 测试：同编号的新单位实例不能冒充原来的嘲讽施加者。
 test("taunt: a replacement unit with the same ID does not replace the original source reference", () => {
     const { fight, actor, source, other, add } = setup();
     add();
@@ -205,6 +217,7 @@ test("taunt: a replacement unit with the same ID does not replace the original s
     assert.equal(fight.validateInput(actor, { cmd: FightCmdEnum.attack, target: other.uid }), true);
 });
 
+// 测试：守尸指令在嘲讽者有效时重定向，来源死亡后仍按原守尸规则处理。
 test("taunt: corpse guarding redirects while taunter is valid and skips corpse when taunter dies", () => {
     const { fight, actor, source, other, add } = setup();
     add(); other.die();
@@ -217,6 +230,7 @@ test("taunt: corpse guarding redirects while taunter is valid and skips corpse w
     assert.equal(other.getHp(), 50); // 仍死亡则跳过，不对尸体伤害或自动换人。
 });
 
+// 测试：非法显式目标仍被拒绝，不能通过嘲讽重定向变为合法指令。
 test("taunt: invalid explicit targets remain invalid rather than being rescued by redirection", () => {
     const { fight, actor, friend, add } = setup();
     add();
@@ -232,6 +246,7 @@ test("taunt: invalid explicit targets remain invalid rather than being rescued b
     assert.equal(samples, 0);
 });
 
+// 测试：嘲讽者死亡和复活改变实际攻击目标，客户端同步对应的真实伤害。
 test("taunt: execution follows source death and revival while client mirrors actual damage targets", () => {
     const { fight, actor, source, other, ctx, add } = setup();
     const loop = new FightLoopWest(fight), client = new FightClient();
@@ -257,6 +272,7 @@ test("taunt: execution follows source death and revival while client mirrors act
     assert.equal(client.checkSame(fight), true);
 });
 
+// 测试：死亡的受控单位仍能提交指令，复活后按照当前嘲讽规则执行。
 test("taunt: a dead controlled unit can submit and execute after revival", () => {
     const { fight, actor, source, friend, ctx, add } = setup({ dieNotRemove: true });
     add();

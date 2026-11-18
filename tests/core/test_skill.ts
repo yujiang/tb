@@ -34,6 +34,7 @@ function baseAttack(overrides: Partial<BaseAttack> = {}): BaseAttack {
     };
 }
 
+// 测试：简单怪物的默认暴击率使用比例数值，不能导致每次攻击必然暴击。
 test("simple monsters: default critical chances are fractional and do not force critical hits", () => {
     const fight = new Fight(97401, { maxTurn: 1, waitInputSec: 1, duiwei: false }, 0);
     fight.random = () => 0.5;
@@ -51,6 +52,7 @@ test("simple monsters: default critical chances are fractional and do not force 
     }
 });
 
+// 测试：简单怪物显式配置零暴击率时保持为零，不被默认值覆盖。
 test("simple monsters: explicit zero critical chances stay zero", () => {
     const fight = new Fight(97402, { maxTurn: 1, waitInputSec: 1, duiwei: false }, 0);
     const side = new FightSide();

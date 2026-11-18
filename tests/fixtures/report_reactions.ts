@@ -23,7 +23,7 @@ function attr(hp: number, attack: number, speed: number): FightAttr {
 
 // 连击与反击按现有规则互斥：剑客主技能不触发目标反击；敌人的普攻触发剑客反击。
 // 第一轮压低敌方生命，第二轮击杀主目标后追击另一人；所有配置概率为 1，关闭暴击。
-export async function runReactionReport(output: (line: string) => void = line => console.log(line)) {
+export async function runReactionReport(output: (line: string) => void = line => console.log(line), Report = FightReport) {
     const skill = { magic: true, rand: 1, sel: { target: TargetSelectEnum.enmey, sortAttr: "hp" },
         attack: {}, final: {}, blood: true, dback: true, fback: false };
     initSkills([
@@ -51,7 +51,7 @@ export async function runReactionReport(output: (line: string) => void = line =>
     fight.createSide(attack, defend);
     const loop = new FightLoopWest(fight);
     const client = new FightClient();
-    const report = new FightReport(output);
+    const report = new Report(output);
     const messages: fightMsg[] = [];
     let checkedBatches = 0;
     loop.onMsg(msgs => {

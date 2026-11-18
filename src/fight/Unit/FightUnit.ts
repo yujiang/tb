@@ -5,8 +5,8 @@ import { FightSkill } from "../Skills/FightSkill";
 import { getSkillData } from "../Skills/SkillDatas";
 import { createBuff, FightBuff} from "../Buffs/FightBuff";
 import { findForbidStatusByAction } from "../Buffs/FightStatus";
-import { FightUnitEvent, OverlapEnum } from "../Buffs/BuffDatas";
-import { createPassiveSkills, PassiveSkill } from "../Buffs/PassiveSkill";
+import { BuffTurnEnum, FightUnitEvent, getBuffData, OverlapEnum } from "../Buffs/BuffDatas";
+import { createPassiveSkills, PassiveSkill } from "../Passives/PassiveSkill";
 import { calcAttr } from "../Skills/Calc";
 import EventEmitter from "node:events";
 import { OrderedEventEmitter } from "../../public/OrderedEventEmitter";
@@ -21,14 +21,18 @@ export type UnitEventFunc = (unit: FightUnit, ...args: any[]) => void;
 export type UnitContextEventFunc = (unit: FightUnit, ctx:FightContex, ...args: any[]) => void;
 
 // 每次受伤独立创建，后续监听读取前一个监听修改后的伤害。
+export type HurtSource = "skill" | "buff" | "dback" | "share" | "reflect";
+
 export interface HurtOptions {
     magic?: boolean;
     reflected?: boolean; // 已反射的伤害不再次反射
+    source?: HurtSource; // 默认 skill（含普攻）；其他伤害来源不能触发保护
 }
 
 export interface PendingHurt extends HurtOptions {
     damage: number;
     cancelled?: boolean;
+    shared?: boolean; // 本次伤害已经被保护分担，不能由多个保护 Buff 重复分摊
 }
 
 export interface HealOptions {
@@ -106,7 +110,7 @@ export abstract class FightUnit {
         if (this.isDefend()) {
             hp *= 0.5;
         }     
-        const pending: PendingHurt = { ...options, damage: hp };
+        const pending: PendingHurt = { ...options, source: options.source ?? "skill", damage: hp };
         this.emitContext("beforeHurt", ctx, attacker, pending);
         if (pending.cancelled || this.isDied()) return 0;
         hp = Math.min(this.getHp(), Math.max(0, Math.floor(pending.damage)));
@@ -202,6 +206,10 @@ export abstract class FightUnit {
     fight: Fight;
     side: FightSideEnum;
     setFight(fight: Fight, side: FightSideEnum) {
+        if (this.fight !== fight) {
+            this.lastAfterTurn = 0;
+            this.lastSupportTurn = -1;
+        }
         this.fight = fight;
         this.side = side;
     }
@@ -257,10 +265,14 @@ export abstract class FightUnit {
     input: FightInput;
     // 回合前处理, buff
     processBeforeTurn(turn: number, ctx: FightContex){
-        this.onBuffTurn(turn, false, ctx);
+        this.onBuffTurn(turn, BuffTurnEnum.thisTurn, ctx);
     }
     // 回合后处理, dead...
     processAfterTurn(turn: number, ctx: FightContex){
+        if (turn <= this.lastAfterTurn) return;
+        this.lastAfterTurn = turn;
+        this.fight.afterTurnStarted = Math.max(this.fight.afterTurnStarted, turn);
+        this.onBuffTurn(turn, BuffTurnEnum.afterTurn, ctx);
         this.emitContext("afterTurn", ctx, turn);
     }
     processOneTurn(turn: number){
@@ -269,11 +281,12 @@ export abstract class FightUnit {
         return this.fight.processUnit(this, input);
     }
 
-    private onBuffTurn(turn: number, inputTurn: boolean, ctx: FightContex){
+    private lastAfterTurn = 0;
+    private onBuffTurn(turn: number, turnType: BuffTurnEnum, ctx: FightContex){
         for (const buff of [...this.buffs.values()]){
-            if (this.isDied()) break;
+            if (this.isDied() && turnType !== BuffTurnEnum.afterTurn) break;
             if (this.findBuff(buff.getId()) !== buff) continue;
-            if (buff.useInputTurn() == inputTurn){
+            if (buff.getTurnType() === turnType){
                 if (buff.doTurn(this,turn,ctx)){
                     if (this.findBuff(buff.getId()) === buff) {
                         this.expireBuff(buff, "turn", ctx);
@@ -290,7 +303,7 @@ export abstract class FightUnit {
         this.input = null;
         // 处理buff
         this.myInputTurn ++;
-        this.onBuffTurn(this.myInputTurn, true, ctx);
+        this.onBuffTurn(this.myInputTurn, BuffTurnEnum.inputTurn, ctx);
     }
 
     onInput(input: FightInput){
@@ -311,9 +324,22 @@ export abstract class FightUnit {
     }
 
     // 装配反击技能
-    backSkill = 0;
-    getBackSkill(){
-        return this.findSkill(this.backSkill);
+    fbackSkill = 0;
+    getFBackSkill(){
+        return this.findSkill(this.fbackSkill);
+    }
+    setFBackSkill(id: number){
+        this.fbackSkill = id;
+    }
+
+    // 装配协战技能；改装、死亡与复活都不重置当回合次数。
+    supportSkill = 0;
+    lastSupportTurn = -1;
+    getSupportSkill(){
+        return this.findSkill(this.supportSkill);
+    }
+    setSupportSkill(id: number){
+        this.supportSkill = id;
     }
 
     addSkill(id: number, level: number){
@@ -345,7 +371,7 @@ export abstract class FightUnit {
         for (const buff of removed){
             buff.onRemoved(this);
             this.buffs.delete(buff.getId());
-            if (ctx) ctx.msgs.push(["removeBuff", "die", this.uid, this.uid, buff.getId(), buff.getXls().name]);
+            if (ctx) ctx.msgs.push(["removeBuff", "die", this.uid, this.uid, buff.getId()]);
         }
         this.onBuffChanged("clear", removed);
     }
@@ -460,19 +486,23 @@ export abstract class FightUnit {
 
     _addBuff(attacker: FightUnit, why: string, buff: number, lv: number, ctx:FightContex) : FightBuff{
         const buf = this.findBuff(buff);
+        const xls = getBuffData(buff);
         if (buf){
             const lap = buf.getOverlap()
             if (lap === OverlapEnum.NOT) return;
-            // replace
+            if (lap === OverlapEnum.RELPACE_BYPOWER && buf.greatPower(xls.power ?? 0, lv)) return;
             this.deleteBuff(buf);
         }
-        const b = createBuff(attacker, buff, lv, this.fight?.turn ?? 0, this.myInputTurn);
+        const turn = this.fight?.turn ?? 0;
+        const afterTurn = Math.max(0, turn - 1, this.fight?.afterTurnStarted ?? 0);
+        const b = createBuff(attacker, buff, lv, turn, this.myInputTurn, afterTurn);
         if (!b) return;
         this.buffs.set(b.getId(), b);
         b.onAdded(this);
         if (ctx) {
             // 附带本次新增实例的展示数据；隐藏 Buff 使用 null，不要求客户端读取配置。
-            ctx.msgs.push(["addBuff", why, this.uid, attacker.uid, buff, lv, b.getDisplayMsg() ?? null, b.getXls().name])
+            const display = b.getDisplayMsg();
+            ctx.msgs.push(["addBuff", why, this.uid, attacker.uid, buff, lv, display ? display.slice(2) : null])
             this.emitContext("addBuff", ctx, attacker, why, b);
         }
         return b;
@@ -513,7 +543,7 @@ export abstract class FightUnit {
     private finishRemoveBuff(attacker: FightUnit, why: string, buf: FightBuff, ctx: FightContex): FightBuff {
         const buff = buf.getId();
         this.deleteBuff(buf);
-        ctx.msgs.push(["removeBuff", why, this.uid, attacker.uid, buff, buf.getXls().name])
+        ctx.msgs.push(["removeBuff", why, this.uid, attacker.uid, buff])
         this.emitContext("removeBuff", ctx, attacker, why, buf);
         return buf;
     }
@@ -533,10 +563,6 @@ export abstract class FightUnit {
 
     getUnitMsg(){
         const buffs = Array.from(this.buffs.values()).map(b => b.getDisplayMsg()).filter(b => b);
-        const buffNames: Record<number, string> = {};
-        for (const buff of this.buffs.values()) {
-            if (!buff.notDisplay()) buffNames[buff.getId()] = buff.getXls().name;
-        }
         return {
             uid: this.uid, 
             pos: this.pos,
@@ -545,7 +571,6 @@ export abstract class FightUnit {
             point: {...this.attr.getPointAttr()},
             // 被动技能不传输，但是buff要传
             buffs,
-            buffNames,
         }
     }
 }

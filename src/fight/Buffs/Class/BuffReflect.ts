@@ -33,9 +33,8 @@ export class BuffReflect extends FightBuff {
         pending.damage = 0;
         pending.cancelled = true;
         ctx.fight.resolveAction(() => {
-            ctx.msgs.push(["buffTrigger", unit.uid, this.getId(), this.xls.name,
-                `向 ${attacker.getName()}（#${attacker.uid}）反射伤害`]);
-            attacker.onHurt(unit, "reflect", damage, ctx, { magic: pending.magic, reflected: true });
+            ctx.msgs.push(["buffTrigger", unit.uid, this.getId(), "reflectHurt", attacker.uid]);
+            attacker.onHurt(unit, "reflect", damage, ctx, { magic: pending.magic, reflected: true, source: "reflect" });
             this.consume(unit, ctx);
         });
     }
@@ -49,8 +48,7 @@ export class BuffReflect extends FightBuff {
         pending.heal = 0;
         pending.cancelled = true;
         ctx.fight.resolveAction(() => {
-            ctx.msgs.push(["buffTrigger", unit.uid, this.getId(), this.xls.name,
-                `将治疗转移给 ${target.getName()}（#${target.uid}）`]);
+            ctx.msgs.push(["buffTrigger", unit.uid, this.getId(), "reflectHeal", target.uid]);
             if (target.inStatus("禁疗")) {
                 ctx.msgs.push(["禁疗", target.uid]);
             } else {

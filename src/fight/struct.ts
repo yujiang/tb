@@ -43,7 +43,6 @@ export interface SelectMainParam{
 }
 
 export interface SelectParam extends SelectMainParam { 
-    inheritTarget?: boolean; // 子技能继承上一段实际主目标；目标失效则停止，不自动换人
     num?: number;
     shape?: MapShapeEnum; // shape and num 一般只取其一
     //custom?: any;
@@ -52,6 +51,8 @@ export interface SelectParam extends SelectMainParam {
 
 // 显示属性, 需要注入
 export interface FightDisplay {
+    /** 客户端人物描述表 ID，0 也是有效值。 */
+    character?: number | string;
     name: string;
 }
 
@@ -65,6 +66,7 @@ export enum FightCmdEnum{
     //runaway,    //逃跑
     //catch,      //捕捉宠物
     cancel,     //取消
+    protect,    //保护队友，行动优先级高于普通指令
 }
 
 export interface FightInput {

@@ -111,10 +111,8 @@ export class FightClient{
                     if (unit) {
                         // 替换同编号旧实例，包括可见实例被隐藏实例替换的情况。
                         unit.buffs = unit.buffs.filter(buff => buff[0] !== msg[4]);
-                        if (unit.buffNames) delete unit.buffNames[msg[4]];
                         if (msg[6]) {
-                            unit.buffs.push([...msg[6]]);
-                            if (msg[7]) (unit.buffNames ??= {})[msg[4]] = msg[7];
+                            unit.buffs.push([msg[4], msg[5], ...msg[6]]);
                         }
                     }
                     break;
@@ -123,7 +121,6 @@ export class FightClient{
                     const unit = this.getUnitById(msg[2]);
                     if (unit) {
                         unit.buffs = unit.buffs.filter(buff => buff[0] !== msg[4]);
-                        if (unit.buffNames) delete unit.buffNames[msg[4]];
                     }
                     break;
                 }
@@ -147,7 +144,6 @@ export class FightClient{
                 if (!actual || actual.pos !== snapshot.pos || actual.dead !== snapshot.dead ||
                     !isDeepStrictEqual(actual.display, snapshot.display) ||
                     !isDeepStrictEqual(actual.point, snapshot.point) ||
-                    !isDeepStrictEqual(actual.buffNames ?? {}, snapshot.buffNames) ||
                     !isDeepStrictEqual(actual.buffs, snapshot.buffs)) return false;
             }
         }

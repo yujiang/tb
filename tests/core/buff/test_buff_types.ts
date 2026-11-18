@@ -1,3 +1,4 @@
+import { BuffTurnEnum } from "../../../src/fight/Buffs/BuffDatas";
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight } from "../../../src/fight/Fight";
@@ -9,7 +10,7 @@ import { initFightContex } from "../../../src/fight/Fight";
 import { initSkills, SkillData } from "../../../src/fight/Skills/SkillDatas";
 import { FightSkill } from "../../../src/fight/Skills/FightSkill";
 import { mergeTableLevel } from "../../../src/fight/Skills/Calc";
-import { initPassives, PassiveData } from "../../../src/fight/Buffs/PassiveDatas";
+import { initPassives, PassiveData } from "../../../src/fight/Passives/PassiveDatas";
 import { FightUnitMonster } from "../../../src/fight/Unit/FightUnitMonster";
 import { FightCmdEnum, TargetSelectEnum } from "../../../src/fight/struct";
 
@@ -54,7 +55,7 @@ function buff(id: number, extra: Partial<BuffData>): BuffData {
     return {
         id, name: `Buff-${id}`, desc: "", overlap: OverlapEnum.NOT,
         status: [], tags: [], magic: false, attackType: "base", attack: {}, final: {},
-        useInputTurn: false, lastTurn: 0, times: 0, event: "hurt", skill: 0, skillLevel: 1,
+        turnType: BuffTurnEnum.thisTurn, lastTurn: 0, times: 0, event: "hurt", skill: 0, skillLevel: 1,
         ...extra,
     };
 }
@@ -96,7 +97,7 @@ test("type 2: attribute buff increases damage and removal restores it", () => {
 
 // 测试：类型3周期 Buff 分别每回合回血和扣血，持续两回合后移除且不再生效。
 test("type 3: periodic healing and poison tick each turn until expiration", () => {
-    for (const [index, func] of ["heal", "poison"].entries()) {
+    for (const [index, func] of (["heal", "poison"] as const).entries()) {
         const {fight, attacker, defender, ctx} = setup();
         const skillId = 9310 + index, buffId = 9320 + index;
         const skill: SkillData = {
@@ -188,7 +189,7 @@ test("growth-only buff modifies attributes and removal restores them", () => {
 
 // 测试：周期回血和扣血按配置的 skillLevel 计算成长，不重复叠加 Buff 等级。
 test("periodic buff skillLevel applies to healing and poison", () => {
-    for (const [i, func] of ["heal", "poison"].entries()) {
+    for (const [i, func] of (["heal", "poison"] as const).entries()) {
         const {attacker, defender, ctx} = setup();
         initSkills([{id: 9410 + i, name: func, func, magic: true, rand: 1,
             sel: {target: TargetSelectEnum.enmey}, attack: {attack: 10}, final: {}, attackLevel: {attack: 2}}]);
@@ -200,13 +201,35 @@ test("periodic buff skillLevel applies to healing and poison", () => {
     }
 });
 
-// 测试：显式 power 为零时不回退到等级，未配置时才默认使用等级。
-test("explicit zero power is preserved for buffs and skills", () => {
+// 测试：驱散只看 Buff 自身 power、不看等级，覆盖比较才在同 power 时比较等级。
+test("buff removal ignores levels while overlap uses levels to break power ties", () => {
     const {attacker, defender, ctx} = setup();
-    initBuffs([buff(9430, {power: 0}), buff(9431, {})]);
-    assert.equal(defender.addBuff(attacker, "test", 9430, 5, ctx).getPower(), 0);
-    assert.equal(defender.addBuff(attacker, "test", 9431, 5, ctx).getPower(), 5);
-    assert.ok(defender.removeBuff(attacker, "驱散", 9430, 0, ctx));
+    initBuffs([buff(9430, {power: 0}), buff(9431, {}),
+        buff(9433, {power: 1}), buff(9434, {power: 2}), buff(9435, {power: 2}),
+        buff(9436, {power: 0})]);
+    const zero = defender.addBuff(attacker, "test", 9430, 5, ctx);
+    assert.equal(zero.getPower(), 0);
+    const omitted = defender.addBuff(attacker, "test", 9431, 99, ctx);
+    assert.equal(omitted.getPower(), 0);
+    assert.equal(defender.removeBuff(attacker, "驱散", 9430, 0, ctx), zero);
+    assert.equal(defender.removeBuff(attacker, "驱散", 9431, 0, ctx), omitted);
+    const lowerPower = defender.addBuff(attacker, "test", 9433, 99, ctx);
+    const higherPower = defender.addBuff(attacker, "test", 9434, 1, ctx);
+    const higherLevel = defender.addBuff(attacker, "test", 9435, 2, ctx);
+    assert.equal(lowerPower.getPower(), 1);
+    assert.equal(higherPower.getPower(), 2);
+    assert.equal(higherLevel.getPower(), 2);
+    assert.equal(higherPower.canRemove(lowerPower.getPower()), false);
+    assert.equal(lowerPower.canRemove(higherPower.getPower()), true);
+    assert.equal(higherLevel.canRemove(higherPower.getPower()), true);
+    assert.equal(higherLevel.canRemove(higherLevel.getPower()), true);
+    assert.equal(higherPower.greatPower(1, 999), true);
+    assert.equal(lowerPower.greatPower(2, 0), false);
+    assert.equal(higherLevel.greatPower(2, 1), true);
+    assert.equal(higherLevel.greatPower(2, 2), true);
+    const zeroLevel = defender.addBuff(attacker, "test", 9436, 0, ctx);
+    assert.equal(zeroLevel.getPower(), 0);
+    assert.equal(defender.removeBuff(attacker, "驱散", 9436, 0, ctx), zeroLevel);
     const data: SkillData = {id: 9432, name: "驱散", magic: true, rand: 1,
         sel: {target: TargetSelectEnum.enmey}, attack: {}, final: {}, power: 0};
     assert.equal(new FightSkill(data, 5).getPower(), 0);

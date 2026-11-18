@@ -1,3 +1,4 @@
+import { BuffTurnEnum } from "../../../src/fight/Buffs/BuffDatas";
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight, FightAttr, BaseAttack, FightSide, FightUnitMonster, FightLoopWest,
@@ -24,7 +25,7 @@ function setup(extra: Partial<BuffData> = {}, configure?:
     const data: BuffData = { id: reflectId, name: "反射", desc: "反射魔法伤害和治疗", class: "reflect",
         overlap: OverlapEnum.REPLACE, status: [], tags: [], magic: false, attackType: "base",
         attack: {}, final: {}, lastTurn: 0, times: 0, event: "hurt", prior: 0,
-        useInputTurn: false, skill: 0, skillLevel: 1, ...extra };
+        turnType: BuffTurnEnum.thisTurn, skill: 0, skillLevel: 1, ...extra };
     initBuffs([data]);
     initPassives([{ id: passiveId, name: "镜面被动", desc: "", status: [], tags: [], magic: false,
         attackType: "base", attack: {}, final: {}, addbuff: [[reflectId, 1]] }]);
@@ -67,6 +68,7 @@ function setup(extra: Partial<BuffData> = {}, configure?:
     return { fight, caster, enemy, holder, healer, loop, client, report, data, flush, cast, heal };
 }
 
+// 测试：反射将魔法伤害返还给原攻击者，物理伤害仍由 Buff 持有者承受。
 test("reflect: magic damage returns to the attacker, physical damage stays on the holder", () => {
     const { caster, holder, cast, report } = setup();
     const reflected = cast();
@@ -82,6 +84,7 @@ test("reflect: magic damage returns to the attacker, physical damage stays on th
     assert.equal(caster.getHp(), 70);
 });
 
+// 测试：治疗按截断前的数值转移给一个随机存活敌人，仅抽样一次。
 test("reflect: healing transfers its offered amount to one random living enemy", () => {
     const { fight, holder, enemy, healer, heal, report } = setup();
     let samples = 0;
@@ -99,6 +102,7 @@ test("reflect: healing transfers its offered amount to one random living enemy",
     assert.match(report.toString(), /恢复 20 点生命（反射治疗）/);
 });
 
+// 测试：双方同时具有反射时，伤害和治疗都不会无限来回转移。
 test("reflect: both sides reflecting cannot bounce damage or healing indefinitely", () => {
     const { fight, caster, holder, flush, cast, heal } = setup();
     const ctx = initFightContex(fight);
@@ -114,6 +118,7 @@ test("reflect: both sides reflecting cannot bounce damage or healing indefinitel
     assert.equal(samples, 1);
 });
 
+// 测试：反射伤害不让原攻击者获得吸血，也不触发其原有普通反伤。
 test("reflect: reflected attacks do not grant the original attacker lifesteal or ordinary reflection", () => {
     const { caster, holder, cast } = setup();
     caster.attrOri.magic.final.bloodP = 0.5; caster.calcAttr();
@@ -123,6 +128,7 @@ test("reflect: reflected attacks do not grant the original attacker lifesteal or
     assert.equal(holder.getHp(), 150);
 });
 
+// 测试：反射次数只在实际转移时消耗，耗尽后解绑伤害和治疗两个监听。
 test("reflect: limited charges count actual transfers and unregister both listeners", () => {
     const { holder, caster, cast } = setup({ times: 1 });
     cast(physicalId);
@@ -136,6 +142,7 @@ test("reflect: limited charges count actual transfers and unregister both listen
     assert.equal(holder.getHp(), 90);
 });
 
+// 测试：持有者满血时仍先转移治疗，不会先被自身生命上限截断。
 test("reflect: receiving a heal at full HP still transfers the heal before capping", () => {
     const { fight, holder, caster, heal } = setup({}, u => { u.attr.point.hp = 200; });
     fight.random = () => 0;
@@ -144,6 +151,7 @@ test("reflect: receiving a heal at full HP still transfers the heal before cappi
     assert.equal(caster.getHp(), 120);
 });
 
+// 测试：显式关闭仅反射魔法的限制后，物理伤害也能被反射。
 test("reflect: magic-only can be disabled explicitly for physical damage", () => {
     const { caster, holder, cast } = setup({ classParam: { magicOnly: false } });
     cast(physicalId);
@@ -151,6 +159,7 @@ test("reflect: magic-only can be disabled explicitly for physical damage", () =>
     assert.equal(caster.getHp(), 70);
 });
 
+// 测试：过量伤害按未被持有者剩余生命截断的数值反射，并正常结算攻击者死亡。
 test("reflect: an overkill hit returns its full offered damage and resolves the attacker's death", () => {
     const { fight, caster, holder, cast } = setup({}, (u, a, _enemy, f) => {
         u.attr.point.hp = 5; a.attr.point.hp = 20;
@@ -165,6 +174,7 @@ test("reflect: an overkill hit returns its full offered damage and resolves the 
     assert.deepEqual(ctx.msgs.filter(msg => msg[0] === "hurt").map(msg => msg[4]), [20]);
 });
 
+// 测试：反射不消耗持有者的不屈，而接收反射伤害的攻击者可以触发自身不屈。
 test("reflect: holder unyielding is not consumed and attacker unyielding can prevent reflected death", () => {
     const { fight, caster, holder, data, flush, cast } = setup({}, (u, a) => {
         u.attr.point.hp = 5;
@@ -182,6 +192,7 @@ test("reflect: holder unyielding is not consumed and attacker unyielding can pre
     assert.equal(caster.findBuff(97903), undefined);
 });
 
+// 测试：死亡保留的反射 Buff 不转移自动复活时恢复的生命。
 test("reflect: retained reflection does not transfer automatic revival's HP restoration", () => {
     const { fight, caster, holder, data, flush, cast } = setup({ dieNotRemove: true }, (_u, a) => {
         a.attrOri.physic.base.attack = 300; a.calcAttr();
@@ -198,6 +209,7 @@ test("reflect: retained reflection does not transfer automatic revival's HP rest
     assert.deepEqual(result.msgs.filter(msg => msg[0] === "heal").map(msg => msg[2]), [holder.uid]);
 });
 
+// 测试：转移后的治疗仍受接收者禁止治疗状态限制。
 test("reflect: transferred healing respects the recipient's healing prohibition", () => {
     const { fight, holder, enemy, data, flush, heal } = setup();
     initBuffs([{ ...data, id: 97906, name: "禁疗", class: undefined, status: ["禁疗"] }]);
@@ -211,6 +223,7 @@ test("reflect: transferred healing respects the recipient's healing prohibition"
     assert.ok(!result.msgs.some(msg => msg[0] === "heal"));
 });
 
+// 测试：没有存活敌人时保留原治疗，且不进行随机抽样。
 test("reflect: no living enemy leaves healing on the original recipient without sampling", () => {
     const { fight, holder, heal } = setup({}, (_u, a, _enemy, f) => { f.getSide(a.side).units.length = 0; });
     let samples = 0;
@@ -220,6 +233,7 @@ test("reflect: no living enemy leaves healing on the original recipient without 
     assert.equal(samples, 0);
 });
 
+// 测试：替换、驱散、到期和死亡清理都解绑反射的两类上下文监听。
 test("reflect: replacement, dispel, expiry and death remove both context listeners", () => {
     const { fight, caster, holder, flush } = setup({ lastTurn: 1 });
     const ctx = initFightContex(fight);
@@ -244,6 +258,7 @@ test("reflect: replacement, dispel, expiry and death remove both context listene
     flush(ctx);
 });
 
+// 测试：周期魔法毒伤通过公共受伤流程传递伤害类型并触发反射。
 test("reflect: periodic magic poison passes damage type through the shared hurt pipeline", () => {
     const { fight, caster, holder, data, flush } = setup();
     initBuffs([{ ...data, id: 97907, name: "魔法毒", class: undefined, func: "poison", skill: poisonId,
@@ -256,6 +271,7 @@ test("reflect: periodic magic poison passes damage type through the shared hurt 
     assert.equal(caster.getHp(), 90);
 });
 
+// 测试：嵌套回调即使创建新上下文，也不能绕过全局反应上限。
 test("reflect: fresh contexts in nested callbacks cannot bypass the global reaction limit", () => {
     const { fight, holder, caster, cast } = setup();
     caster.onContex("beforeHurt", () => {
@@ -265,6 +281,7 @@ test("reflect: fresh contexts in nested callbacks cannot bypass the global react
     assert.throws(() => cast(), /Reaction limit/);
 });
 
+// 测试：治疗转移同样消耗次数，固定种子能够复现同一个接收目标。
 test("reflect: healing transfers consume charges and fixed seeds reproduce the same recipient", () => {
     const first = setup({ times: 1 });
     const second = setup({ times: 1 });

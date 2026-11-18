@@ -11,9 +11,15 @@ test('package entry exports the current Fight implementation and has declaration
     assert.equal(typeof api.FightLoopWest, 'function');
     assert.equal(typeof api.FightClient, 'function');
     assert.equal(typeof api.FightReport, 'function');
+    assert.equal(typeof api.FightMud, 'function');
+    assert.equal(typeof api.resolveMudText, 'function');
+    assert.ok(api.FightMud.prototype instanceof api.FightReport);
     assert.equal(typeof api.OrderedEventEmitter, 'function');
     assert.equal(typeof api.BuffBuqu, 'function');
     assert.ok(api.BuffBuqu.prototype instanceof api.FightBuff);
+    assert.equal(typeof api.BuffProtect, 'function');
+    assert.ok(api.BuffProtect.prototype instanceof api.FightBuff);
+    assert.deepEqual([api.BuffTurnEnum.thisTurn, api.BuffTurnEnum.inputTurn, api.BuffTurnEnum.afterTurn], [0, 1, 2]);
     assert.equal(typeof api.BuffRelife, 'function');
     assert.ok(api.BuffRelife.prototype instanceof api.FightBuff);
     assert.equal(typeof api.BuffTaunt, 'function');

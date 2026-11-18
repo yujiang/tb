@@ -1,3 +1,4 @@
+import { BuffTurnEnum } from "../../src/fight/Buffs/BuffDatas";
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight, FightSide, FightUnit, UnitContextEventFunc, initFightContex,
@@ -16,6 +17,7 @@ function listen(unit: FightUnit, listener: UnitContextEventFunc, prior = 0) {
     unit.onContex("hurt", listener, prior);
 }
 
+// 测试：上下文监听按优先级从小到大执行，同优先级保持注册顺序。
 test("context events: smaller priorities run first and ties keep registration order", () => {
     const { fight, unit, ctx } = setup();
     const calls: string[] = [];
@@ -42,6 +44,7 @@ test("context events: smaller priorities run first and ties keep registration or
     assert.equal(pending.damage, 40);
 });
 
+// 测试：事件处理中移除并重新注册的监听器留到下一次事件执行。
 test("context events: removed and re-added listeners wait for the next emission", () => {
     const { unit, ctx } = setup();
     const calls: string[] = [];
@@ -63,6 +66,7 @@ test("context events: removed and re-added listeners wait for the next emission"
     assert.deepEqual(calls, ["first", "first", "later", "new"]);
 });
 
+// 测试：监听异常会中断事件链，普通事件仍保留原参数签名。
 test("context events: exceptions stop the chain and ordinary events keep their signature", () => {
     const { fight, unit, ctx } = setup();
     const failure = new Error("effect failed");
@@ -79,12 +83,13 @@ test("context events: exceptions stop the chain and ordinary events keep their s
     assert.deepEqual(args, [[unit, 123]]);
 });
 
+// 测试：次数 Buff 按配置优先级生效并移除，最后一次效果仍然有效。
 test("buffs: configured priorities order counted events and removals", () => {
     const { unit, ctx } = setup();
     const buff = (id: number, prior?: number): BuffData => ({
         id, name: `优先级${prior}`, desc: "", status: [], tags: [],
         magic: false, attackType: "base", attack: {}, final: {}, overlap: OverlapEnum.NOT,
-        useInputTurn: false, lastTurn: 0, times: 1, event: "hurt", skill: 0, skillLevel: 1, prior,
+        turnType: BuffTurnEnum.thisTurn, lastTurn: 0, times: 1, event: "hurt", skill: 0, skillLevel: 1, prior,
     });
     initBuffs([buff(97501, 1000), buff(97502, 0), buff(97503, -10), buff(97504)]);
     for (const id of [97501, 97502, 97503, 97504]) unit.addBuff(unit, "test", id, 1, ctx);
@@ -96,6 +101,7 @@ test("buffs: configured priorities order counted events and removals", () => {
     assert.equal(unit.contextEmitter.listenerCount("hurt"), 0);
 });
 
+// 测试：解绑只移除最近一次匹配的监听注册，不影响其他事件。
 test("ordered emitter: off removes the latest registration and keeps other events intact", () => {
     const emitter = new OrderedEventEmitter();
     const calls: string[] = [];
@@ -114,6 +120,7 @@ test("ordered emitter: off removes the latest registration and keeps other event
     assert.equal(emitter.listenerCount("heal"), 0);
 });
 
+// 测试：嵌套事件使用各自的监听快照，外层与内层执行顺序互不混淆。
 test("ordered emitter: nested emissions use their own current listener snapshot", () => {
     const emitter = new OrderedEventEmitter();
     const calls: string[] = [];
@@ -131,6 +138,7 @@ test("ordered emitter: nested emissions use their own current listener snapshot"
     assert.deepEqual(calls, ["first", "new", "first", "later", "later"]);
 });
 
+// 测试：非法监听优先级被拒绝，不能破坏已有监听器的执行顺序。
 test("ordered emitter: invalid priorities cannot corrupt execution order", () => {
     const emitter = new OrderedEventEmitter();
     for (const prior of [NaN, Infinity, -Infinity]) {

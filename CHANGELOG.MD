@@ -39,3 +39,7 @@
 3. 完成了fightClient用于check， fightReport用于看简报
 4. add 3 rate(attackRate, damageRate, healRate, poisonRate) for skill
 
+# 0.1.2
+1. 3连还是从next改为combo
+2. 添加了protect保护,support协战
+3. passiveskill可以设置supportSkill,fbackSkill;

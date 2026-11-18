@@ -1,3 +1,4 @@
+import { BuffTurnEnum } from "../../src/fight/Buffs/BuffDatas";
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight } from "../../src/fight/Fight";
@@ -16,6 +17,7 @@ import { relifeFunc } from "../../src/fight/Skills/Funcs/Relife";
 import { DiedSelectEnum, FightCmdEnum, FightSideEnum, TargetSelectEnum } from "../../src/fight/struct";
 import { FightReport } from "../../src/fight/Client/FightReport";
 
+// 测试：主技能概率判定失败时发出未发动消息，简报说明行动者没有攻击的原因。
 test("regression: failed primary skill activation reports why the actor did nothing", () => {
     const { f, u, v } = pair();
     initSkills([skill(97404, { name: "普通魔法", rand: 0.8 })]);
@@ -26,7 +28,7 @@ test("regression: failed primary skill activation reports why the actor did noth
     assert.ok(ctx);
     assert.equal(v.getHp(), 100);
     assert.equal(samples, 1);
-    assert.deepEqual(ctx.msgs, [["skillFailed", u.uid, v.uid, 97404, "普通魔法"]]);
+    assert.deepEqual(ctx.msgs, [["skillFailed", u.uid, v.uid, 97404]]);
     const report = new FightReport(() => {});
     report.onMsg([["start", f.fid], ["side", 0, [u.getUnitMsg()]], ["side", 1, [v.getUnitMsg()]],
         ["actor", u.uid, u.getSpeed()], ...ctx.msgs]);
@@ -80,7 +82,7 @@ function skill(id: number, extra: Partial<SkillData> = {}): SkillData {
 }
 
 function buff(id: number): BuffData {
-    return {id, name: "attack", desc: "", overlap: OverlapEnum.NOT, useInputTurn: false, lastTurn: 0, times: 0, event: "hurt", skill: 0, skillLevel: 1, status: [], tags: [],
+    return {id, name: "attack", desc: "", overlap: OverlapEnum.NOT, turnType: BuffTurnEnum.thisTurn, lastTurn: 0, times: 0, event: "hurt", skill: 0, skillLevel: 1, status: [], tags: [],
         magic: false, attackType: "base", attack: {attack: 10}, final: {}};
 }
 
@@ -92,7 +94,7 @@ test("regression: skill counterattacks stop after one reaction and use fback att
         unit.attr.point.hp = 1000000;
         unit.attr.point.hpMax = 1000000;
         unit.attr.magic.fback.attack = 7;
-        unit.addSkill(8001, 1); unit.backSkill = 8001;
+        unit.addSkill(8001, 1); unit.fbackSkill = 8001;
     }
     initSkills([skill(8002, {fback: true})]);
     u.addSkill(8002, 1);

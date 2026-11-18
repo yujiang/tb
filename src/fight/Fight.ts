@@ -9,6 +9,7 @@ import { strict as assert } from "node:assert";
 import EventEmitter from "node:events";
 import { skillFunc } from "./Skills/SkillFuncType";
 import { attackFunc } from "./Skills/Funcs/NormalAttack";
+import { getBuffData } from "./Buffs/BuffDatas";
 
 export type AllUnitType = [FightUnit[], FightUnit[]];
 
@@ -17,6 +18,7 @@ export interface FightData {
     maxTurn: number;
     waitInputSec: number;
     duiwei: boolean; //是否对位战斗？    
+    protectBuff?: number; // 保护指令施加的 Buff ID，配置 class: "protect"
 }
 
 // 上下文, 因为反击,连击, 需要回溯堆栈来得到上下文
@@ -38,6 +40,7 @@ export interface FightContex {
     fbackNum?: number; // 反击次数
     dbackNum?: number; // 反震次数
     reactionSteps?: number; // 单次动作共享的结算预算，防止回调无限触发
+    supporting?: boolean; // 协战及其后续反应链中不再召唤协战
 }
 
 export function initFightContex(f:Fight) : FightContex{
@@ -59,6 +62,7 @@ export class Fight{
     }
 
     turn = 0; // 当前回合数
+    afterTurnStarted = 0; // 已开始处理的回合后边界；其中新增的 Buff 留到下一边界
     nextTurn() {
         this.turn++;
         return this.turn;
@@ -89,17 +93,37 @@ export class Fight{
     }
 
     private actionDepth = 0;
+    private afterActionTasks: (() => void)[] = [];
+
+    // 完整动作的反应链结束后、胜负检查前执行；不在动作中时直接执行。
+    afterAction(run: () => void) {
+        if (this.actionDepth === 0) run();
+        else this.afterActionTasks.push(run);
+    }
+
     resolveAction<T>(run: () => T): T {
         if (this.actionDepth >= 64) throw new Error("Reaction limit exceeded (64 nested action scopes)");
         this.actionDepth++;
         let completed = false;
         try {
             const result = run();
+            if (this.actionDepth === 1) {
+                // 保持动作作用域，收尾回调中的死亡及嵌套动作也不能提前判断胜负。
+                let index = 0;
+                while (index < this.afterActionTasks.length) {
+                    if (index >= 64) throw new Error("Reaction limit exceeded (64 after-action effects)");
+                    this.afterActionTasks[index++]();
+                }
+            }
             completed = true;
             return result;
         } finally {
             this.actionDepth--;
-            if (completed && this.actionDepth === 0) this.checkOutcome();
+            if (this.actionDepth === 0) {
+                // 异常动作不能把待处理效果带进下一次行动。
+                this.afterActionTasks.length = 0;
+                if (completed) this.checkOutcome();
+            }
         }
     }
 
@@ -113,7 +137,7 @@ export class Fight{
     createSide(attack: FightSide, des: FightSide) {
         this.Sides = [attack, des];
         this.AllUnits = [attack.units, des.units];
-        console.log(this.fid, "attack", attack.units.length, "des", des.units.length)
+        //console.log("AllUnits", this.fid, "attack", attack.units.length, "des", des.units.length)
         for (const u of attack.units) {
             u.setFight(this, FightSideEnum.attack);
         }
@@ -157,13 +181,8 @@ export class Fight{
     }
 
     // 主目标只有一个，通常的做法是先打主目标，命中之后，才产生后续的子目标！
-    selectMainTarget(attack: FightUnit, sel:SelectParam, previous?: FightUnit) : FightUnit {
+    selectMainTarget(attack: FightUnit, sel:SelectParam) : FightUnit {
         assert(!attack?.isDied());
-
-        if (sel.inheritTarget) {
-            return previous && !previous.isDied() && previous.fight === this && this.getAllUnits().includes(previous) &&
-                this.isLegalTarget(attack, previous, sel) ? previous : undefined;
-        }
 
         const taunt = this.getTauntTarget(attack, sel);
         if (taunt) return taunt;
@@ -261,10 +280,13 @@ export class Fight{
 
     validateInput(unit: FightUnit, input: FightInput): boolean {
         if (!input || this.isEnd() || !this.getAllUnits().includes(unit)) return false;
-        if (![FightCmdEnum.none, FightCmdEnum.attack, FightCmdEnum.defend, FightCmdEnum.skill, FightCmdEnum.cancel].includes(input.cmd)) return false;
+        if (![FightCmdEnum.none, FightCmdEnum.attack, FightCmdEnum.defend, FightCmdEnum.skill, FightCmdEnum.cancel, FightCmdEnum.protect].includes(input.cmd)) return false;
         // 普攻可以显式指定死亡敌人守尸；自动选目标仍只选存活敌人。
         let sel: SelectMainParam = {target: TargetSelectEnum.enmey, die: DiedSelectEnum.all};
-        if (input.cmd === FightCmdEnum.skill) {
+        if (input.cmd === FightCmdEnum.protect) {
+            if (input.target === undefined || input.target === unit.uid || getBuffData(this.xls.protectBuff)?.class !== "protect") return false;
+            sel = { target: TargetSelectEnum.friend };
+        } else if (input.cmd === FightCmdEnum.skill) {
             const skill = unit.findSkill(input.skill);
             if (!skill || unit.isForbid("skill")) return false;
             sel = skill.getSel();
@@ -286,7 +308,7 @@ export class Fight{
         const block = unit.getActionBlockBuff();
         if (block) {
             return { fight: this, attack: unit, defend: null, effects: [],
-                msgs: [["skipAction", unit.uid, block.getId(), block.getXls().name]] };
+                msgs: [["skipAction", unit.uid, block.getId()]] };
         }
         if (!this.validateInput(unit, input)) return;
         return this.resolveAction(() => this.executeUnit(unit, input));
@@ -329,6 +351,12 @@ export class Fight{
         if (!des) return;           
 
         const ctx: FightContex = { fight: this, attack: unit, defend: des, msgs: [], effects: []};
+
+        if (cmd === FightCmdEnum.protect) {
+            ctx.msgs.push(["protect", unit.uid, des.uid]);
+            des.addBuff(unit, "protect", this.xls.protectBuff, 1, ctx);
+            return ctx;
+        }
 
         if (cmd == FightCmdEnum.attack){
             if (des.isDied() || unit.isForbid("attack")) return;              

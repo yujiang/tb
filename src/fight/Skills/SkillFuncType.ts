@@ -1,5 +1,5 @@
 import { FightUnit } from "../Unit/FightUnit";
-import { addBuffFunc, removeBuffFunc, afterSelfBuff } from "./Funcs/Buff";
+import { afterSelfBuff, nohurtFunc } from "./Funcs/Buff";
 import { FightSkill } from "./FightSkill";
 import { healFunc } from "./Funcs/Heal";
 import { skillAttackFunc } from "./Funcs/NomalSkill";
@@ -14,8 +14,7 @@ const SkillFuncMap: Record<string, SkillFuncType> = {
     heal: healFunc,
     poison: poisonFunc,
     relife: relifeFunc,
-    addBuff: addBuffFunc,
-    removeBuff: removeBuffFunc,
+    nohurt: nohurtFunc, //没有伤害
 };
 
 export function skillFunc(attacker: FightUnit, defender: FightUnit, skillId: number, ctx: FightContex) {

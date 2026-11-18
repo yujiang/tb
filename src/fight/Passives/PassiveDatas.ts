@@ -1,5 +1,5 @@
-import { IdLevelArray } from "../struct";
-import { StaticData } from "./StaticData";
+import { IdLevel, IdLevelArray } from "../struct";
+import { StaticData } from "../Buffs/StaticData";
 
 // 被动技能 有3种
 // 1. 状态，(但是客户端看不到)
@@ -8,6 +8,8 @@ import { StaticData } from "./StaticData";
 
 export interface PassiveData extends StaticData{
     addbuff?: IdLevelArray;
+    fbackSkill?: number;    // 反击技
+    supportSkill?: number;  // 装配已有的协战技能，不学习或改变技能等级
 }
 
 

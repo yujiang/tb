@@ -1,6 +1,6 @@
 import { Fight, FightContex, initFightContex } from "./Fight";
 import { FightUnit, sortByAttr } from "./Unit/FightUnit";
-import { FightInput, fightMsg } from "./struct";
+import { FightCmdEnum, FightInput, fightMsg } from "./struct";
 import EventEmitter from "node:events";
 
 export type bcMsgFunc = (msgs: fightMsg | fightMsg[])=>void;
@@ -84,12 +84,17 @@ export abstract class FightLoop {
     async waitDrawOver(){}
 
     processUnits: FightUnit[];
-    sortUnitsByProcess(){
+    compareProcessUnits(a: FightUnit, b: FightUnit, withInput = true) {
+        const priority = (unit: FightUnit) => withInput && unit.input?.cmd === FightCmdEnum.protect ? 1 : 0;
+        return priority(b) - priority(a) || b.getSpeedOrder() - a.getSpeedOrder();
+    }
+
+    sortUnitsByProcess(withInput = true){
         const all = this.fight.getAllUnits();
         // all包括死亡单位，如果他中途被复活了，还在列表中，就可以行动；否则下个回合才能行动！
         // 客户端渲染需要剔除死亡的
         //sortByAttr(all, "speed", true);
-        all.sort((a, b) => b.getSpeedOrder() - a.getSpeedOrder());
+        all.sort((a, b) => this.compareProcessUnits(a, b, withInput));
 
         this.processUnits = all; //但是如果有插队,降速会扰乱出手表?
     

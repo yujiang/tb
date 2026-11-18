@@ -1,3 +1,4 @@
+import { BuffTurnEnum } from "../../src/fight/Buffs/BuffDatas";
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight } from "../../src/fight/Fight";
@@ -7,7 +8,7 @@ import { FightClient } from "../../src/fight/Client/FightClient";
 import { FightReport } from "../../src/fight/Client/FightReport";
 import { initFightContex } from "../../src/fight/Fight";
 import { initBuffs, BuffData, OverlapEnum } from "../../src/fight/Buffs/BuffDatas";
-import { initPassives } from "../../src/fight/Buffs/PassiveDatas";
+import { initPassives } from "../../src/fight/Passives/PassiveDatas";
 import { initSkills } from "../../src/fight/Skills/SkillDatas";
 import { FightUnitMonster } from "../../src/fight/Unit/FightUnitMonster";
 import { DiedSelectEnum, FightCmdEnum, FightResultEnum, FightSideEnum, TargetSelectEnum } from "../../src/fight/struct";
@@ -30,6 +31,7 @@ function setup() {
     return { fight, loop, client, unit: sides[0].units[0], enemy: sides[1].units[0] };
 }
 
+// 测试：初始化消息重建客户端状态，独立修改服务端状态后 checkSame 能发现差异。
 test("client: initial messages reconstruct units and checkSame detects independent changes", () => {
     const { fight, loop, client, unit } = setup();
     assert.equal(client.checkSame(fight), false);
@@ -54,12 +56,13 @@ test("client: initial messages reconstruct units and checkSame detects independe
     }
 });
 
+// 测试：客户端仅靠增量消息保持治疗、Buff 增删、死亡与复活状态一致。
 test("client: healing, Buff changes, death and revival stay synchronized without local configs", () => {
     const { fight, loop, client, unit, enemy } = setup();
     const data: BuffData = {
         id: 97001, name: "visible", desc: "", status: [], tags: [],
         magic: false, attackType: "base", attack: { attack: 30 }, final: {},
-        overlap: OverlapEnum.REPLACE, useInputTurn: false, lastTurn: 2,
+        overlap: OverlapEnum.REPLACE, turnType: BuffTurnEnum.thisTurn, lastTurn: 2,
         times: 0, event: "hurt", skill: 0, skillLevel: 1,
     };
     initBuffs([data, { ...data, id: 97002, notDisplay: true }]);
@@ -78,6 +81,7 @@ test("client: healing, Buff changes, death and revival stay synchronized without
     flush(ctx => { unit.onRelife(unit, "test", ctx); unit.onHeal(unit, "test", 50, ctx); });
 });
 
+// 测试：绑定战斗循环后，在回合边界和战斗结束时自动检查客户端状态。
 test("client: bound loop checks round boundaries and final state", async () => {
     const { fight, loop, client } = setup();
     let checks = 0;
@@ -95,7 +99,7 @@ test("client: passive-granted dieNotRemove buff stays synchronized through death
     const retainedData: BuffData = {
         id: buffId, name: "死亡保留", desc: "", status: [], tags: [],
         magic: false, attackType: "base", attack: { attack: 30 }, final: {},
-        overlap: OverlapEnum.NOT, useInputTurn: false, lastTurn: 0,
+        overlap: OverlapEnum.NOT, turnType: BuffTurnEnum.thisTurn, lastTurn: 0,
         times: 0, event: "hurt", skill: 0, skillLevel: 1, dieNotRemove: true,
     };
     initBuffs([retainedData, {
@@ -162,7 +166,7 @@ test("client: passive-granted dieNotRemove buff stays synchronized through death
     check(true, 0, false);
     assert.ok(death.msgs.every(msg => msg[0] !== "sync" && msg[0] !== "side"));
     const removals = death.msgs.filter(msg => msg[0] === "removeBuff");
-    assert.deepEqual(removals, [["removeBuff", "die", victim.uid, victim.uid, clearedBuffId, "死亡清除"]]);
+    assert.deepEqual(removals, [["removeBuff", "die", victim.uid, victim.uid, clearedBuffId]]);
     missingMessageClient.onMsg(death.msgs.filter(msg => msg[0] !== "removeBuff"));
     assert.equal(missingMessageClient.checkSame(fight), false);
     missingMessageClient.onMsg(removals);
@@ -188,6 +192,7 @@ test("client: passive-granted dieNotRemove buff stays synchronized through death
     assert.doesNotMatch(text, /移除 \[死亡保留\]/);
 });
 
+// 测试：动作消息更新资源和行动顺序，新战斗清空上一场的客户端状态。
 test("client: action messages update resources and order, and start resets previous battle", () => {
     const { fight, loop, client, unit } = setup();
     loop.start();
@@ -218,6 +223,7 @@ test("client: action messages update resources and order, and start resets previ
     client.onMsg([]);
 });
 
+// 测试：自动一致性检查能报告差异，并可通过配置关闭。
 test("client: automatic checks report differences and can be disabled", () => {
     const { loop, client } = setup();
     client.checkSame = () => false;

@@ -1,10 +1,11 @@
+import { BuffTurnEnum } from "../../src/fight/Buffs/BuffDatas";
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight } from "../../src/fight/Fight";
 import { BaseAttack, FightAttr } from "../../src/fight/FightAttr";
 import { FightSide } from "../../src/fight/FightSide";
 import { BuffData, initBuffs, OverlapEnum } from "../../src/fight/Buffs/BuffDatas";
-import { initPassives, PassiveData } from "../../src/fight/Buffs/PassiveDatas";
+import { initPassives, PassiveData } from "../../src/fight/Passives/PassiveDatas";
 import { initFightContex } from "../../src/fight/Fight";
 import { initSkills } from "../../src/fight/Skills/SkillDatas";
 import { FightUnitMonster } from "../../src/fight/Unit/FightUnitMonster";
@@ -92,7 +93,7 @@ test("passive type 3: initialization grants configured buffs with their own leve
     const common: Omit<BuffData, "id"> = {
         name: "被动附加", desc: "", overlap: OverlapEnum.NOT, status: [], tags: [],
         magic: false, attackType: "base", attack: {}, final: {},
-        useInputTurn: false, lastTurn: 0, times: 0, event: "hurt", skill: 0, skillLevel: 1,
+        turnType: BuffTurnEnum.thisTurn, lastTurn: 0, times: 0, event: "hurt", skill: 0, skillLevel: 1,
     };
     initBuffs([
         {...common, id: 9620, notRemove: true, dieNotRemove: true, attack: {attack: 5}, attackLevel: {attack: 2}},

@@ -1,11 +1,12 @@
+import { BuffTurnEnum } from "../../../src/fight/Buffs/BuffDatas";
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight } from "../../../src/fight/Fight";
 import { FightSide } from "../../../src/fight/FightSide";
 import { OverlapEnum, BuffData, initBuffs } from "../../../src/fight/Buffs/BuffDatas";
 import { FightBuff, MAX_POWER } from "../../../src/fight/Buffs/FightBuff";
-import { PassiveData } from "../../../src/fight/Buffs/PassiveDatas";
-import { PassiveSkill } from "../../../src/fight/Buffs/PassiveSkill";
+import { PassiveData } from "../../../src/fight/Passives/PassiveDatas";
+import { PassiveSkill } from "../../../src/fight/Passives/PassiveSkill";
 import { FightContex } from "../../../src/fight/Fight";
 import { initSkills, SkillData } from "../../../src/fight/Skills/SkillDatas";
 import { skillFunc } from "../../../src/fight/Skills/SkillFuncType";
@@ -40,7 +41,7 @@ function buffData(
         name: `buff-${id}`,
         desc: "",
         overlap,
-        useInputTurn: false, lastTurn: 0, times: 0, event: "hurt", skill: 0, skillLevel: 1,
+        turnType: BuffTurnEnum.thisTurn, lastTurn: 0, times: 0, event: "hurt", skill: 0, skillLevel: 1,
         status,
         tags,
         magic: false,
@@ -165,49 +166,80 @@ test("buff removal reports missing ids, removes by tag, and death clears remaini
     assert.equal(defender.findBuffsByTag("debuff").length, 1);
     assert.ok(defender.findBuff(907));
     assert.equal(removed.length, 2);
+    assert.deepEqual(ctx.msgs.filter(msg => msg[0] === "removeBuff"),
+        removed.map(id => ["removeBuff", "cleanse", defender.uid, attacker.uid, id]));
 
     defender.die();
     assert.equal(defender.buffs.size, 0);
     assert.equal(defender.isDied(), true);
 });
 
+// 测试：覆盖先比较 power，power 相同时再比较 level；两者相同保留旧实例。
+test("buff overlap compares power first and level only when powers match", () => {
+    const cases = [
+        { power: 1, level: 999, nextPower: 2, nextLevel: 1, replace: true },
+        { power: 2, level: 1, nextPower: 1, nextLevel: 999, replace: false },
+        { power: 2, level: 5, nextPower: 2, nextLevel: 4, replace: false },
+        { power: 2, level: 5, nextPower: 2, nextLevel: 5, replace: false },
+        { power: 2, level: 5, nextPower: 2, nextLevel: 6, replace: true },
+        { power: undefined, level: 5, nextPower: undefined, nextLevel: 4, replace: false },
+        { power: undefined, level: 5, nextPower: undefined, nextLevel: 6, replace: true },
+    ];
+    for (const [i, sample] of cases.entries()) {
+        const { attacker, defender, ctx } = createFightPair();
+        const data = buffData(98600 + i, OverlapEnum.RELPACE_BYPOWER);
+        initBuffs([{ ...data, power: sample.power }]);
+        const original = defender.addBuff(attacker, "test", data.id, sample.level, ctx);
+        initBuffs([{ ...data, power: sample.nextPower }]);
+        const replacement = defender.addBuff(attacker, "test", data.id, sample.nextLevel, ctx);
+        if (sample.replace) {
+            assert.ok(replacement, `case ${i}: stronger Buff should replace`);
+            assert.notEqual(replacement, original);
+            assert.equal(defender.findBuff(data.id), replacement);
+        } else {
+            assert.equal(replacement, undefined, `case ${i}: weaker or equal Buff should be rejected`);
+            assert.equal(defender.findBuff(data.id), original);
+        }
+    }
+});
+
 // 测试：移除技能的 power 不足时保留 Buff，达到 Buff power 时可移除。
 test("buff removal requires sufficient power by id, list, and tag", () => {
     const { attacker, defender, ctx } = createFightPair();
     initBuffs([
-        buffData(9221, OverlapEnum.NOT, [], ["power-test"]),
-        buffData(9222, OverlapEnum.NOT, [], ["power-test"]),
-        buffData(9223, OverlapEnum.NOT, [], ["power-test"]),
-        buffData(9224, OverlapEnum.NOT, [], ["power-test"]),
+        {...buffData(9221, OverlapEnum.NOT, [], ["power-test"]), power: 5},
+        {...buffData(9222, OverlapEnum.NOT, [], ["power-test"]), power: 5},
+        {...buffData(9223, OverlapEnum.NOT, [], ["power-test"]), power: 2},
+        {...buffData(9224, OverlapEnum.NOT, [], ["power-test"]), power: 5},
         {...buffData(9226, OverlapEnum.NOT, [], ["skill-power"]), power: 5},
     ]);
 
-    const byId = defender.addBuff(attacker, "test", 9221, 5, ctx);
+    const byId = defender.addBuff(attacker, "test", 9221, 99, ctx);
     assert.equal(defender.removeBuff(attacker, "test", 9221, 4, ctx), undefined);
     assert.equal(defender.findBuff(9221), byId);
     assert.equal(defender.removeBuff(attacker, "test", 9221, 5, ctx), byId);
 
-    const byList = defender.addBuff(attacker, "test", 9222, 5, ctx);
+    const byList = defender.addBuff(attacker, "test", 9222, 1, ctx);
     assert.deepEqual(defender.removeBuffs(attacker, "test", [[9222, 1]], 4, ctx), []);
     assert.equal(defender.findBuff(9222), byList);
     assert.deepEqual(defender.removeBuffs(attacker, "test", [[9222, 1]], 5, ctx), [byList]);
 
-    const weak = defender.addBuff(attacker, "test", 9223, 2, ctx);
-    const strong = defender.addBuff(attacker, "test", 9224, 5, ctx);
+    const weak = defender.addBuff(attacker, "test", 9223, 99, ctx);
+    const strong = defender.addBuff(attacker, "test", 9224, 1, ctx);
     assert.deepEqual(defender.removeBuffByTag(attacker, "test", "power-test", 0, 4, ctx), [weak]);
     assert.equal(defender.findBuff(9224), strong);
     assert.deepEqual(defender.removeBuffByTag(attacker, "test", "power-test", 0, 5, ctx), [strong]);
 
-    const addSkill = skillData(9225, "addBuff", {
+    const addSkill = skillData(9225, "nohurt", {
         power: 5,
         addBuff: [[9226, 1, 1]],
     });
-    const weakRemoveSkill = skillData(9227, "removeBuff", {
+    const weakRemoveSkill = skillData(9227, "nohurt", {
         power: 4,
         removeBuffTag: "skill-power",
         removeBuffNum: 0,
     });
-    const equalRemoveSkill = skillData(9228, "removeBuff", {
+    const equalRemoveSkill = skillData(9228, "nohurt", {
         power: 5,
         removeBuffTag: "skill-power",
         removeBuffNum: 0,
@@ -234,13 +266,13 @@ test("buff skills add only buffs whose chance succeeds and remove configured ids
         buffData(912, OverlapEnum.NOT, [], ["debuff"]),
     ]);
 
-    const addSkill = skillData(910, "addBuff", {
+    const addSkill = skillData(910, "nohurt", {
         addBuff: [[908, 4, 1], [909, 1, 1], [912, 1, 0.5]],
     });
-    const removeSkill = skillData(911, "removeBuff", {
+    const removeSkill = skillData(911, "nohurt", {
         rmeoveBuff: [[908, 1]], power: 4,
     });
-    const removeTagSkill = skillData(913, "removeBuff", {
+    const removeTagSkill = skillData(913, "nohurt", {
         removeBuffTag: "debuff",
         removeBuffNum: 0,
     });
@@ -316,7 +348,7 @@ test("input-clock poison ticks on each input boundary only", () => {
     const {attacker, defender, ctx} = createFightPair(() => 0.99);
     const data = skillData(9203, "poison"); data.attack.attack = 10;
     initSkills([data]);
-    initBuffs([{...buffData(9204), func: "poison", skill: 9203, lastTurn: 2, useInputTurn: true}]);
+    initBuffs([{...buffData(9204), func: "poison", skill: 9203, lastTurn: 2, turnType: BuffTurnEnum.inputTurn}]);
     defender.addBuff(attacker, "test", 9204, 1, ctx);
     defender.processBeforeTurn(100, ctx);
     assert.equal(defender.getHp(), 100);
@@ -402,7 +434,7 @@ test("lethal input-clock poison stops the fight before normal actions", async ()
     const {fight, attacker, defender, ctx} = createFightPair(() => 0.99);
     const data = skillData(9214, "poison"); data.attack.attack = 200;
     initSkills([data]);
-    initBuffs([{...buffData(9215), func: "poison", skill: 9214, useInputTurn: true, lastTurn: 1}]);
+    initBuffs([{...buffData(9215), func: "poison", skill: 9214, turnType: BuffTurnEnum.inputTurn, lastTurn: 1}]);
     defender.addBuff(attacker, "test", 9215, 1, ctx);
     const loop = new FightLoopWest(fight); loop.bcMsg = () => {};
     let acted = false;

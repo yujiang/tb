@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { initFightContex, initBuffs, getBuffData, FightCmdEnum, FightResultEnum } from "../../../src";
 import { setupChain, chainIds as ids } from "../../fixtures/skill_chain";
 
+// 测试：休息 Buff 跳过下一回合的攻击、技能和防御，完整回合结束后恢复行动。
 test("rest: next turn skips attacks, skills and defense, then expires after the full turn", () => {
     const { fight, actor, target, loop, cast, flush, report } = setupChain();
     cast();
@@ -37,6 +38,7 @@ test("rest: next turn skips attacks, skills and defense, then expires after the 
     assert.match(report.toString(), /\[休息\].*跳过行动/);
 });
 
+// 测试：休息中的受控单位仍可正常提交指令，但执行时跳过行动。
 test("rest: controlled resting units still submit inputs normally", async () => {
     const { fight, actor, target, loop, cast } = setupChain();
     cast(); loop.nextTurn();
@@ -47,14 +49,15 @@ test("rest: controlled resting units still submit inputs normally", async () => 
     assert.ok(ctx?.msgs.some(msg => msg[0] === "skipAction"));
 });
 
-test("rest: replacement, dispel and death unregister after-turn listeners", () => {
+// 测试：休息 Buff 的替换、驱散和死亡清理由公共流程处理，不依赖专用到期监听。
+test("rest: replacement, dispel and death do not require dedicated expiry listeners", () => {
     const { fight, actor, target, flush } = setupChain({ rootSelfBuff: false });
     initBuffs([{ ...getBuffData(ids.rest), notRemove: false }]);
     const ctx = initFightContex(fight);
     const first = actor.addBuff(actor, "test", ids.rest, 1, ctx);
     actor.addBuff(actor, "replace", ids.rest, 2, ctx);
     assert.notEqual(actor.findBuff(ids.rest), first);
-    assert.equal(actor.contextEmitter.listenerCount("afterTurn"), 1);
+    assert.equal(actor.contextEmitter.listenerCount("afterTurn"), 0);
     actor.removeBuff(actor, "dispel", ids.rest, 99, ctx);
     assert.equal(actor.contextEmitter.listenerCount("afterTurn"), 0);
     actor.addBuff(actor, "test", ids.rest, 1, ctx);
@@ -64,6 +67,7 @@ test("rest: replacement, dispel and death unregister after-turn listeners", () =
     flush(ctx);
 });
 
+// 测试：零持续次数的休息 Buff 不自然到期，战斗结束后不再产生跳过行动消息。
 test("rest: duration zero does not expire and ended battles do not emit skip actions", () => {
     const { fight, actor, loop, flush } = setupChain({ rootSelfBuff: false });
     initBuffs([{ ...getBuffData(ids.rest), lastTurn: 0 }]);

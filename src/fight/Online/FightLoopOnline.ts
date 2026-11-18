@@ -17,9 +17,9 @@ export abstract class FightLoopOnline extends FightLoop {
     //回合后主要处理死亡等            
     processAfterTurn(turn: number, ctx: FightContex){
         const all = this.fight.getAllUnits();
-        for (const u of all) {
-            u.processAfterTurn(turn, ctx);
-        }
+        this.fight.resolveAction(() => {
+            for (const u of all) u.processAfterTurn(turn, ctx);
+        });
     }    
 }
 
@@ -27,11 +27,21 @@ export abstract class FightLoopOnline extends FightLoop {
 // 网游的常规流程, 指令全部下完,统一处理
 export class FightLoopWest extends FightLoopOnline {    
     loopUnits: FightUnit[];
+    private inputOrderReady = false;
+
+    override sortUnitsByProcess(withInput = true) {
+        this.inputOrderReady = withInput;
+        return super.sortUnitsByProcess(withInput);
+    }
     override async processOneTurn(turn: number){
         // 根据玩家速度来建立出手列表
         // 按出手列表顺序,依次处理
         let index = 0;
         let all = this.processUnits;
+        this.inputOrderReady = true;
+        // 指令收齐后按优先级、速度统一排序，先同步行动条，再逐个执行。
+        all.sort((a, b) => this.compareProcessUnits(a, b));
+        this.bcMsg(["sort", all.map(u => u.uid)]);
         while (all.length && !this.fight.isEnd()) {
             const u = all.shift();
             let ctx = u.processOneTurn(turn); 
@@ -46,7 +56,7 @@ export class FightLoopWest extends FightLoopOnline {
     override nextTurn() {
         const rt = super.nextTurn()
         this.bcMsg(["turn", this.fight.turn]);
-        const all = this.sortUnitsByProcess(); //但是如果有插队,降速会扰乱出手表?
+        const all = this.sortUnitsByProcess(false); // 本轮尚未收指令，只发布速度预排序。
         this.bcMsg(["sort", all.map(u => u.uid)]);
         return rt;
     }    
@@ -70,7 +80,7 @@ export class FightLoopWest extends FightLoopOnline {
         const all = this.processUnits;
         if (all?.includes(u)){
             // this.processUnits 重新排序？
-            all.sort((a, b) => b.getSpeedOrder() - a.getSpeedOrder());
+            all.sort((a, b) => this.compareProcessUnits(a, b, this.inputOrderReady));
             this.bcMsg(["sort", all.map(u => u.uid)]);
         }
     }
