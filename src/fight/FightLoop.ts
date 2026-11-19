@@ -7,11 +7,17 @@ import { FightActionQueue, FightAction } from "./FightActionQueue";
 export type bcMsgFunc = (msgs: fightMsg | fightMsg[])=>void;
 export interface UltimateInput { unit: FightUnit; input: FightInput; }
 export interface FightErrorContext {
+    /** 本场战斗ID，用于关联宿主日志。 */
     fid: number;
+    /** 初始随机种子；不是可恢复的随机状态快照。 */
     seed: number;
+    /** 异常发生时的全局回合，初始化阶段可能为0。 */
     turn: number;
+    /** 当时正在执行的队列行动ID；队列行动之外可能省略。 */
     action?: number;
+    /** 行动者运行uid；没有具体行动者的阶段可能省略。 */
     actor?: number;
+    /** 输入意图副本；不是嘲讽等重定向后的实际目标记录。 */
     input?: FightInput;
 }
 

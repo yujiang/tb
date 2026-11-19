@@ -36,7 +36,7 @@ export interface BuffData extends StaticData{
     // class="relife"：classParam 为 (0, 1] 的数值，省略默认 0.2。
     // class="reflect"：classParam.magicOnly 默认 true，false 时也反射物理伤害。
 
-    /** 同 ID 重复添加：NOT 保留旧实例，REPLACE 替换，REL​​PACE_BYPOWER 按 power 再等级比较；详见枚举实际拼写。 */
+    /** 同 ID 重复添加：NOT 保留旧实例，REPLACE 替换，RELPACE_BYPOWER 按 power 再等级比较；详见枚举实际拼写。 */
     overlap: OverlapEnum;
 
     /** 持续时间和周期效果的边界；缺省 thisTurn=全局回合前，inputTurn=本单位输入次数，afterTurn=全局回合后。 */

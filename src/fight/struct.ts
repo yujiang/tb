@@ -49,7 +49,7 @@ export interface SelectMainParam{
 }
 
 export interface SelectParam extends SelectMainParam { 
-    /** 数量溅射的副目标上限，不含当前主目标，缺省1；需有spread子技能，0可不取副目标。 */
+    /** 数量溅射的副目标上限，不含当前主目标，缺省1；仅用于溅射流程，0可不取副目标。 */
     numSpread?: number;
     /** 溅射形状x_line/y_line/cross，已填时优先于numSpread；缺省按数量；none当前不是有效形状查询。 */
     shape?: MapShapeEnum;

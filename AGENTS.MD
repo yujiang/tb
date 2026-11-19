@@ -53,7 +53,7 @@
 | `src/fight/AI/` | 每只 Monster 唯一的 AI，通过 waitInput 根据场面决定普通行动 |
 | `src/fight/Rules/` | 可共存的血轴、回合轴、受伤轴规则；回合规则插入独立行动，默认剩余队首 |
 | `src/fight/FightActionQueue.ts` | 独立行动记录、四种插入位置、取消及速度排序；客户端按记录区分同一单位的多次行动 |
-| `src/fight/Unit/MonsterDatas.ts` | 怪物模板、技能/被动/装配和多个 AI 配置注册 |
+| `src/fight/Unit/MonsterDatas.ts` | 怪物模板、技能/被动/装配、单个 AI 与多条 Rule 配置注册 |
 | `src/fight/MonsterSide.ts`、`ZhenDatas.ts` | 按模板 ID、阵型 ID 和宿主 UID 分配器生成独立怪物单位 |
 | `src/fight/Skills/` | 技能定义和执行、伤害计算、连击、追击、溅射、反击、治疗等 |
 | `src/fight/Buffs/` | Buff 和被动技能定义、属性修正及动作禁止状态 |
@@ -102,11 +102,13 @@
 - 技能与 Buff 注册表目前是模块级共享 Map，测试应使用独立 ID，避免依赖其他测试的执行顺序。
 - 技能及属性 Buff 的成长为固定加成加 `attackLevel/finalLevel × level`，0 级保留固定加成；属性合并必须包含仅在成长配置中出现的字段，并保持定义不被修改。技能原始数值在未与单位合并时也必须可用，避免普攻、复活及周期效果读取 undefined。
 - 周期 Buff 引用技能的成长使用 `skillLevel`，Buff 自身属性成长使用自己的 `level`。重复合并必须从原配置重算，不能累计成长。
-- 驱散要求移除方 power 大于等于 Buff power；未配置 power 才回退到等级，显式零有效。Buff power 来自自身配置或等级，不继承施加技能的 power。自身到期、次数耗尽及死亡清理不应被驱散强度拦住。
+- 驱散要求移除方 power 大于等于 Buff power；技能未配置 power 时取技能等级，Buff 未配置 power 当前取 0，显式零有效。驱散只比较 power，同 ID Buff 的覆盖规则再比较等级；Buff 不继承施加技能的 power。自身到期、次数耗尽及死亡清理不应被驱散强度拦住。
 - 常用行为使用 BuffData 的独立字段：`notRemove` 禁止外部驱散，`dieNotRemove` 表示死亡保留，`notDisplay` 控制单位展示数据中是否显示 Buff，省略或 false 不启用。自然到期、次数耗尽仍会移除 notRemove Buff；死亡清理保留 dieNotRemove Buff。隐藏不影响效果结算。不要继续用旧 noremove/nodie 标签表达这些行为，tags 保留用于分类查询。
 - 单位构造的被动列表为 `IdLevelArray`，被动配置 `addbuff` 指定自身附加的 Buff ID 和等级。初始化先于绑定战斗，不能假设已有 fight 或 ctx；构造结束统一计算属性，已有单位附加 Buff 时立即重算。
 
 ## 构建与验证
+
+- 所有 xxxData 及其嵌套配置字段必须有中文说明，解释用途、默认值、单位、范围和入口差异；修改字段时同步源码 JSDoc 与 `document/wiki/` 中的字典。Wiki 使用普通 Markdown 与相对链接，便于后续接 VitePress，不为整理知识库改战斗行为或引入站点依赖。
 
 - 使用 Node.js 22 或以上版本，常用命令：`npm run build`、`npm run test:build`、`npm test`、`npm run example`。
 - `npm run build` 从 `src/` 生成 `bin-debug/` 下的 JavaScript、类型声明和 source map。包入口为 `bin-debug/index.js`，类型入口为 `bin-debug/index.d.ts`。

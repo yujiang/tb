@@ -35,6 +35,8 @@ tb = turnbase 回合制
 
 # 当前实现
 
+配置字段、架构流程、玩法取舍和排错入口已整理到 [tb 战斗知识库](document/wiki/index.md)。全部采用普通 Markdown，可直接阅读，后续可作为 VitePress 内容目录。每个配置字段的中文 JSDoc 与 Wiki 字典一起维护，嵌套属性、继承字段、默认值和入口差异均有说明。
+
 单位可通过 `addSkill(attackId, level)` 学习，再用 `setAttackSkill(attackId)`（字段 `attackSkill`）装配攻击技能替代普攻，`getAttackSkill()` 查询，`setAttackSkill(0)` 卸下。显式 `attack` 和默认 `none` 指令优先使用有效装配；未学会或未装配时回退到原物理普攻。替代普攻走攻击管线、使用技能自身配置和已学等级，不额外支付主动费用，发动失败不补原普攻；仍检查 `attack` 禁止状态并保留普攻目标、嘲讽和守尸规则。被动及技能命中后的公共效果也可配置 `attackSkill`，只装配、不学习或改等级，`attackSkill: 0` 可卸下；与 `supportSkill/fbackSkill` 的职责一致。详细配置与边界见 `document/技能.md`。
 
 属性相克与相生使用 `PropEnum.none/金/木/水/火/土`，单位的 `FightAttr.charProp` 和 `weaponProp` 默认无属性，技能用 `skillProp` 覆盖。攻击及毒伤取 `skillProp ?? 施放者.weaponProp`，治疗取 `skillProp ?? 施放者.charProp`，默认目标取 `charProp`；NPC 配置弱点后，受伤改用下述弱点规则，治疗仍取 `charProp`；显式 `none` 不回退。相克采用传统五行“金→木→土→水→火→金”，相生按“金→水→木→火→土→金”，关系函数命中时返回 1.5，其余为 1。攻击伤害将相克加成与 damageRate 加法合并：基础公式伤害（含免伤）× (damageRate + 相克倍率 - 1 + 暴击加成)，相克固定加 0.5；治疗合并 healRate、相生与暴击加成，毒伤合并 poisonRate 与相克加成，毒伤不判暴击。均在资源实际变化之前应用。普通攻击、各类子技能及周期效果均使用真实施放者，复活、吸血及已经计算好的反伤/反射/分担数值不重复乘属性倍率。旧 `BaseAttack.property` 已移除。详细规则见 `document/技能.md`，回归测试为 `tests/core/skill/test_properties.ts`。

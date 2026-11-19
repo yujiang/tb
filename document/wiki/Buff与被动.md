@@ -1,0 +1,102 @@
+# Buff 与被动
+
+[返回目录](./index.md) · [属性字典](./属性与选目标.md)
+
+源码：[StaticData](../../src/fight/Buffs/StaticData.ts)、[BuffData](../../src/fight/Buffs/BuffDatas.ts)、[PassiveData](../../src/fight/Passives/PassiveDatas.ts)。
+
+## StaticData：两者继承的全部字段
+
+BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff 就不用填属性配置”并不成立，空的增量应填 `{}`，空列表填 `[]`。
+
+| 字段 | 含义 | 使用规则 |
+| --- | --- | --- |
+| `id` | Buff 或被动表 ID | 非零，按对应注册表查询 |
+| `name` | 名称 | 宿主展示/客户端本地文案 |
+| `desc` | 说明 | 类型必填，可为空字符串，不参与结算 |
+| `status` | 状态字符串列表 | 必填，可 []；如封印、沉默、眩晕、禁疗 |
+| `tags` | 分类标签列表 | 必填，可 []；用于查找/驱散，不代替独立行为字段 |
+| `magic` | 修改哪种攻击组 | true 为魔法，false 为物理；heal/poison 由 attackType 直接决定 |
+| `attackType` | 修改阶段/公式组 | base/next/kill/spread/fback/heal/poison；未知名字在属性重算时报错 |
+| `attack` | BaseAttack 固定增量 | 可 {}；作用于指定阶段 |
+| `final` | FinalAttack 固定增量 | 可 {}；作用于所选物理/魔法组；heal/poison 当前不应用 final |
+| `attackLevel` | 每级 BaseAttack 增量 | 可省略，乘 Buff/被动自身等级，0 级保留固定值 |
+| `finalLevel` | 每级 FinalAttack 增量 | 可省略，乘 Buff/被动自身等级 |
+
+状态和属性、周期、特殊类并不互斥，不需要另设一个互斥的 Buff type。
+
+## BuffData 自身字段
+
+| 字段 | 含义 | 缺省与边界 |
+| --- | --- | --- |
+| `class` | 特殊实现类名 | buqu/relife/taunt/reflect/rest/protect；省略或未知名称走普通 FightBuff |
+| `classParam` | 特殊类参数 | 见下面的参数表；普通 Buff 不读取 |
+| `overlap` | 同 ID 重复添加规则 | NOT=0、REPLACE=1、RELPACE_BYPOWER=2；类型必填 |
+| `turnType` | 持续时间/周期边界 | 缺省 thisTurn=0，inputTurn=1，afterTurn=2 |
+| `lastTurn` | 对应边界持续次数 | 必填；正数最后一次生效后移除，0 不按回合到期，不是秒数 |
+| `times` | 事件次数 | 类型必填；普通 Buff 运行时缺省按 0；正数用完移除，0 不限次数；特殊类可能覆盖 |
+| `event` | 普通次数 Buff 的计次事件 | 类型必填；需带 ctx；特殊类可能固定监听其他事件 |
+| `prior` | 事件监听优先级 | 小的先执行，同级按注册顺序；普通/反射缺省 0，保护 500，不屈/自动复活 1000 |
+| `func` | 周期效果 | heal/poison；省略不执行周期数值效果 |
+| `skill` | 周期效果引用的技能 ID | func 已配置时需要有效技能；读取技能原始配置，不再与施放者单位属性合并 |
+| `skillLevel` | 周期引用技能等级 | 缺省 0；不是 Buff 自身等级 |
+| `notRemove` | 禁止外部驱散 | 缺省 false；自然到期、次数耗尽与死亡清理不由此字段拦截 |
+| `dieNotRemove` | 死亡保留 | 缺省 false；自动复活 Buff 需 true 才能继续收到 die 事件 |
+| `notDisplay` | 不进入单位 Buff 展示列表 | 缺省 false；隐藏不影响效果结算 |
+| `power` | Buff 自身驱散强度 | 当前缺省 0，显式 0 有效；不继承施加技能 power |
+
+### 特殊类及 classParam
+
+| class | 参数 | 行为要点 |
+| --- | --- | --- |
+| `buqu` | 内置类不读取 classParam | 致死伤害改为留下 1 血，每场每单位一次；固定监听 beforeHurt，通常排在伤害修正链后面 |
+| `relife` | 数值 `(0,1]`，缺省 0.2 | 真实死亡后等完整 action 结束自动复活，每场一次；dieNotRemove 必须 true |
+| `taunt` | 不读取 | 挂在被嘲讽者身上，施加者成为强制主目标；不是禁止对方行动 |
+| `reflect` | `{ magicOnly?: boolean }`，magicOnly 缺省 true | 默认转移魔法伤害给攻击者，治疗转给随机存活敌人；false 也转移物理伤害 |
+| `rest` | 不读取 | 存在时跳过主动行动；持续时间由 turnType/lastTurn 配置 |
+| `protect` | 不读取 | 挂在被保护者身上，施加者承担一半合格直接攻击伤害；比例固定，不用参数调节 |
+
+不屈/自动复活固定使用一次，不是填 times=10 就能变成十次。反射在成功转移时扣 times；保护当前按持续时间移除，不使用普通次数消耗流程。特殊类的 event/prior 行为应按类说明配置，不能只套普通 Buff 的计次规则。
+
+### 覆盖与驱散不是同一个比较
+
+`NOT` 保留旧实例；`REPLACE` 替换旧实例。`RELPACE_BYPOWER` 先比配置 power，再比 Buff 等级：新 Buff 需要更高 power，或者相同 power 下更高等级，才能覆盖；相同 power/等级保留旧实例。
+
+外部驱散只比较移除方 power 是否大于等于 Buff power，不额外比 Buff 等级；`notRemove` 还会禁止它。技能未填 power 时用技能等级，Buff 未填 power 当前用 0。
+
+### 三个时间边界
+
+- `thisTurn`：每个全局回合前。
+- `inputTurn`：单位输入边界次数，不能简单等同全局回合数。
+- `afterTurn`：每个全局回合后。
+
+同一边界不重复处理；遍历实例快照，期间新增的留到下次，已经删除/替换的旧实例跳过。周期最后一次效果执行后才移除。
+
+保护通常 afterTurn + lastTurn=1，本回合末消失；施放后强制休息下一回合通常 afterTurn + lastTurn=2。afterTurn 处理过程中新增的 Buff 从后续边界开始计，不在当前遍历里立即消耗。
+
+### 事件配置
+
+普通次数 Buff 使用 `(unit, ctx, ...args)` 的上下文事件，如 beforeHurt、beforeHeal、hurt、heal、hp、die、relife、break、afterTurn、addBuff、removeBuff。`attr/speed` 是普通属性事件，不带同样的 ctx 参数，不适合普通次数 Buff。
+
+`break` 仅在盾正数变为 0 时发出，附带该瞬间全体破盾快照；直接击杀未破盾的单位不算 break。`hp` 只表达实际生命变化，包含保护分担与截断后的治疗；分担不发普通 hurt 事件。
+
+## PassiveData 自身字段
+
+以下字段之外，PassiveData 还继承上面的全部 StaticData 字段。
+
+| 字段 | 含义 | 缺省与边界 |
+| --- | --- | --- |
+| `addbuff` | 初始化给自身添加的 Buff | `[Buff ID, Buff等级][]`；可省略；等级不自动取被动等级，保留小写命名 |
+| `attackSkill` | 初始化装配替代普攻 | 缺省不变，0 卸下；只装配不学习、不改技能等级 |
+| `fbackSkill` | 初始化装配反击 | 缺省不变；当前此入口忽略 0，模板显式装配仍可用 0 卸下 |
+| `supportSkill` | 初始化装配协战 | 缺省不变，0 卸下；技能须另行学习 |
+| `ultimateSkill` | 初始化装配破盾大招 | 缺省不变，0 卸下；仍需独立施放机会 |
+
+初始化可能早于绑定 fight，不能依赖已有战斗上下文。已有单位追加被动后会重算属性。被动附加的 Buff 是否死亡保留、可驱散与显示，由该 BuffData 决定，不由“来源是被动”自动推导。
+
+## 保护、反射与表现
+
+保护只分担 `source=skill` 且未禁止保护的直接伤害，不分担 Buff、反伤、反射和已经分担的伤害。双方受伤消息连续发出，保护者不继续展开受伤反击/反弹等逻辑；吸血、反伤按目标分担后的实际扣血算。
+
+为了场面清楚，建议群攻/溅射填 nosupport/noprotect，协战链填 nofback/nodback；这是数据建议，不是新增加的硬规则。
+
+验证目录：[Buff测试](../../tests/core/buff/)、[不屈](../../src/fight/Buffs/Class/BuffBuqu.ts)、[自动复活](../../src/fight/Buffs/Class/BuffRelife.ts)、[保护](../../tests/core/buff/test_protect.ts)。
