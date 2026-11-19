@@ -101,6 +101,7 @@ export class Fight{
         else this.afterActionTasks.push(run);
     }
 
+    // 接管run的开始和退出
     resolveAction<T>(run: () => T): T {
         if (this.actionDepth >= 64) throw new Error("Reaction limit exceeded (64 nested action scopes)");
         this.actionDepth++;

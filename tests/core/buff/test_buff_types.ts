@@ -263,7 +263,7 @@ test("NaN removal power cannot bypass buff protection", () => {
 test("skill lifesteal growth affects actual healing", () => {
     const {fight, attacker, defender} = setup();
     attacker.attr.point.hp = 50;
-    initSkills([{id: 9450, name: "成长吸血", magic: true, rand: 1, blood: true,
+    initSkills([{id: 9450, name: "成长吸血", magic: true, rand: 1, noblood: false,
         sel: {target: TargetSelectEnum.enmey}, attack: {}, final: {}, finalLevel: {bloodP: 0.1}}]);
     attacker.addSkill(9450, 2);
     fight.processUnit(attacker, {cmd: FightCmdEnum.skill, skill: 9450, target: defender.uid});

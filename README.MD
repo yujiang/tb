@@ -43,9 +43,9 @@ tb = turnbase 回合制
 
 `addBuff` 格式为 `["addBuff", why, unitId, attackerId, buffId, level, timing]`，可见实例的 `timing` 为 `[start, lastTurn]`，隐藏实例为 `null`；不重复发送名称、Buff ID 或等级。同编号新增消息替换旧实例，初始 `buffs` 仍使用 `[id, level, start, lastTurn]`。死亡清理逐个发送 `removeBuff`，只移除实际清除的 Buff，格式为 `["removeBuff", why, unitId, attackerId, buffId]`，不重复发送 Buff 名称；复活发送 `["relife", uid]`，随后治疗消息更新血量。`FightClient` 不重新判定保留规则或运行结算；`FightReport` 可从客户端本地配置查询 Buff 名称。`checkSame(fight)` 只比较双方单位展示状态，不修复差异。直接改写服务端站位、display 或资源等字段而未发送相应消息时，客户端不会自动获知，检查应失败。
 
-`FightReport` 将同一条增量消息链转成中文简报，与 `FightClient` 可同时绑定到循环：`report.bindFightLoop(loop)`。也可直接传入单条或批量消息：`report.onMsg(msgs)`。默认逐行打印：单位名称保持默认颜色，技能名称（含方括号）为青色、Buff 名称为紫色；治疗量数字为绿色、伤害量数字为红色、暴击伤害量数字为橙色，未命中三个字为蓝色，其余文字和当前/剩余生命保持默认颜色。死亡整句为暗红色，复活整句为亮绿色（ANSI 颜色，着色部分结束立即复位）。`new FightReport(line => save(line), false)` 可自定义输出并关闭颜色，传入 `() => {}` 可静默收集。`report.lines` 和 `report.toString()` 始终保存不含颜色控制码的纯文本；收到新 `start` 时清空上一场简报。简报包含回合、行动顺序、技能、伤害、实际治疗量、费用、Buff 增删、死亡复活及胜负；技能和 Buff 用 `[名称]` 显示，同名单位通过编号区分。技能和 Buff 名称分别通过 `getSkillData(id)`、`getBuffData(id)` 查询本地配置，宿主需在客户端预先加载对应表，配置缺失时回退到编号（普通攻击 ID 为 0），未知消息保留原始数据。报告不读取服务端状态，不推测未收到的动作，也不提供逻辑战斗恢复功能。
+`FightReport` 将同一条增量消息链转成中文简报，与 `FightClient` 可同时绑定到循环：`report.bindFightLoop(loop)`。也可直接传入单条或批量消息：`report.onMsg(msgs)`。默认逐行打印：只给行首人名加阵营色（攻击方绿、防守方红，跳过连击等行首标注），后续人名及行动条列表保持原色，技能名称（含方括号）为青色、Buff 名称为紫色；治疗量数字为绿色、伤害量数字为红色、暴击伤害量数字为橙色，未命中三个字为蓝色，其余文字和当前/剩余生命保持默认颜色。死亡整句为暗红色，复活整句为亮绿色（ANSI 颜色，着色部分结束立即复位）。`new FightReport(line => save(line), false)` 可自定义输出并关闭颜色，传入 `() => {}` 可静默收集。`report.lines` 和 `report.toString()` 始终保存不含颜色控制码的纯文本；收到新 `start` 时清空上一场简报。简报包含回合、行动顺序、技能、伤害、实际治疗量、费用、Buff 增删、死亡复活及胜负；技能和 Buff 用 `[名称]` 显示，同名单位通过编号区分。技能和 Buff 名称分别通过 `getSkillData(id)`、`getBuffData(id)` 查询本地配置，宿主需在客户端预先加载对应表，配置缺失时回退到编号（普通攻击 ID 为 0），未知消息保留原始数据。报告不读取服务端状态，不推测未收到的动作，也不提供逻辑战斗恢复功能。
 
-`FightMud` 继承 `FightReport`，使用同样的构造参数、`onMsg`、`bindFightLoop`、`lines` 和 `toString()`，将出招、连击、连招、追击、反击、受伤、治疗、保护、死亡和复活改为 MUD 风格的武侠叙述。技能名青色、Buff 名紫色及原有数字配色继续保留，人名不单独着色；保存文本仍为纯文本。初始化只列出阵营单位与初始 Buff，行动条消息仍更新内部客户端状态，文字不重复播报队列。
+`FightMud` 继承 `FightReport`，使用同样的构造参数、`onMsg`、`bindFightLoop`、`lines` 和 `toString()`，将出招、连击、连招、追击、反击、受伤、治疗、保护、死亡和复活改为 MUD 风格的武侠叙述。技能名青色、Buff 名紫色及原有数字配色继续保留，沿用仅行首人名按阵营着色的规则；保存文本仍为纯文本。初始化只列出阵营单位与初始 Buff，行动条消息仍更新内部客户端状态，文字不重复播报队列。
 
 ```ts
 const mud = new FightMud(); // 也可传入自己的输出函数，第二个参数 false 关闭颜色
@@ -85,13 +85,37 @@ const mud = new FightMud(console.log, true, {
 
 `FightReport` 为文字表现提供受保护的 `describe(msg)` 扩展点：父类先处理增量状态，再调用描写方法；返回 `true` 表示该消息已描写，返回 `false` 则使用原简报格式。子类复用名称查询、颜色、输出与日志保存，不需要重新实现客户端消息逻辑。`FightMud` 的消息再次描写只是文字输出，不是战斗逻辑恢复或录像接口。
 
-未命中消息只将“未命中”三个字显示为蓝色，其他文字保持原色；每个回合标题及每条单位“行动”消息前增加一个空行，打印输出和保存文本均保留。关闭颜色时输出纯文本。
+`FightReport` 收到整批行动消息时，会在同一批内前瞻查找紧随主攻击的实际协战，将双方出手合并为一行“同时攻击”，伤害、治疗、死亡仍在原结算位置输出；协战未命中时，在原位置显示蓝色“未命中”。仅合并已确认命中主目标、同阵营另一人攻击同一目标的协战，遇到其他出手或行动边界就停止查找。拆批或关联不明时保留逐条输出，不跨批缓存或预测发动概率。`FightMud` 自身的逐消息描写不受影响。运行 `npm run test:build` 后执行 `node --test .test-build/tests/core/test_report_protect_support.js` 可查看保护优先、同时出手、连续分担受伤及协战次数限制的真实单回合简报，示例逐批检查客户端一致性。
+
+表现分组由独立公开类 `FightPreParse` 完成，`FightReport` 消费其结果，图形客户端也可复用：
+
+```ts
+const preParser = new FightPreParse(); // 每个战斗展示流使用自己的实例
+const plan = preParser.parse(msgs);   // 单条消息或一整批消息
+// plan.messages：完整原协议，顺序和内容不变。
+// plan.groups：协战同时出手、保护同时受伤的关系。
+for (const group of plan.groups) {
+    if (group.kind === "support") {
+        // group.attack / group.support 各含 index、message。
+        // 在主攻位置安排双方同时出手，伤害与未命中结果保留原结算位置。
+    } else {
+        // group.share / group.target 各含 index、message。
+        // 双方同时受伤，之后的死亡、复活仍按原消息顺序播放。
+    }
+}
+```
+
+`FightPresentation` 同时保留消息列表与分组关系，允许同一次协战中包含保护伤害。组成员只是原消息引用，不是新增协议，不应再重复应用到 `FightClient`；`index` 是本次 `parse` 返回的消息数组下标。预解析不更新生命、不计算战斗、不处理姓名或颜色，只跨批保存 `start/side` 中的阵营 ID 信息，收到新 `start` 重置。默认从本地技能表读取 `nosupport` 禁止字段，普通攻击 ID 0 同样允许协战；宿主可通过 `new FightPreParse(id => id === 0 || (hostSkills[id] !== undefined && !hostSkills[id].nosupport))` 注入是否允许协战的查询。它不缓存拆开的动作；关联不完整时保留独立消息，输出由消费者视需要排程。返回的原消息引用按只读使用，预解析本身不修改输入。
+
+未命中消息将“未命中”三个字显示为蓝色，并保留行首人名及技能名的配色；每个回合标题及每条单位“行动”消息前增加一个空行，打印输出和保存文本均保留。关闭颜色时输出纯文本。
 
 协战与反击一样先学习再装配：`a.addSkill(supportId, level); a.supportSkill = supportId`，通过 `a.getSupportSkill()` 查询；战斗中可随时改装。被动配置 `supportSkill: supportId` 或 `fbackSkill: fbackId` 只装配相应技能 ID，不自动学习、不覆盖已有技能实例或等级；宿主需另外加载单位已学的主动技能。协战技能目前使用攻击类 `func: "normal"`（省略也是 normal），读取协战者自己的基础物理/魔法攻击，复用技能倍率、等级成长、命中、吸血、反伤、连击、连招与反击流程，和反击一样不额外支付主动技能费用。
 
-主攻技能配置 `support: true` 才允许协战，省略为 false。主攻成功命中且目标仍存活时，在原技能的溅射及后续反应流程之前，从同阵营、存活、未禁止 attack、未被休息等 Buff 阻止行动、且本回合尚未协战的其他单位中随机选一人；只有装备有效协战技能的单位入选。只有一个候选时不消耗选人随机数，多个候选通过战斗随机源等概率选择，再由技能流程判定一次该协战技能的 `rand`。失败不换人重试；选中并尝试就消耗机会，rand 失败或未命中均不返还。每个协战者每个全局回合最多尝试一次，死亡复活、改装及额外输入机会都不刷新次数。
+主攻技能默认允许协战，只有 `nosupport: true` 时禁止；该字段省略或 false 均表示不禁止。主攻成功命中且目标仍存活时，在原技能的溅射及后续反应流程之前，从同阵营、存活、未禁止 attack、未被休息等 Buff 阻止行动、且本回合尚未协战的其他单位中随机选一人；只有装备有效协战技能的单位入选。只有一个候选时不消耗选人随机数，多个候选通过战斗随机源等概率选择，再由技能流程判定一次该协战技能的 `rand`。失败不换人重试；选中并尝试就消耗机会，rand 失败或未命中均不返还。每个协战者每个全局回合最多尝试一次，死亡复活、改装及额外输入机会都不刷新次数。
 
-协战继承本次实际主目标，不重新选择或被嘲讽改向；目标已死亡则跳过，不攻击尸体或换人。协战及其整条后续反应链不会再召唤其他协战者；返回原攻击后继续原有后续规则。连招中间不插入协战，只按末段的 `support` 配置尝试。协战命中或未命中消息仍用原格式，第五项标记 `"support"`，简报和 MUD 显示 `【协战】`。次数属于服务端规则状态，客户端仍只根据实际消息更新显示，无需同步技能装配或次数。
+协战继承本次实际主目标，不重新选择或被嘲讽改向；目标已死亡则跳过，不攻击尸体或换人。协战及其整条后续反应链不会再召唤其他协战者；返回原攻击后继续原有后续规则。连招中间不插入协战，只按末段的 `nosupport` 禁止字段决定是否尝试。协战命中或未命中消息仍用原格式，第五项标记 `"support"`，简报和 MUD 显示 `【协战】`。次数属于服务端规则状态，客户端仍只根据实际消息更新显示，无需同步技能装配或次数。
+
+协战表现推荐通过填表收敛：协战技能配置 `nofback: true, nodback: true`（必须显式禁止，省略表示允许），避免引出目标反击及普通反伤；其链接的子技能也需逐个保持对应配置。主攻技能的开关独立配置，程序不额外强制覆盖。`nodback` 不控制反射 Buff。
 
 普通主动攻击技能的发动概率判定失败时，发送 `["skillFailed", 行动者ID, 目标ID, 技能ID, 技能名称]`，简报显示 `[技能名称]未发动（发动概率判定失败）`，与发动后未命中的情况区分。不会因此自动改用普通攻击。
 
@@ -199,7 +223,7 @@ Buff 配置 `class: "buqu"` 创建 `BuffBuqu`，省略 `class` 仍创建普通 `
 
 `SkillData.combo` 复用 `next` 的子技能创建、攻击属性和结算流程，自动沿用上一段实际主目标（包括主技能被嘲讽重定向后的目标），无需额外的目标继承字段。目标离场、死亡或不符合子技能目标资格时停止，不排序、不重新抽样、不被中途新增的嘲讽重定向。`next` 按子技能自身 `sel` 重新选目标，`combo` 固定继承主目标；两者同时配置时 `next` 优先。计数仍记入 `nextNum`，结算流程和攻击属性继续复用；动作消息用 `combo` 标记连招，简报显示 `【连招】`。普通 `next` 消息仍显示 `【连击】`，命中与未命中都按此区分。`selectMainTarget(unit, sel)` 只负责普通选目标。
 
-连招中间段无论配置的 `fback/dback` 如何，都不触发普通反击或反伤，也不会被反击打断。仅在成功命中配置的最后一段、双方都未死亡时，先按末段 `dback` 开关结算一次整招反伤，再按末段 `fback` 开关尝试一次反击。反伤基数为整条连招对主目标实际扣血的累计值，倍率及伤害类型沿用末段对应的反伤属性；例如三段实际伤害为 40、70、100，反伤比例 20%，末段结束后一次反伤 42。反伤致死则不再反击。后续段未发动、未命中、目标失效或任一方死亡时，不补结算；死亡后立即复活也视为打断。死亡时配置的 `kill` 仍按原规则执行。伤害累计只在同一条连招内传递，追击、反击、事件中的嵌套动作和溅射伤害不计入主目标累计，连招内溅射也不即时触发普通反伤。吸血和 Buff 效果仍按段处理。
+连招中间段无论配置的 `nofback/nodback` 如何，都不触发普通反击或反伤，也不会被反击打断。仅在成功命中配置的最后一段、双方都未死亡时，先按末段 `nodback` 禁止字段结算一次整招反伤，再按末段 `nofback` 禁止字段尝试一次反击。反伤基数为整条连招对主目标实际扣血的累计值，倍率及伤害类型沿用末段对应的反伤属性；例如三段实际伤害为 40、70、100，反伤比例 20%，末段结束后一次反伤 42。反伤致死则不再反击。后续段未发动、未命中、目标失效或任一方死亡时，不补结算；死亡后立即复活也视为打断。死亡时配置的 `kill` 仍按原规则执行。伤害累计只在同一条连招内传递，追击、反击、事件中的嵌套动作和溅射伤害不计入主目标累计，连招内溅射也不即时触发普通反伤。吸血和 Buff 效果仍按段处理。
 
 
 `SkillData.attackRate` 是有限、非负的单位攻击力倍率，默认 `1`，显式 `0` 有效。合并公式为 `单位当前 attack × attackRate + 技能 attack.attack + attackLevel.attack × level`：只缩放单位的 `attack` 数值，不缩放命中、暴击、伤害加成等其他字段，也不缩放技能固定加成和成长。使用包含 Buff/被动加成的当前属性，主攻击、连击、追击、溅射及反击分别使用原管线对应的属性组；治疗、毒伤在合并单位属性时复用同一规则。重复合并始终从传入单位属性及原配置重算，不累计倍率，不修改 `attrOri`、单位属性或原配置。
@@ -231,14 +255,14 @@ attackLevel: { attack: 5 },
 ```ts
 // 一式：主技能，费用只在这里收取，结束后附加休息
 { id: 98001, combo: 98002, damageRate: 0.4, rand: 1,
-  sel: { target: TargetSelectEnum.enmey }, fback: false, dback: false,
+  sel: { target: TargetSelectEnum.enmey }, nofback: true, nodback: true,
   cost: { mp: 10 }, afterSelfBuff: [[98004, 1, 1]] }
 // 二式：锁定同一人，不反击、不反伤、不追击
 { id: 98002, combo: 98003, damageRate: 0.7, rand: 1,
-  sel: { target: TargetSelectEnum.enmey }, fback: false, dback: false }
+  sel: { target: TargetSelectEnum.enmey }, nofback: true, nodback: true }
 // 终式：按需开启反击、反伤，追击可另配 kill
 { id: 98003, damageRate: 1, rand: 1,
-  sel: { target: TargetSelectEnum.enmey }, fback: true, dback: true }
+  sel: { target: TargetSelectEnum.enmey }, nofback: false, nodback: false }
 ```
 
 休息 Buff 配置 `class: "rest", turnType: BuffTurnEnum.afterTurn, lastTurn: 2`。`Fight.processUnit()` 发现该 Buff 会直接跳过主动行动，包括普通攻击、技能和防御，不选目标、不扣费、不抽样，并发送 `["skipAction", unitId, buffId]` 供简报显示。它不禁止提交指令，也不改变 `needInput()`。`afterTurn` 的 `lastTurn` 计回合后边界次数：第 N 回合施放后添加，N 回合结束计第一次，N+1 回合结束计第二次并移除；因此 N+1 回合跳过行动，N+2 恢复；`0` 不自然到期。只要 Buff 存在，额外主动行动也会被跳过；反击等反应仍按原技能流程处理。
@@ -291,7 +315,7 @@ loop.onInput(unitId, {
 
 技能与属性 Buff 的等级公式为：`单位基础属性 + 配置固定加成 + 每级加成 × level`。成长分别配置在 `attackLevel`、`finalLevel` 中；0 级只应用固定加成。直接读取技能数值时不包含单位基础属性，进入技能流程后按对应单位属性重新合并，避免重复累计。周期 Buff 引用的技能按 `skillLevel` 计算，自身的属性加成则按 Buff 的 `level` 计算。
 
-技能的吸血、受反伤和触发目标反击分别由 `blood`、`dback`、`fback` 布尔字段控制，省略时关闭；同名 tags 不再控制这些程序行为。例如 `blood: true` 允许使用最终属性中的吸血比例。普通攻击保留这三个能力，反击技能仍禁止再次触发反击。
+技能使用禁止字段 `noblood/nodback/nofback/nosupport/noprotect`，分别禁止吸血、普通反伤、触发目标反击、队友协战及保护分担。所有禁止字段省略或 false 均表示不禁止，true 才关闭相应能力；能力仍需满足实际比例、概率及目标状态等条件。同名 tags 不控制这些行为。反击专用类仍禁止再次反击，连招中间段等固定流程限制保留。旧字段 `blood/dback/fback/support/protect` 已移除，旧表显式允许迁移为对应 no 字段 false 或省略，显式禁止迁移为 true；原先依赖省略关闭的能力现在须显式禁止。协议反应标记及属性分组名不改。
 
 反击执行时检查反击者当前的 `isForbid("attack")`，普通反击和配置技能反击都受这一限制；封印、眩晕等禁止攻击的状态会阻止反击，包括受击后才附加的状态。被阻止时不抽样、不计反击次数，也不视为已经发动反击，因此原有后续连击可继续；状态解除后恢复反击。普通被动反伤不受禁止攻击限制。
 
@@ -306,16 +330,19 @@ loop.onInput(A.uid, { turn: fight.turn, cmd: FightCmdEnum.protect, target: B.uid
 
 保护与普通指令处于同一行动队列。`FightLoopWest` 在收齐指令后按“保护优先、同优先级按速度”统一排序，先广播完整 `sort` 行动条，再依次执行；多个保护指令之间也按速度排序。回合开始、尚未收指令时只发送速度预排序，避免沿用上回合指令；速度改变时用同一比较规则重排剩余队列。`compareProcessUnits(a, b, withInput?)` 与 `sortUnitsByProcess(withInput?)` 的 `withInput` 默认 `true`，`false` 表示只按速度预排序。直接调用 `Fight.processUnit()` 时，调用方仍自行安排执行顺序。
 
-`BuffProtect` 挂在 B 身上，固定监听 `beforeHurt`，默认 `prior: 500`；配置 `turnType: BuffTurnEnum.afterTurn, lastTurn: 1` 时在本全局回合结束移除，计时和到期复用普通 Buff 流程；替换、驱散、死亡清理及到期都会解绑监听。B 遭受普攻或技能伤害时，A 分担 `floor(伤害 / 2)`，余数留给 B。每次受伤最多触发一个保护效果。分担发生在 B 实际生命截断之前；A 的分担伤害仍经过自己的受伤流程，A 血量不足时按实际扣血处理，不把不足部分转回 B。A 死亡、离场、与 B 不再同阵营时不分担。A、B 互相保护时也不会循环。
+`BuffProtect` 挂在 B 身上，固定监听 `beforeHurt`，默认 `prior: 500`；配置 `turnType: BuffTurnEnum.afterTurn, lastTurn: 1` 时在本全局回合结束移除，计时和到期复用普通 Buff 流程；替换、驱散、死亡清理及到期都会解绑监听。B 遭受普攻或技能伤害时，A 分担 `floor(伤害 / 2)`，余数留给 B。每次受伤最多触发一个保护效果。分担发生在 B 实际生命截断之前；A 保留自己的防御、伤害修正、不屈、死亡清理及延迟自动复活，但分担来源不会触发反射或普通 `hurt` 事件，也不展开 A 的反击、反伤。A 血量不足时按实际扣血处理，不把不足部分转回 B。A 死亡、离场、与 B 不再同阵营时不分担。A、B 互相保护时也不会循环。
 
 `HurtOptions.source` 明确区分 `skill`（含普攻，默认）、`buff`、`dback`、`share`、`reflect`。保护只处理 `skill`，排除 Buff、普通反伤、分担及反射伤害；周期 Buff、反伤和反射入口均已标注，宿主自行调用 `onHurt` 施加这些伤害时也应传对应来源。`onHurt` 返回值仍是 B 自身实际扣血，后续吸血、反伤以及 combo 的伤害累计只使用 B 分担后的数值，不加上 A 的扣血。例如 100 点伤害分担后 A、B 各承受 50，吸血 50% 为 25，B 的反伤 20% 为 10。
 
-保护动作发送 `["protect", AId, BId]`，触发发送 `["buffTrigger", BId, buffId, "protect", AId]`，随后通过两条普通 `hurt` 消息分别更新 A、B，A 的伤害原因使用 `share`。简报显示保护动作、分担者和分担伤害；客户端继续仅通过增量消息更新，不发送 `sync`。
+配置技能默认允许保护分担，仅 `noprotect: true` 时禁止，适合大招直接由目标承受；普通攻击保持可分担。各段连击、连招、追击、溅射、反击和协战独立读取自己的禁止字段，不继承主攻配置。主动毒伤同样读取字段，周期 Buff 仍不能分担。底层直接调用 `onHurt` 时，`HurtOptions.noprotect: true` 同样禁止分担，省略或 false 则允许。禁止分担不会移除目标身上的保护 Buff。
+
+保护动作发送 `["protect", AId, BId]`，触发发送 `["buffTrigger", BId, buffId, "protect", AId]`，随后通过两条普通 `hurt` 消息分别更新 A、B，A 的伤害原因使用 `share`。双方先完成扣血并连续发送两条伤害消息，再处理受伤回调、死亡及其清理，避免 A 的死亡表现插在两条伤害之间；宿主可根据保护触发中的双方 ID，把两条受伤表现作为同一次命中同时播放。`FightReport` 将同批内相邻且同一攻击者的分担与主目标伤害合为一句，保留双方各自的数字颜色和剩余生命；客户端逐条更新后才输出，不提前改状态。拆批或关联不匹配时保留两行，`FightMud` 保持自身逐消息描写。客户端继续仅通过增量消息更新，不发送 `sync`。
 
 驱散与覆盖分开比较：驱散只要求 `移除方 power >= Buff.xls.power`，不比较 Buff 等级；`Buff.getPower()` 返回自身配置的 `power`，未配置时为 `0`，显式 `0` 有效。按编号、批量及标签驱散均遵守此规则。`OverlapEnum.RELPACE_BYPOWER` 覆盖时先比较 power，较大者优先；仅在 power 相同时比较 level，新等级严格大于旧等级才替换；power 和 level 均相等时保留旧实例，未配置 power 同样按 `0` 处理。例如 power=2、level=1 可覆盖 power=1、level=999；power=2、level=4 不能覆盖 power=2、level=5，但驱散 power=2 可移除任意等级的 power=2 Buff。技能的 `getPower()` 仍为配置的 `power`，仅未配置时使用技能等级，显式 `power: 0` 有效；技能的 power 不自动变成所添加 Buff 的 power。持续时间到期、次数耗尽和死亡清理仍按自身规则移除。
 
 Buff 的 `notRemove` 字段禁止驱散，`dieNotRemove` 字段使其在死亡时保留，`notDisplay` 字段使其不出现在单位展示数据中，三者独立，省略或 false 时不启用。`notRemove` 不阻止持续时间到期和次数耗尽；普通 Buff 在死亡时移除并清理监听，`dieNotRemove` Buff 保留属性和剩余次数。隐藏只影响展示，Buff 仍参与逻辑结算。`tags` 用于增益、减益等分类。
 
 单位构造参数中的被动技能使用 `[[被动ID, 等级]]`。被动配置的 `addbuff: [[Buff ID, Buff 等级]]` 在初始化时为自身添加 Buff，无需先绑定战斗；被动属性和附加 Buff 属性均参与最终重算。Buff 等级取自 `addbuff` 的配置，不自动继承被动等级。
+
 
 

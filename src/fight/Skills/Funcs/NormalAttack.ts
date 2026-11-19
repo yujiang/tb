@@ -65,7 +65,10 @@ class PhysicSkill extends FightSkill {
     }
     override canFBack(){
         return true
-    }    
+    }
+    override canProtect(){
+        return true;
+    }
 }
 
 export function attackFunc(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {  

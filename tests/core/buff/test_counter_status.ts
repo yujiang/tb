@@ -6,7 +6,7 @@ import { setupChain, chainIds as ids } from "../../fixtures/skill_chain";
 
 function setup(status: string, skillCounter: boolean) {
     const pair = setupChain({ rootSelfBuff: false, finalReactions: false, change: skills => {
-        skills[0].combo = undefined; skills[0].fback = true;
+        skills[0].combo = undefined; skills[0].nofback = false;
     } });
     const buffId = 98500;
     initBuffs([{ ...getBuffData(ids.rest), id: buffId, class: undefined, name: status,
@@ -75,7 +75,7 @@ test("counterattack: attack prohibition is rechecked after taking the triggering
 test("counterattack: a sealed target cannot counter a completed combo but still deals passive reflection", () => {
     const { actor, target, skills, cast } = setup("封印", true);
     skills[0].combo = ids.second;
-    skills[2].fback = true; skills[2].dback = true;
+    skills[2].nofback = false; skills[2].nodback = false;
     const ctx = cast();
     assert.equal(target.getHp(), 790);
     assert.equal(actor.getHp(), 958);

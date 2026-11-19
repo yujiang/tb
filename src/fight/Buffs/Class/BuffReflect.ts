@@ -25,7 +25,8 @@ export class BuffReflect extends FightBuff {
     }
 
     private onReflectHurt(unit: FightUnit, ctx: FightContex, attacker: FightUnit, pending: PendingHurt) {
-        if (unit.findBuff(this.getId()) !== this || unit.isDied() || pending.cancelled || pending.reflected) return;
+        if (unit.findBuff(this.getId()) !== this || unit.isDied() || pending.cancelled || pending.reflected ||
+            pending.source === "share") return;
         if ((this.xls.classParam?.magicOnly ?? true) && !pending.magic) return;
         if (Math.floor(pending.damage) <= 0 || attacker === unit || attacker.isDied() ||
             attacker.fight !== ctx.fight || !ctx.fight.getAllUnits().includes(attacker)) return;

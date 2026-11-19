@@ -11,6 +11,7 @@ test('package entry exports the current Fight implementation and has declaration
     assert.equal(typeof api.FightLoopWest, 'function');
     assert.equal(typeof api.FightClient, 'function');
     assert.equal(typeof api.FightReport, 'function');
+    assert.equal(typeof api.FightPreParse, 'function');
     assert.equal(typeof api.FightMud, 'function');
     assert.equal(typeof api.resolveMudText, 'function');
     assert.ok(api.FightMud.prototype instanceof api.FightReport);

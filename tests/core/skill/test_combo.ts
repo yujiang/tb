@@ -42,7 +42,7 @@ test("combo: inherited main target takes precedence over child target sorting", 
 test("combo: intermediate stages suppress reactions and the last stage reflects total actual damage once", () => {
     const { actor, target, cast } = setupChain({ finalReactions: false, change: skills => {
         useCombo(skills);
-        for (const skill of skills.slice(0, 3)) { skill.fback = true; skill.dback = true; }
+        for (const skill of skills.slice(0, 3)) { skill.nofback = false; skill.nodback = false; }
     } });
     const ctx = cast();
     assert.equal(actor.getHp(), 948);
@@ -59,7 +59,7 @@ for (const stop of ["probability", "miss", "death"] as const) {
         const { actor, target, cast } = setupChain({ targetHp: stop === "death" ? 180 : 1000,
             change: skills => {
                 useCombo(skills);
-                for (const skill of skills.slice(0, 3)) { skill.fback = true; skill.dback = true; }
+                for (const skill of skills.slice(0, 3)) { skill.nofback = false; skill.nodback = false; }
                 if (stop === "probability") skills[2].rand = 0;
                 if (stop === "miss") { skills[2].magic = false; skills[2].attack = { hit: -100 }; }
             } });
@@ -92,7 +92,7 @@ test("combo: death interrupts the chain even if the target immediately revives",
     for (const hp of [30, 180]) {
         const { actor, target, cast, fight, flush } = setupChain({ targetHp: hp, change: skills => {
             useCombo(skills);
-            for (const skill of skills.slice(0, 3)) { skill.fback = true; skill.dback = true; }
+            for (const skill of skills.slice(0, 3)) { skill.nofback = false; skill.nodback = false; }
         } });
         initBuffs([{ ...getBuffData(ids.rest), id: 98422, name: "连招死亡复活", class: "relife",
             classParam: 0.5, dieNotRemove: true, lastTurn: 0 }]);
@@ -128,7 +128,7 @@ test("combo: splash damage is not added to the main target's reflection total", 
     const { actor, other, skills, cast } = setupChain({ change: data => {
         useCombo(data); data[0].spread = 98423; data[0].sel.num = 2;
     } });
-    initSkills([{ ...skills[3], id: 98423, name: "连招溅射", dback: true }]);
+    initSkills([{ ...skills[3], id: 98423, name: "连招溅射", nodback: false }]);
     other.attrOri.magic.final.dbackP = 0.2; other.calcAttr();
     const ctx = cast();
     assert.equal(other.getHp(), 900);
@@ -141,8 +141,8 @@ test("combo: the last stage's reaction switches still control the completed chai
     for (const dback of [false, true]) {
         const { actor, cast } = setupChain({ change: skills => {
             useCombo(skills);
-            for (const skill of skills.slice(0, 2)) { skill.fback = true; skill.dback = true; }
-            skills[2].dback = dback; skills[2].fback = !dback;
+            for (const skill of skills.slice(0, 2)) { skill.nofback = false; skill.nodback = false; }
+            skills[2].nodback = !dback; skills[2].nofback = dback;
         } });
         const ctx = cast();
         assert.equal(actor.getHp(), dback ? 958 : 990);

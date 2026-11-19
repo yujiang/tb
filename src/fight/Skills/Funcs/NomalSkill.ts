@@ -89,7 +89,8 @@ export function skillAttack(attacker: FightUnit, defender: FightUnit, skill:Figh
     const ismagic = skill.isMagic();
     
     let damage = skill.calcHurt(f, defender, ctx);
-    damage = defender.onHurt(attacker, "skill", damage, ctx, { magic: ismagic, source: "skill" });
+    damage = defender.onHurt(attacker, "skill", damage, ctx,
+        { magic: ismagic, source: "skill", noprotect: !skill.canProtect() });
     if (combo && defender === combo.target) combo.damage += damage;
     afterHurt(attacker, defender, skill, ctx);
     if (damage > 1) {

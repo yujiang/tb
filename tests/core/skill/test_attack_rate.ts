@@ -106,7 +106,7 @@ test("attackRate: healing and poison reuse the same unit attack merge rule", () 
 // 测试：技能反击按反击属性应用攻击倍率，不误用普通攻击属性。
 test("attackRate: counterattack scales counterattack attributes instead of ordinary attack", () => {
     const { actor, target, cast } = setupChain({ rootSelfBuff: false, change: skills => {
-        skills[0].combo = undefined; skills[0].fback = true; skills[0].damageRate = 1;
+        skills[0].combo = undefined; skills[0].nofback = false; skills[0].damageRate = 1;
     } });
     initSkills([data(0.5, { id: 98103, name: "倍率反击", attack: { attack: 5 }, attackLevel: {} })]);
     target.addSkill(98103, 1); target.fbackSkill = 98103;

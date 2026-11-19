@@ -30,6 +30,33 @@ function initial(): fightMsg[] {
     return [["start", 0], ["side", 0, [unit(0, "甲")]], ["side", 1, [unit(1, "乙")]]];
 }
 
+// 测试：只给每行开头的人名按阵营着色，后续同名引用保持原色，数字颜色与纯文本不变。
+test("report: only the leading unit name gets a side color", () => {
+    const output: string[] = [];
+    const report = new FightReport(line => output.push(line));
+    report.onMsg([...initial(), ["hurt", "share", 1, 0, 50, 50, []],
+        ["heal", "heal", 1, 1, 10, 50, []]]);
+    assert.ok(output.includes("\x1b[32m甲（#0）\x1b[0m 对 乙（#1） 造成 \x1b[31m50\x1b[0m 点分担伤害，剩余生命 50"));
+    assert.ok(output.includes("\x1b[31m乙（#1）\x1b[0m 为 乙（#1） 恢复 \x1b[32m10\x1b[0m 点生命（治疗），当前生命 60/100"));
+    assert.ok(!report.toString().includes("\x1b["));
+});
+
+// 测试：连击等行首标注不影响首个人名着色，协战合并行的第二个人名和目标不着色。
+test("report: reaction labels keep only the first name colored in joint support", () => {
+    initSkills([{ id: 99570, name: "主攻", magic: true, rand: 1, attack: {}, final: {}, nosupport: false,
+        sel: { target: TargetSelectEnum.enmey } }]);
+    const init = initial();
+    init[1][2].push({ ...structuredClone(init[1][2][0]), uid: 2, display: { name: "丙" } });
+    const output: string[] = [];
+    const report = new FightReport(line => output.push(line));
+    report.onMsg([...init, ["skill", 99570, 0, 1, "next"], ["hurt", "skill", 1, 0, 20, 80, []],
+        ["skill", 99570, 2, 1, "support"], ["hurt", "skill", 1, 2, 10, 70, []]]);
+    const header = output.find(line => line.includes("同时攻击"));
+    assert.ok(header.startsWith("【连击】【协战】\x1b[32m甲（#0）\x1b[0m"));
+    assert.ok(header.includes("，丙（#2） 使用"));
+    assert.ok(header.endsWith("同时攻击 乙（#1）"));
+});
+
 // 测试：简报从本地配置显示带方括号的名称，并分别着色治疗、伤害和暴击数字。
 test("report: local configuration names use brackets and healing, damage and critical damage use distinct colors", () => {
     const output: string[] = [];
@@ -61,10 +88,10 @@ test("report: local configuration names use brackets and healing, damage and cri
     assert.match(text, /添加 \[回春\]/);
     assert.match(text, /移除 \[回春\]/);
     assert.match(text, /移除 \[坚守\]/);
-    const ally = "甲（#0）", enemy = "乙（#1）";
+    const ally = "\x1b[32m甲（#0）\x1b[0m", enemy = "乙（#1）";
     assert.ok(output.includes(`${ally} 对 ${enemy} 造成 \x1b[31m20\x1b[0m 点伤害，剩余生命 80`));
     assert.ok(output.includes(`${ally} 对 ${enemy} 造成 \x1b[38;5;208m30\x1b[0m 点伤害（暴击），剩余生命 50`));
-    assert.ok(output.includes(`${enemy} 为 ${enemy} 恢复 \x1b[32m10\x1b[0m 点生命（治疗），当前生命 60/100`));
+    assert.ok(output.includes(`\x1b[31m${enemy}\x1b[0m 为 ${enemy} 恢复 \x1b[32m10\x1b[0m 点生命（治疗），当前生命 60/100`));
     assert.ok(output.includes("\x1b[38;5;88m乙（#1）死亡\x1b[0m"));
     assert.ok(output.includes("\x1b[92m乙（#1）复活\x1b[0m"));
     assert.ok(output.includes(`${ally} 使用\x1b[36m[黑虎掏心]\x1b[0m攻击 ${enemy}，\x1b[34m未命中\x1b[0m`));
@@ -75,8 +102,8 @@ test("report: local configuration names use brackets and healing, damage and cri
     assert.deepEqual(plain, report.lines);
 });
 
-// 测试：双方人名都保持默认颜色，行动条和行动标题仍用编号区分同名单位。
-test("report: unit names stay uncolored in action order and actor headings", () => {
+// 测试：行动条人名保持原色，行动标题只给行首人名加阵营色，编号仍区分同名单位。
+test("report: action order stays uncolored and actor headings color their leading names", () => {
     const output: string[] = [];
     const report = new FightReport(line => output.push(line));
     const init = initial();
@@ -85,8 +112,8 @@ test("report: unit names stay uncolored in action order and actor headings", () 
     report.onMsg([...init, ["sort", [0, 1]], ["actor", 0, 100], ["actor", 1, 90]]);
     const ally = "同名（#0）", enemy = "同名（#1）";
     assert.ok(output.includes(`剩余行动顺序：${ally} → ${enemy}`));
-    assert.ok(output.includes(`${ally} 行动（速度 100）`));
-    assert.ok(output.includes(`${enemy} 行动（速度 90）`));
+    assert.ok(output.includes(`\x1b[32m${ally}\x1b[0m 行动（速度 100）`));
+    assert.ok(output.includes(`\x1b[31m${enemy}\x1b[0m 行动（速度 90）`));
     assert.ok(!report.toString().includes("\x1b["));
 });
 

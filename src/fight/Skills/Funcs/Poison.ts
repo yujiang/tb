@@ -16,7 +16,8 @@ export function poison(attacker: FightUnit, defender: FightUnit, skill:AttrSkill
         return false;
     }
 
-    defender.onHurt(attacker, name, damage, ctx, { magic: skill.isMagic(), source: name === "buff" ? "buff" : "skill" });
+    defender.onHurt(attacker, name, damage, ctx, { magic: skill.isMagic(),
+        source: name === "buff" ? "buff" : "skill", noprotect: !skill.canProtect() });
     afterHurt(attacker, defender, skill, ctx);
     return true;
 }

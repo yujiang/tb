@@ -11,7 +11,7 @@ const buffId = 98710;
 function setup() {
     const state = setupChain({ actorHp: 500, rootSelfBuff: false, finalReactions: false, change: skills => {
         skills[0].combo = undefined; skills[0].damageRate = 1;
-        skills[0].blood = true; skills[0].dback = true;
+        skills[0].noblood = false; skills[0].nodback = false;
     } });
     initBuffs([{ ...getBuffData(ids.rest), id: buffId, name: "保护", class: "protect",
         prior: 500, lastTurn: 1, notRemove: false }]);
@@ -25,6 +25,124 @@ function setup() {
         return ctx;
     };
     return { ...state, protector, victim, enemy, protect };
+}
+
+for (const prohibited of [undefined, false, true]) {
+    for (const func of ["normal", "poison"]) {
+    // 测试：配置技能默认可分担，仅 noprotect=true 时由目标独自承受全部伤害。
+    test(`protect: ${func} skill noprotect=${prohibited} controls sharing`, () => {
+        const { fight, protector, victim, enemy, protect, flush, skills } = setup();
+        Object.assign(skills[0], { noprotect: prohibited, func });
+        const enabled = prohibited !== true;
+        protect();
+        const ctx = fight.processUnit(enemy, { cmd: FightCmdEnum.skill, skill: ids.first, target: victim.uid });
+        assert.ok(ctx); flush(ctx);
+        assert.equal(protector.getHp(), enabled ? 950 : 1000);
+        assert.equal(victim.getHp(), enabled ? 950 : 900);
+        assert.equal(ctx.msgs.some(msg => msg[0] === "hurt" && msg[1] === "share"), enabled === true);
+        assert.ok(victim.findBuff(buffId));
+    });
+    }
+}
+
+// 测试：宿主直接调用底层伤害时同样可用 noprotect=true 禁止分担。
+test("protect: direct hurt respects noprotect without a skill instance", () => {
+    const { fight, protector, victim, enemy, protect, flush } = setup();
+    protect();
+    const ctx = initFightContex(fight);
+    assert.equal(victim.onHurt(enemy, "skill", 100, ctx, { noprotect: true }), 100);
+    flush(ctx);
+    assert.equal(victim.getHp(), 900); assert.equal(protector.getHp(), 1000);
+});
+
+// 测试：普通攻击继续允许保护分担。
+test("protect: normal attack remains protectable", () => {
+    const { fight, protector, victim, enemy, protect, flush } = setup();
+    protect();
+    const ctx = fight.processUnit(enemy, { cmd: FightCmdEnum.attack, target: victim.uid });
+    assert.ok(ctx); flush(ctx);
+    assert.equal(protector.getHp(), 950); assert.equal(victim.getHp(), 950);
+});
+
+// 测试：同一连招各段独立读取 protect，只有允许保护的段分担伤害。
+test("protect: combo segments use their own protection flags", () => {
+    const { fight, protector, victim, enemy, protect, flush, skills } = setup();
+    Object.assign(skills[0], { noprotect: false, damageRate: 0.4, combo: ids.second });
+    Object.assign(skills[1], { noprotect: true });
+    Object.assign(skills[2], { noprotect: false });
+    protect();
+    const ctx = fight.processUnit(enemy, { cmd: FightCmdEnum.skill, skill: ids.first, target: victim.uid });
+    assert.ok(ctx); flush(ctx);
+    assert.equal(protector.getHp(), 930);
+    assert.equal(victim.getHp(), 860);
+    assert.deepEqual(ctx.msgs.filter(msg => msg[0] === "hurt" && msg[2] === victim.uid).map(msg => msg[4]), [20, 70, 50]);
+});
+
+// 测试：保护者分担伤害不触发魔法反射、受伤回调、反伤或反击，两人的伤害仍由同次攻击产生。
+test("protect: shared damage cannot reflect or trigger ordinary hurt reactions", () => {
+    const { fight, protector, victim, enemy, protect, flush } = setup();
+    initBuffs([{ ...getBuffData(buffId), id: 98730, name: "反射", class: "reflect", classParam: { magicOnly: true },
+        lastTurn: 0, times: 0 }]);
+    const init = initFightContex(fight);
+    protector.addBuff(protector, "test", 98730, 1, init); flush(init);
+    let hurtCalls = 0;
+    protector.onContex("hurt", () => { hurtCalls++; });
+    protector.attrOri.magic.final.dbackP = 1;
+    protector.attrOri.physic.fback.rand = 1;
+    protector.calcAttr();
+    protect();
+    const ctx = fight.processUnit(enemy, { cmd: FightCmdEnum.skill, skill: ids.first, target: victim.uid });
+    assert.ok(ctx); flush(ctx);
+    assert.equal(protector.getHp(), 950); assert.equal(victim.getHp(), 950);
+    assert.equal(enemy.getHp(), 500);
+    assert.equal(hurtCalls, 0);
+    assert.ok(!ctx.msgs.some(msg => msg[0] === "buffTrigger" && msg[3] === "reflectHurt"));
+    assert.ok(!ctx.msgs.some(msg => msg[0] === "hurt" && (msg[1] === "dback" || msg[1] === "reflect")));
+    assert.ok(!ctx.msgs.some(msg => msg[0] === "skill" && msg[4] === "fback"));
+});
+
+// 测试：保护者分担致死时也先连续发出双方伤害，再处理死亡，死亡回调已能观察双方扣血。
+test("protect: both damage messages and health changes precede the protector's death", () => {
+    const { fight, protector, victim, enemy, protect, flush } = setup();
+    const initial = initFightContex(fight);
+    protector.onHurt(enemy, "buff", 999, initial, { source: "buff" }); flush(initial);
+    let victimHpOnDeath: number;
+    protector.onContex("die", () => { victimHpOnDeath = victim.getHp(); });
+    protect();
+    const ctx = fight.processUnit(enemy, { cmd: FightCmdEnum.skill, skill: ids.first, target: victim.uid });
+    assert.ok(ctx); flush(ctx);
+    const damageIndexes = ctx.msgs.map((msg, index) => msg[0] === "hurt" ? index : -1).filter(index => index >= 0);
+    assert.equal(damageIndexes.length, 2);
+    assert.equal(damageIndexes[1], damageIndexes[0] + 1);
+    assert.ok(damageIndexes[1] < ctx.msgs.findIndex(msg => msg[0] === "die" && msg[1] === protector.uid));
+    assert.equal(victimHpOnDeath, 950);
+    assert.equal(protector.getHp(), 0); assert.ok(protector.isDied());
+});
+
+for (const survival of ["buqu", "relife"] as const) {
+    // 测试：分担不触发普通受伤回调，但不屈和真实死亡后的延迟复活仍正常生效。
+    test(`protect: shared damage retains ${survival} survival rules`, () => {
+        const { fight, protector, victim, enemy, protect, flush } = setup();
+        const initial = initFightContex(fight);
+        protector.onHurt(enemy, "buff", 999, initial, { source: "buff" });
+        initBuffs([{ ...getBuffData(buffId), id: 98731, name: "保命", class: survival,
+            classParam: 0.3, lastTurn: 0, times: 1, dieNotRemove: true }]);
+        protector.addBuff(protector, "test", 98731, 1, initial); flush(initial);
+        let hurtCalls = 0;
+        protector.onContex("hurt", () => { hurtCalls++; });
+        protect();
+        const ctx = fight.processUnit(enemy, { cmd: FightCmdEnum.skill, skill: ids.first, target: victim.uid });
+        assert.ok(ctx); flush(ctx);
+        assert.equal(hurtCalls, 0);
+        assert.equal(victim.getHp(), 950);
+        assert.equal(protector.getHp(), survival === "buqu" ? 1 : 300);
+        assert.equal(protector.isDied(), false);
+        assert.equal(ctx.msgs.some(msg => msg[0] === "die" && msg[1] === protector.uid), survival === "relife");
+        if (survival === "relife") {
+            const victimHurt = ctx.msgs.findIndex(msg => msg[0] === "hurt" && msg[2] === victim.uid);
+            assert.ok(victimHurt < ctx.msgs.findIndex(msg => msg[0] === "relife"));
+        }
+    });
 }
 
 // 测试：保护指令给队友添加当回合 Buff，普通受伤由保护者承担一半。
@@ -183,7 +301,7 @@ test("protect: combo reflection accumulates only the protected target's half", (
     const { fight, protector, victim, enemy, protect, flush, skills } = setup();
     skills[0].combo = ids.second;
     skills[0].damageRate = 0.4;
-    skills[2].dback = true;
+    skills[2].nodback = false;
     victim.attrOri.magic.final.dbackP = 0.2; victim.calcAttr();
     protect();
     const ctx = fight.processUnit(enemy, { cmd: FightCmdEnum.skill, skill: ids.first, target: victim.uid });

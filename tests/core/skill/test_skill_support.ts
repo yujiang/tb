@@ -1,10 +1,28 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight, FightAttr, FightSide, FightUnitUser, FightLoopWest, FightClient, FightReport, FightMud,
-    FightCmdEnum, SkillData, TargetSelectEnum, initSkills, initPassives, initFightContex } from "../../../src";
+    FightCmdEnum, SkillData, TargetSelectEnum, initSkills, initPassives, initFightContex,
+    initBuffs, OverlapEnum } from "../../../src";
 import { magicAttackFunc } from "../../../src/fight/Skills/Funcs/NomalSkill";
 
 const ids = { root: 99210, support: 99211, next: 99212, back: 99213, passive: 99214 };
+
+for (const protectable of [false, true]) {
+    // 测试：主攻禁止保护时，协战仍独立读取自己的 noprotect 禁止字段，不继承主攻配置。
+    test(`support: protection uses the support skill's own flag (${protectable})`, () => {
+        const protectId = 99217;
+        initBuffs([{ id: protectId, name: "保护", desc: "", class: "protect", overlap: OverlapEnum.REPLACE,
+            status: [], tags: [], magic: false, attackType: "base", attack: {}, final: {},
+            lastTurn: 0, times: 0, event: "beforeHurt" }]);
+        const guard = new FightUnitUser(4, attr(), { name: "保护者" }); guard.setPos(4);
+        const s = setup(skills => { skills[0].noprotect = true; skills[1].noprotect = !(protectable); }, false,
+            ({ c, enemies }) => { enemies.units.push(guard); c.addBuff(guard, "test", protectId, 1, null); });
+        const ctx = s.cast();
+        assert.equal(ctx.msgs.filter(msg => msg[0] === "skill" && msg[4] === "support").length, 1);
+        assert.equal(s.c.getHp(), protectable ? 880 : 860);
+        assert.equal(guard.getHp(), protectable ? 980 : 1000);
+    });
+}
 
 function attr(): FightAttr {
     const attr = new FightAttr();
@@ -19,9 +37,11 @@ function attr(): FightAttr {
 
 function setup(change?: (skills: SkillData[]) => void, passive = false,
     prepare?: (units: { a: FightUnitUser; b: FightUnitUser; c: FightUnitUser; d: FightUnitUser; enemies: FightSide }) => void) {
-    const common = { magic: true, rand: 1, attack: {}, final: {}, sel: { target: TargetSelectEnum.enmey } };
+    const common = { magic: true, rand: 1, attack: {}, final: {},
+        noblood: true, nodback: true, nofback: true, nosupport: true, noprotect: true,
+        sel: { target: TargetSelectEnum.enmey } };
     const skills: SkillData[] = [
-        { ...common, id: ids.root, name: "主攻", support: true },
+        { ...common, id: ids.root, name: "主攻", nosupport: false },
         { ...common, id: ids.support, name: "协战", damageRate: 0.4 },
         { ...common, id: ids.next, name: "连击", damageRate: 0.2 },
         { ...common, id: ids.back, name: "反击", damageRate: 0.5 },
@@ -66,10 +86,10 @@ test("support: equipped ally follows the hit once per global turn", () => {
 });
 
 // 测试：未允许协战的技能与自身装配的协战均不能触发助攻。
-test("support: opt-in and another allied unit are required", () => {
-    const s = setup(skills => { skills[0].support = false; });
+test("support: nosupport blocks assistance and another allied unit is required", () => {
+    const s = setup(skills => { skills[0].nosupport = true; });
     assert.equal(s.cast().msgs.filter(m => m[4] === "support").length, 0);
-    s.skills[0].support = true; s.a.supportSkill = 0;
+    s.skills[0].nosupport = false; s.a.supportSkill = 0;
     s.b.addSkill(ids.support, 1); s.b.supportSkill = ids.support;
     assert.equal(s.cast().msgs.filter(m => m[4] === "support").length, 0);
 });
@@ -110,7 +130,7 @@ test("support: forbid filters candidates before selection and preserves their qu
 
 // 测试：协战在原攻击连击之前完成，协战自身可连击和被反击，沿用配置与共享上下文。
 test("support: reuse next and counter pipeline before resuming original reactions", () => {
-    const s = setup(skills => { skills[0].next = ids.next; skills[1].next = ids.next; skills[2].fback = true; });
+    const s = setup(skills => { skills[0].next = ids.next; skills[1].next = ids.next; skills[2].nofback = false; });
     const ctx = s.cast();
     assert.deepEqual(ctx.msgs.filter(m => m[0] === "skill").map(m => [m[1], m[2]]),
         [[ids.root, 1], [ids.support, 0], [ids.next, 0], [ids.back, 2], [ids.next, 1], [ids.back, 2]]);
@@ -119,7 +139,7 @@ test("support: reuse next and counter pipeline before resuming original reaction
 
 // 测试：协战反应链不再召唤其他协战者，避免一次攻击串出全队。
 test("support: supporting reaction chain cannot request more support", () => {
-    const s = setup(skills => { skills[1].support = true; skills[1].next = ids.next; skills[2].support = true; });
+    const s = setup(skills => { skills[1].nosupport = false; skills[1].next = ids.next; skills[2].nosupport = false; });
     s.d.addSkill(ids.support, 1); s.d.supportSkill = ids.support; s.fight.random = () => 0;
     assert.equal(s.cast().msgs.filter(m => m[4] === "support").length, 1);
 });
@@ -172,7 +192,7 @@ test("support: passive equipment preserves learned skills and does not learn mis
 
 // 测试：连招中途不插入协战，仅在末段后一次尝试，零概率不触发。
 test("support: combo waits for terminal hit and zero probability stays zero", () => {
-    const s = setup(skills => { skills[0].combo = ids.next; skills[2].support = true; });
+    const s = setup(skills => { skills[0].combo = ids.next; skills[2].nosupport = false; });
     assert.deepEqual(s.cast().msgs.filter(m => m[0] === "skill").map(m => m[1]), [ids.root, ids.next, ids.support]);
     const zero = setup(skills => { skills[1].rand = 0; });
     assert.equal(zero.cast().msgs.filter(m => m[4] === "support").length, 0);
@@ -211,7 +231,7 @@ test("support: equipped skill uses supporter base attributes and growth without 
 test("support: root miss skips support and support kill stops corpse reactions", () => {
     const miss = setup(skills => { skills[0].magic = false; skills[0].attack.hit = -100; });
     assert.equal(miss.cast().msgs.filter(m => m[4] === "support").length, 0);
-    const s = setup(skills => { skills[0].next = ids.next; skills[0].fback = true; }, false,
+    const s = setup(skills => { skills[0].next = ids.next; skills[0].nofback = false; }, false,
         ({ c }) => { c.attr.point.hp = 120; });
     const ctx = s.cast();
     assert.deepEqual(ctx.msgs.filter(m => m[0] === "skill").map(m => m[1]), [ids.root, ids.support]);

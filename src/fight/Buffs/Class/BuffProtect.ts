@@ -16,7 +16,7 @@ export class BuffProtect extends FightBuff {
 
     override onEvent(unit: FightUnit, ctx: FightContex, attacker: FightUnit, pending: PendingHurt) {
         if (unit.findBuff(this.getId()) !== this || unit.isDied() || pending.cancelled || pending.shared ||
-            pending.source !== "skill") return;
+            pending.source !== "skill" || pending.noprotect) return;
         const protector = this.attacker;
         if (!protector || protector === unit || protector.isDied() || protector.side !== unit.side ||
             protector.fight !== ctx.fight || !ctx.fight.getAllUnits().includes(protector)) return;
@@ -25,10 +25,7 @@ export class BuffProtect extends FightBuff {
         if (share <= 0) return;
         pending.damage = damage - share;
         pending.shared = true;
-        ctx.fight.resolveAction(() => {
-            ctx.msgs.push(["buffTrigger", unit.uid, this.getId(), "protect", protector.uid]);
-            protector.onHurt(attacker, "share", share, ctx, { magic: pending.magic, source: "share" });
-        });
+        pending.share = { unit: protector, damage: share, buffId: this.getId() };
     }
 
 }

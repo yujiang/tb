@@ -1,6 +1,7 @@
 export * from "./fight/Fight";
 export * from "./public/OrderedEventEmitter";
 export * from "./fight/Client/FightClient";
+export * from "./fight/Client/FightPreParse";
 export * from "./fight/Client/FightReport";
 export * from "./fight/Client/FightMud";
 export * from "./fight/Client/FightMudDatas";

@@ -48,10 +48,11 @@ export interface SkillData {
     // 类型集合
     tags?: string[];
     // 程序逻辑，从tags分离出来
-    blood?: boolean; //允许吸血
-    dback?: boolean; //允许受到反伤
-    fback?: boolean; //允许触发目标反击
-    support?: boolean; //允许队友协战，省略为 false
+    noblood?: boolean; //禁止吸血，省略为 false
+    nodback?: boolean; //禁止受到普通反伤，省略为 false
+    nofback?: boolean; //禁止触发目标反击，省略为 false
+    nosupport?: boolean; //禁止队友协战，省略为 false
+    noprotect?: boolean; //禁止目标被保护分担伤害，省略为 false
 }
 
 const skills = new Map<number,SkillData>();

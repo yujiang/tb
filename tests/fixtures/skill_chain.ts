@@ -31,7 +31,7 @@ export function setupChain(options: {
         attack: {}, final: {}, lastTurn: 2, times: 0, event: "hurt", turnType: BuffTurnEnum.afterTurn,
         skill: 0, skillLevel: 1, notRemove: true }]);
     const common = { magic: true, rand: 1, attack: {}, final: {}, sel: { target: TargetSelectEnum.enmey },
-        fback: false, dback: false, cost: { mp: 99 } };
+        nofback: true, nodback: true, noprotect: false, cost: { mp: 99 } };
     const skills: ChainSkill[] = [
         { ...common, id: ids.first, name: "三连斩·一式", damageRate: 0.4, combo: ids.second, cost: { mp: 10 },
             afterSelfBuff: options.rootSelfBuff === false ? undefined : [[ids.rest, 1, 1]] },
@@ -39,7 +39,7 @@ export function setupChain(options: {
             sel: { target: TargetSelectEnum.enmey } },
         { ...common, id: ids.third, name: "三连斩·终式", damageRate: 1,
             sel: { target: TargetSelectEnum.enmey },
-            fback: options.finalReactions ?? true, dback: options.finalReactions ?? true,
+            nofback: !(options.finalReactions ?? true), nodback: !(options.finalReactions ?? true),
             kill: options.finalKill ? ids.kill : undefined },
         { ...common, id: ids.kill, name: "终式追击", cost: { mp: 99 } },
     ];

@@ -6,6 +6,7 @@
 // 3. 死亡整句用暗红色，复活用亮绿色
 // 4. 每个 行动 前多一个换行
 // 5. 技能名青色，Buff 名紫色
+// 6. 仅行首人名按阵营着色（攻击方绿、防守方红），跳过连击等行首标注
 
 import { FightLoop } from "../FightLoop"
 import { fightMsg } from "../struct";
@@ -13,6 +14,7 @@ import { FightClient } from "./FightClient"
 import { FightResultEnum } from "../struct"
 import { getBuffData } from "../Buffs/BuffDatas";
 import { getSkillData } from "../Skills/SkillDatas";
+import { FightPreParse, FightSupportGroup } from "./FightPreParse";
 
 const colors = { red: "\x1b[31m", orange: "\x1b[38;5;208m", green: "\x1b[32m",
     darkRed: "\x1b[38;5;88m", brightGreen: "\x1b[92m", blue: "\x1b[34m",
@@ -22,6 +24,7 @@ type ReportColor = keyof typeof colors;
 export class FightReport{
     readonly lines: string[] = [];
     protected client = new FightClient();
+    protected preParser = new FightPreParse();
 
     // 默认直接打印，也可传入自己的输出函数；lines 始终保存当前战斗的简报。
     constructor(private output: (line: string) => void = line => console.log(line), private color = true) {}
@@ -49,6 +52,20 @@ export class FightReport{
         return this.color ? `${colors[color]}${text}\x1b[0m` : text;
     }
 
+    private paintLeadingName(line: string): string {
+        const offset = line.match(/^(?:【[^】]*】)*/)[0].length;
+        for (const side of [0, 1] as const) {
+            for (const unit of this.client.sides[side]) {
+                const name = this.name(unit.uid);
+                if (line.startsWith(name, offset)) {
+                    return line.slice(0, offset) + this.paint(name, side === 0 ? "green" : "red") +
+                        line.slice(offset + name.length);
+                }
+            }
+        }
+        return line;
+    }
+
     protected write(line: string, color?: ReportColor,
         highlight?: { start: number; length: number }) {
         const plain = line.replace(/\x1b\[[0-9;]*m/g, "");
@@ -58,15 +75,24 @@ export class FightReport{
             const rendered = highlight ? line : plain;
             const start = highlight?.start ?? 0;
             const end = highlight ? start + highlight.length : rendered.length;
-            this.output(`${rendered.slice(0, start)}${colors[color]}${rendered.slice(start, end)}\x1b[0m${rendered.slice(end)}`);
+            const output = `${rendered.slice(0, start)}${colors[color]}${rendered.slice(start, end)}\x1b[0m${rendered.slice(end)}`;
+            this.output(highlight ? this.paintLeadingName(output) : output);
         } else {
-            this.output(this.color ? line : plain);
+            this.output(this.color ? this.paintLeadingName(line) : plain);
         }
     }
 
     // 子类可接管文字描写；状态更新、颜色和日志保存仍走公共流程。
     protected describe(_msg: fightMsg): boolean {
         return false;
+    }
+
+    private hurtResult(msg: fightMsg): string {
+        const reason = msg[1] === "dback" ? "反伤" : msg[1] === "share" ? "分担伤害" :
+            msg[1] === "reflect" ? "反射伤害" : msg[1] === "poison" ? "中毒" : "伤害";
+        const effects = (msg[6] ?? []).map((effect: string) => effect === "crit" ? "暴击" : effect);
+        const amount = this.paint(String(msg[4]), (msg[6] ?? []).includes("crit") ? "orange" : "red");
+        return `${amount} 点${reason}${effects.length ? `（${effects.join("、")}）` : ""}，剩余生命 ${msg[5]}`;
     }
 
     bindFightLoop(fl: FightLoop){
@@ -79,8 +105,23 @@ export class FightReport{
     // 接收消息
     onMsg(msgs: fightMsg | fightMsg[]){
         if (!msgs?.length) return;
-        const batch: fightMsg[] = typeof msgs[0] === "string" ? [msgs as fightMsg] : msgs as fightMsg[];
-        for (const msg of batch) {
+        const parsed = this.preParser.parse(msgs);
+        const batch = parsed.messages;
+        const supportStarts = new Map<number, FightSupportGroup>();
+        const announcedSupport = new Set<number>();
+        const sharedDamage = new Map<number, fightMsg>();
+        const sharedStarts = new Set<number>();
+        for (const group of parsed.groups) {
+            if (group.kind === "support") {
+                supportStarts.set(group.attack.index, group);
+                announcedSupport.add(group.support.index);
+            } else {
+                sharedStarts.add(group.share.index);
+                sharedDamage.set(group.target.index, group.share.message);
+            }
+        }
+        for (let index = 0; index < batch.length; index++) {
+            const msg = batch[index];
             if (msg[0] === "start") {
                 this.lines.length = 0;
             }
@@ -88,6 +129,23 @@ export class FightReport{
             this.client.onMsg(msg);
             if (this.describe(msg)) continue;
             const name = (id: number) => this.name(id);
+            if (announcedSupport.has(index)) {
+                // 出手已在主攻处一起描述，未命中结果仍留在原结算位置。
+                if (msg[0] === "miss") {
+                    const prefix = `【协战】${name(msg[2])} 对 ${name(msg[3])}，`;
+                    this.write(`${prefix}未命中`, "blue", { start: prefix.length, length: 3 });
+                }
+                continue;
+            }
+            const supportGroup = supportStarts.get(index);
+            if (supportGroup) {
+                const support = supportGroup.support.message;
+                const reaction = msg[4] === "next" ? "【连击】" : msg[4] === "combo" ? "【连招】" :
+                    msg[4] === "kill" ? "【追击】" : msg[4] === "fback" ? "【反击】" : "";
+                this.write(`${reaction}【协战】${name(msg[2])} 使用${this.skillName(msg[1])}，` +
+                    `${name(support[2])} 使用${this.skillName(support[1])}，同时攻击 ${name(msg[3])}`);
+                continue;
+            }
             switch (msg[0]) {
                 case "start":
                     this.write(`战斗 #${msg[1]} 开始`);
@@ -124,12 +182,18 @@ export class FightReport{
                     this.write(`${name(msg[1])} 保护 ${name(msg[2])}`);
                     break;
                 case "hurt": {
-                    const reason = msg[1] === "dback" ? "反伤" : msg[1] === "share" ? "分担伤害" : msg[1] === "reflect" ? "反射伤害" : msg[1] === "poison" ? "中毒" : "伤害";
-                    const effects = (msg[6] ?? []).map((effect: string) => effect === "crit" ? "暴击" : effect);
+                    if (sharedStarts.has(index)) {
+                        // 暂存本句描写，等下一条客户端伤害也处理完后一起输出。
+                        break;
+                    }
+                    const share = sharedDamage.get(index);
+                    if (share) {
+                        this.write(`${name(msg[3])} 对 ${name(share[2])} 造成 ${this.hurtResult(share)}；` +
+                            `对 ${name(msg[2])} 造成 ${this.hurtResult(msg)}`);
+                        break;
+                    }
                     const prefix = `${name(msg[3])} 对 ${name(msg[2])} 造成 `;
-                    const amount = String(msg[4]);
-                    this.write(`${prefix}${amount} 点${reason}${effects.length ? `（${effects.join("、")}）` : ""}，剩余生命 ${msg[5]}`,
-                        (msg[6] ?? []).includes("crit") ? "orange" : "red", { start: prefix.length, length: amount.length });
+                    this.write(`${prefix}${this.hurtResult(msg)}`);
                     break;
                 }
                 case "heal": {
@@ -206,3 +270,4 @@ export class FightReport{
         }
     }
 }
+

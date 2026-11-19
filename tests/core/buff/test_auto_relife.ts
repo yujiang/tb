@@ -61,7 +61,8 @@ for (const field of ["next", "combo"] as const) {
             a.calcAttr(); u.calcAttr();
         });
         const first = 97720, second = 97721, third = 97722;
-        const common = { magic: true, rand: 1, attack: {}, final: {}, sel: { target: TargetSelectEnum.enmey } };
+        const common = { magic: true, rand: 1, attack: {}, final: {}, nofback: true, nodback: true,
+            sel: { target: TargetSelectEnum.enmey } };
         initSkills([{ ...common, id: first, name: "一段", damageRate: 0.4, [field]: second },
             { ...common, id: second, name: "二段", damageRate: 0.7, [field]: third },
             { ...common, id: third, name: "三段" }]);

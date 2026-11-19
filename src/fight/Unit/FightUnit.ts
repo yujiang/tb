@@ -27,12 +27,14 @@ export interface HurtOptions {
     magic?: boolean;
     reflected?: boolean; // 已反射的伤害不再次反射
     source?: HurtSource; // 默认 skill（含普攻）；其他伤害来源不能触发保护
+    noprotect?: boolean; // 禁止本次伤害被保护分担，省略为 false
 }
 
 export interface PendingHurt extends HurtOptions {
     damage: number;
     cancelled?: boolean;
     shared?: boolean; // 本次伤害已经被保护分担，不能由多个保护 Buff 重复分摊
+    share?: { unit: FightUnit; damage: number; buffId: number }; // 与本次命中一起结算的保护伤害
 }
 
 export interface HealOptions {
@@ -106,6 +108,15 @@ export abstract class FightUnit {
     
     minHp = 0; //boss锁血         
     onHurt(attacker: FightUnit, why: string, hp: number, ctx:FightContex, options: HurtOptions = {}){
+        const results: (() => void)[] = [];
+        const actual = this.applyHurt(attacker, why, hp, ctx, options, results);
+        // 同一次保护命中的双方先扣血、发送伤害，再处理受伤和死亡结果。
+        for (const finish of results) finish();
+        return actual;
+    }
+
+    private applyHurt(attacker: FightUnit, why: string, hp: number, ctx: FightContex,
+        options: HurtOptions, results: (() => void)[]): number {
         if (this.isDied()) return 0;
         if (this.isDefend()) {
             hp *= 0.5;
@@ -113,6 +124,13 @@ export abstract class FightUnit {
         const pending: PendingHurt = { ...options, source: options.source ?? "skill", damage: hp };
         this.emitContext("beforeHurt", ctx, attacker, pending);
         if (pending.cancelled || this.isDied()) return 0;
+        if (pending.share) {
+            const share = pending.share;
+            ctx.msgs.push(["buffTrigger", this.uid, share.buffId, "protect", share.unit.uid]);
+            //protect的不再反伤反击，否则战斗就乱了
+            share.unit.applyHurt(attacker, "share", share.damage, ctx,
+                { magic: pending.magic, source: "share" }, results);
+        }
         hp = Math.min(this.getHp(), Math.max(0, Math.floor(pending.damage)));
 
         const point = this.attr.point;
@@ -123,14 +141,16 @@ export abstract class FightUnit {
 
         ctx.msgs.push(["hurt", why, this.uid, attacker.uid, hp, point.hp, ctx.effects])
         this.addEnemy(attacker, hp);
-        this.emitContext("hurt", ctx, attacker, hp);
-
-        if(point.hp <= 0){  
-            point.hp = 0;
-            ctx.msgs.push(["die",this.uid])
-            this.onDie(attacker, why, ctx);
-            this.fight.onDie(this);
-        }
+        results.push(() => {
+            // 分担只承担伤害，不展开保护者自己的受伤反应链；死亡流程仍正常执行。
+            if (pending.source !== "share") this.emitContext("hurt", ctx, attacker, hp);
+            if (point.hp <= 0) {
+                point.hp = 0;
+                ctx.msgs.push(["die", this.uid]);
+                this.onDie(attacker, why, ctx);
+                this.fight.onDie(this);
+            }
+        });
         return hp;
     }
 

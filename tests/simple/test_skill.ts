@@ -48,7 +48,7 @@ const normalSkill:SkillData = {
 
     attack: baseAttack(20),
     final: finalAttack,
-    blood: true,
+    noblood: false,
 }
 
 const healSkill:SkillData = {

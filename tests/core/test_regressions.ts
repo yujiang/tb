@@ -89,14 +89,14 @@ function buff(id: number): BuffData {
 // 测试：技能反击只触发一次，并使用反击属性计算伤害。
 test("regression: skill counterattacks stop after one reaction and use fback attributes", () => {
     const {f, u, v} = pair();
-    initSkills([skill(8001, {fback: true})]);
+    initSkills([skill(8001, {nofback: false})]);
     for (const unit of [u, v]) {
         unit.attr.point.hp = 1000000;
         unit.attr.point.hpMax = 1000000;
         unit.attr.magic.fback.attack = 7;
         unit.addSkill(8001, 1); unit.fbackSkill = 8001;
     }
-    initSkills([skill(8002, {fback: true})]);
+    initSkills([skill(8002, {nofback: false})]);
     u.addSkill(8002, 1);
     const ctx = f.processUnit(u, {cmd: FightCmdEnum.skill, skill: 8002, target: v.uid});
     assert.equal(ctx.msgs.filter(m => m[0] === "hurt").length, 2);
@@ -366,19 +366,19 @@ function addAlly(f: Fight) {
     return healer;
 }
 
-// 测试：吸血、反伤和反击由技能字段决定，省略或 false 时关闭，旧标签不再控制行为。
+// 测试：吸血、反伤和反击由禁止字段决定，默认允许，旧标签不控制行为。
 test("skill reaction switches use fields rather than tags", () => {
     for (const enabled of [false, true]) {
         const sk = new FightSkill({...skill(9700), tags: ["blood", "dback", "fback"],
-            ...{blood: enabled, dback: enabled, fback: enabled}}, 1);
+            ...{noblood: !(enabled), nodback: !(enabled), nofback: !(enabled)}}, 1);
         assert.equal(sk.canBlood(), enabled);
         assert.equal(sk.canDBack(), enabled);
         assert.equal(sk.canFBack(), enabled);
     }
     const sk = new FightSkill(skill(9700), 1);
-    assert.equal(sk.canBlood(), false);
-    assert.equal(sk.canDBack(), false);
-    assert.equal(sk.canFBack(), false);
+    assert.equal(sk.canBlood(), true);
+    assert.equal(sk.canDBack(), true);
+    assert.equal(sk.canFBack(), true);
 });
 
 // 测试：三个技能字段分别控制实际吸血、受反伤和触发对方反击，关闭后不受同名标签影响。
@@ -391,7 +391,7 @@ test("skill reaction fields control actual healing reflection and counterattacks
             v.attr.magic.final.dbackP = 0.2;
             v.attr.physic.fback = {...v.attr.physic.fback, attack: 7, rand: 1};
             initSkills([{...skill(9701), tags: ["blood", "dback", "fback"],
-                ...{blood: false, dback: false, fback: false, [field]: enabled}}]);
+                ...{noblood: true, nodback: true, nofback: true, [`no${field}`]: !enabled}}]);
             u.addSkill(9701, 1);
             f.processUnit(u, {cmd: FightCmdEnum.skill, skill: 9701, target: v.uid});
             const hp = field === "blood" ? 54 : field === "dback" ? 46 : 43;

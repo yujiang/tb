@@ -25,7 +25,7 @@ function attr(hp: number, attack: number, speed: number): FightAttr {
 // 第一轮压低敌方生命，第二轮击杀主目标后追击另一人；所有配置概率为 1，关闭暴击。
 export async function runReactionReport(output: (line: string) => void = line => console.log(line), Report = FightReport) {
     const skill = { magic: true, rand: 1, sel: { target: TargetSelectEnum.enmey, sortAttr: "hp" },
-        attack: {}, final: {}, blood: true, dback: true, fback: false };
+        attack: {}, final: {}, noblood: false, nodback: false, nofback: true };
     initSkills([
         { ...skill, id: mainId, name: "汲血剑", next: nextId, kill: killId },
         { ...skill, id: nextId, name: "连斩" },

@@ -30,7 +30,7 @@ function setup(extra: Partial<BuffData> = {}, configure?:
     initPassives([{ id: passiveId, name: "镜面被动", desc: "", status: [], tags: [], magic: false,
         attackType: "base", attack: {}, final: {}, addbuff: [[reflectId, 1]] }]);
     const common = { name: "测试攻击", rand: 1, attack: {}, final: {}, sel: { target: TargetSelectEnum.enmey } };
-    initSkills([{ ...common, id: magicId, magic: true, blood: true, dback: true },
+    initSkills([{ ...common, id: magicId, magic: true, noblood: false, nodback: false },
         { ...common, id: physicalId, magic: false },
         { ...common, id: poisonId, name: "魔法毒", magic: true, func: "poison", attack: { attack: 10 } },
         { ...common, id: healId, name: "治疗", magic: true, func: "heal", sel: { target: TargetSelectEnum.friend } }]);

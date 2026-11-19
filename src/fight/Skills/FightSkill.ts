@@ -36,16 +36,19 @@ export class FightSkill {
         return this.xls.tags?.indexOf(tag) >= 0;
     }
     canBlood(){
-        return this.xls.blood ?? false;
+        return !this.xls.noblood;
     }
     canDBack(){
-        return this.xls.dback ?? false;
+        return !this.xls.nodback;
     }
     canFBack(){
-        return this.xls.fback ?? false;
+        return !this.xls.nofback;
     }
     canSupport(){
-        return this.xls.support ?? false;
+        return !this.xls.nosupport;
+    }
+    canProtect(){
+        return !this.xls.noprotect;
     }
 
     getXls() {
