@@ -56,6 +56,13 @@ export class FightMap {
         return [index % this.nx, Math.floor(index / this.nx)];
     }
 
+    // 行号从 1 开始：3 排时第 3 排，5 排时第 4、5 排属于后排。
+    isBackRow(pos: number): boolean {
+        if (!Number.isSafeInteger(pos) || pos < 0 || pos >= this.maxPos()) return false;
+        const [, y] = this.getPosByIndex(pos);
+        return y + 1 > Math.ceil(this.ny / 2);
+    }
+
     // 以unit为中心来计算
     selectTargetsShape(unit: FightUnit, sel:SelectParam) {        
         const side = unit.side;

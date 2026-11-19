@@ -2,6 +2,19 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "调试战斗异常日志",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "program": "${workspaceFolder}/.test-build/tests/report/test_report_error.js",
+      "preLaunchTask": "build tests",
+      "runtimeArgs": ["--enable-source-maps"],
+      "sourceMaps": true,
+      "skipFiles": ["<node_internals>/**"],
+      "outFiles": ["${workspaceFolder}/.test-build/**/*.js"]
+    },
+    {
       "type": "node",
       "request": "launch",
       "cwd": "${workspaceFolder}",

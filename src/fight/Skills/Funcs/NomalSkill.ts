@@ -6,6 +6,7 @@ import { FightSkill, } from "../FightSkill";
 import { FightContex } from "../../Fight";
 import { getSkillData } from "../SkillDatas";
 import { trySupport } from "../FightSupport";
+import { multiFunc } from "./Multi";
 
 export type AttackReaction = "next" | "combo" | "kill" | "fback" | "support";
 
@@ -113,6 +114,10 @@ function skillKill(attacker: FightUnit, sk:FightSkill, ctx: FightContex) {
     if (skill.getRand() <= 0) return false;
 
     const configured = sk.getKill() != null;
+    if (configured && skill.isMulti()) {
+        ctx.killNum = (ctx.killNum || 0) + 1;
+        return magicAttackFunc(attacker, null, skill, ctx, "kill");
+    }
     const des = configured && skill.getSel() ? f.selectMainTarget(attacker, skill.getSel()) :
         f.randomEnemyAlive(attacker.side);
     if (!des) return false;
@@ -131,6 +136,10 @@ function skillNext(attacker: FightUnit, previous: FightUnit, sk:FightSkill, ctx:
 
     const configured = sk.getNext() != null;
     const combo = usesCombo(sk);
+    if (configured && !combo && skill.isMulti()) {
+        ctx.nextNum = (ctx.nextNum || 0) + 1;
+        return magicAttackFunc(attacker, null, skill, ctx, "next");
+    }
     let des: FightUnit;
     if (combo) {
         // 连招固定沿用上一段实际主目标，失效时停止，不再排序、抽样或被新嘲讽重定向。
@@ -155,7 +164,9 @@ export function skillAttackFunc(attacker: FightUnit, defender: FightUnit, skill:
     return magicAttackFunc(attacker, defender, magic, ctx, reaction);
 }
 
-export function magicAttackFunc(attacker: FightUnit, defender: FightUnit, magic:FightSkill, ctx: FightContex, reaction?: AttackReaction, combo?: ComboDamage) {
+export function magicAttackFunc(attacker: FightUnit, defender: FightUnit, magic:FightSkill, ctx: FightContex, reaction?: AttackReaction, combo?: ComboDamage): boolean {
+    if (magic.isMulti() && reaction !== "combo" && reaction !== "support") return multiFunc(attacker, magic, ctx,
+        (actor, target, single, context) => magicAttackFunc(actor, target, single, context, reaction));
     return ctx.fight.resolveAction(() => {
         const chain = combo ?? (usesCombo(magic) ? { target: defender, damage: 0 } : undefined);
         const ownsChain = !combo && !!chain;
@@ -208,7 +219,7 @@ function spread(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx:
     });
     ctx.msgs.push(["spread", ids]);
 
-    // 有spread技能，优先用spread技能，否则用自身的技能固定0.7的减伤~
+    // 副目标只执行单次攻击结算，是否允许保护由溅射子技能配置决定。
     for (const target of targets) {
         skillAttack(attacker, target, spreadSkill, ctx, undefined, combo);
     }

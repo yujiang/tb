@@ -26,7 +26,7 @@ export async function runAIReport(output: (line: string) => void = line => conso
         skills: [[heroSkill, 1]], attackSkill: heroSkill },
     { id: bossId, name: "山贼首领", attr: attributes(600, 80, 200),
         skills: [[bossAttack, 1], [bossSkill, 1]], attackSkill: bossAttack,
-        ais: [{ type: "hp", lines: [{ hp: 0.7, attackRate: 0.2 }, { hp: 0.4, attackRate: 0.3 }] },
+        rules: [{ type: "hp", lines: [{ hp: 0.7, attackRate: 0.2 }, { hp: 0.4, attackRate: 0.3 }] },
             { type: "turn", every: 3, skill: bossSkill }, { type: "hurt", every: 2 }] }]);
     initZhens([{ id: heroZhen, pos: [0] }, { id: bossZhen, pos: [4] }]);
     let nextUid = 0; const allocateUid = () => nextUid++;

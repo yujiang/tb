@@ -128,6 +128,17 @@ export class FightSkill {
         return this.xls.sel;
     }
 
+    isMulti() {
+        return (this.getSel()?.num ?? 1) > 1;
+    }
+
+    // 保留已合并的阶段属性和专用类行为；每个目标复用单体流程，不重复发动或添加自身 Buff。
+    forSingleTarget(): this {
+        const skill: this = Object.assign(Object.create(Object.getPrototypeOf(this)), this);
+        skill.xls = { ...this.xls, sel: { ...this.xls.sel, num: 1 }, rand: 1, afterSelfBuff: undefined };
+        return skill;
+    }
+
     getXlsAttack(){
         return this.xls.attack;
     }

@@ -35,27 +35,54 @@ export enum MapShapeEnum {
 }
 
 export interface SelectMainParam{
-    target: TargetSelectEnum;   //默认 des 0
-    die?: DiedSelectEnum;       //默认 alive；显式 all 才包含死亡单位
+    /** 目标类型，必填：self自身、duiwei对位、friend己方、enmey敌方；保留现有 enmey 拼写。 */
+    target: TargetSelectEnum;
+    /** 死亡过滤，缺省alive；all同时含存活和死亡，die仅死亡；复活技能通常填die。 */
+    die?: DiedSelectEnum;
+    /** 直接施放的总人数，缺省1；使用正整数，>1为群体，99可覆盖该阵营全体；与副目标人数分开。 */
+    num?: number;
    
-    sortAttr?: string;          //用attr的key排序, 否则随机选
-    sortDescend?: boolean;      //降序 默认false
+    /** 候选排序键，来自 FightAttr.getAttr，如hp/hpp/hplp/speed；缺省随机，不能使用嵌套属性路径。 */
+    sortAttr?: string;
+    /** 排序是否降序，缺省false升序；仅配置sortAttr时生效。 */
+    sortDescend?: boolean;
 }
 
 export interface SelectParam extends SelectMainParam { 
-    num?: number;
-    shape?: MapShapeEnum; // shape and num 一般只取其一
+    /** 数量溅射的副目标上限，不含当前主目标，缺省1；需有spread子技能，0可不取副目标。 */
+    numSpread?: number;
+    /** 溅射形状x_line/y_line/cross，已填时优先于numSpread；缺省按数量；none当前不是有效形状查询。 */
+    shape?: MapShapeEnum;
     //custom?: any;
 }
 
 
 // 显示属性, 需要注入
 export interface FightDisplay {
-    /** 客户端人物描述表 ID，0 也是有效值。 */
+    /** 客户端人物描述表xlsCharacter的键，数字或字符串，0有效；缺省使用默认文案。 */
     character?: number | string;
+    /** 单位显示名称，由宿主提供，初始化时传给客户端。 */
     name: string;
 }
 
+
+export enum InsertActionPos {
+    first,      // 剩余队列最前（默认）
+    last,       // 剩余队列最后
+    random,     // 剩余队列的随机间隙
+    afterSelf,  // 自己的普通行动后，已行动则插到最前
+}
+
+export interface FightActionDisplay {
+    /** 本场行动记录ID，区分同一单位的多次出手，不能用uid代替。 */
+    id: number;
+    /** 此条行动的单位uid，可以与其他行动重复。 */
+    uid: number;
+    /** 追加技能行动的技能ID；普通行动或追加普攻可省略。 */
+    skill?: number;
+    /** true表示独立追加行动，缺省表示普通行动；供客户端行动条标注。 */
+    inserted?: boolean;
+}
 
 export enum FightCmdEnum{
     none,       //没有来得及发指令, 默认攻击!
@@ -70,15 +97,23 @@ export enum FightCmdEnum{
 }
 
 export interface FightInput {
-    turn?: number; // FightLoopWest/YanYu 的网络输入必须携带当前回合；PC/本地可省略，提供时必须匹配
+    /** West/YanYu网络入口必填当前全局回合；PC入口可省略，提供时须匹配；底层本地调用可省略。 */
+    turn?: number;
+    /** 指令枚举：none默认普攻、attack、defend、skill、cancel、protect；必须由宿主先鉴权。 */
     cmd: FightCmdEnum;
+    /** cmd=skill时的已学技能ID；独立大招入口可省略，按装备的ultimateSkill推导。 */
     skill?: number;
+    /** 明确目标的运行uid，0有效；省略才自动选择，非法明确目标不会自动换人。 */
     target?: number;
 }
 
+/** [配置ID, 等级]；等级0有效，按对应表查找。 */
 export type IdLevel = [number,number];
+/** [配置ID, 概率0～1]；虽然复用了IdLevel的元组结构，第二项不是等级。 */
 export type IdRand = IdLevel;
+/** [Buff ID, Buff等级, 附加概率0～1]。 */
 export type IdLevelRand = [number,number,number];
+/** 技能/被动/初始化Buff等的[ID,等级]列表。 */
 export type IdLevelArray = IdLevel[];
 
 
@@ -86,6 +121,8 @@ export type fightMsg = [string, ...any[]];
 
 
 export interface SkillCost {
+    /** 生命点数费用，建议非负数；省略/0不扣，玩家/召唤物支付后必须仍>0，怪物不耗资源。 */
     hp?: number;
+    /** 法力点数费用，建议非负数；省略/0不扣，玩家/召唤物允许刚好用完。 */
     mp?: number;
 }

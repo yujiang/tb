@@ -50,7 +50,9 @@
 | `src/fight/Online/FightLoopYanYu.ts` | 不等输入的自动普攻、额外即时技能与逐动作动画等待 |
 | `src/fight/PC/FightLoopPC.ts` | 按速度逐单位等待本地指令、NPC 自动行动、逐动作动画等待 |
 | `src/fight/Unit/` | 单位状态、资源变化、技能和 Buff 持有、玩家与怪物差异 |
-| `src/fight/AI/` | Monster 可选 AI、血轴增攻、全局回合周期技能、受伤计次新攻击及监听生命周期 |
+| `src/fight/AI/` | 每只 Monster 唯一的 AI，通过 waitInput 根据场面决定普通行动 |
+| `src/fight/Rules/` | 可共存的血轴、回合轴、受伤轴规则；回合规则插入独立行动，默认剩余队首 |
+| `src/fight/FightActionQueue.ts` | 独立行动记录、四种插入位置、取消及速度排序；客户端按记录区分同一单位的多次行动 |
 | `src/fight/Unit/MonsterDatas.ts` | 怪物模板、技能/被动/装配和多个 AI 配置注册 |
 | `src/fight/MonsterSide.ts`、`ZhenDatas.ts` | 按模板 ID、阵型 ID 和宿主 UID 分配器生成独立怪物单位 |
 | `src/fight/Skills/` | 技能定义和执行、伤害计算、连击、追击、溅射、反击、治疗等 |

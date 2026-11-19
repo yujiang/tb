@@ -5,13 +5,20 @@ import { FightUnitMonster } from "./Unit/FightUnitMonster";
 import { FightSideEnum } from "./struct";
 
 export interface simpleData {
+    /** 简单示例单位名称。 */
     name: string;
+    /** 运行单位 uid，不是怪物模板 ID；由宿主保证本场唯一。 */
     id: number;
+    /** 地图平面位置，从0开始，pos=y*nx+x；此辅助函数不校验地图边界。 */
     pos: number;
     
+    /** 覆盖示例物理属性；部分字段缺省或0仍会被随机默认值替换，正式配置建议用 MonsterData。 */
     physic?: BaseAttack;
+    /** 覆盖示例魔法属性；攻击/防御采用随机默认值，显式暴击0保留。 */
     magic?: BaseAttack;
+    /** 覆盖示例治疗属性；attack 缺省或0时随机30～40，critP 和 defend 在辅助函数中固定为0。 */
     heal?: BaseAttack;
+    /** 覆盖示例毒属性；缺省使用 defaultBaseAttack，不在此额外随机毒攻击力。 */
     poison?: BaseAttack;
 }
 

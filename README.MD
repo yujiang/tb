@@ -137,6 +137,31 @@ for (const group of plan.groups) {
 
 已支持：
 
+### 战斗异常
+
+`FightLoop.run()`、PC/西游/烟雨的行动驱动及输入入口捕获抛出的异常后，停止本场战斗，统一判攻击方失败（`FightResultEnum.defend = 1`），不再执行后续行动。默认通过 `console.error` 输出中文说明、原始错误及堆栈、战斗 ID、种子、回合、当前行动和指令信息；宿主可覆盖 `loop.onError(error, context: FightErrorContext)` 接自己的日志系统。
+
+异常结束会关闭普通/大招输入窗口，取消西游输入定时器，清空普通及追加行动、烟雨即时技能队列，调用单位结束清理并解绑 AI/Rule 监听。单位清理抛错时继续清理其他单位；`end` 生命周期回调在最终结束协议发送前执行，其异常同样判负。`run()` 返回防守方胜，不再拒绝 Promise；烟雨即时输入发生异常返回 false。错误堆栈只记日志，不放进客户端协议，客户端收到普通 `["end", 1]`。
+
+底层计算和 `Fight.processUnit/resolveAction` 保留原来的抛错机制，供战斗驱动捕获；直接调用底层 API 的宿主仍自行处理异常。已有 Calc 数值检查保持不变。异常动作可能已经执行部分扣费或效果，不做回滚、补算或继续结算，也不把失败动作当作成功结果。
+
+```ts
+loop.onError = (error, context) => {
+    logger.error({ ...context, error }, "战斗异常，攻击方失败");
+};
+const result = await loop.run();
+```
+
+查看实际异常日志：打开 `tests/report/test_report_error.ts`，在 VS Code 选择“调试战斗异常日志”并按 F5，自动编译后运行；可在示例主动抛错处或 `FightLoop.onError` 下断点。命令行等价操作为 `npm run test:build` 后执行 `node --enable-source-maps .test-build/tests/report/test_report_error.js`，堆栈会定位到 TypeScript 源文件。
+
+目标数量使用 `SelectMainParam.num`（可省略，默认 `1`）。`num > 1` 直接群体施放，例如 `sel: { target: TargetSelectEnum.enmey, num: 99 }` 对敌方全体，`{ target: TargetSelectEnum.friend, num: 3, sortAttr: "hp" }` 对血量最低的三个队友（包含自身）。只选择指定阵营及符合 `die` 的单位，不先选主目标，不依赖 `spread`，也不被嘲讽改为单体。整次施放共用一次费用、CD、发动判定和施放后自身 Buff，每个目标独立结算；复活等动作结束回调在整组执行完后发生。
+
+`SelectParam.numSpread` 专门控制溅射副目标人数（默认 `1`，不包含主目标），`shape` 仍控制溅射形状。例如 `sel: { target: TargetSelectEnum.enmey, numSpread: 2 }` 配合 `spread: 子技能ID` 表示单体命中后溅射另外两人；旧表中表示副目标人数的 `num` 需改为 `numSpread`。`num: 1` 或省略时保留原单体行为，`combo` 和协战仍继承实际主目标。
+
+为保持场面清晰，建议填表时仅让单一主目标触发协战和保护：群攻技能及溅射子技能填写 `nosupport: true, noprotect: true`，单体主技能按需配置。这是填表建议，程序不因群攻或溅射身份强制关闭能力；禁止字段省略或 `false` 时不额外禁止。群攻拆成逐目标结算时保留原配置，溅射子技能独立读取自己的配置，后续链接的子技能也应逐个检查。溅射仍保留原来的单次攻击结算流程。
+
+`initSkills` 在整批注册后用中文 `console.warn` 提醒填表问题，包含技能名称、ID 和具体字段，只告警、不改配置、不阻止注册。检查群攻/溅射的 `nosupport/noprotect`，协战及后续攻击链的 `nofback/nodback`，协战根技能的攻击类 `func`，大招的 `noprotect`，主攻击的 `rand: 1`，以及同时填写 `next/combo` 的歧义。角色从已注册技能表的引用识别；未被引用为子技能、协战或反击的攻击类技能按主攻击建议检查。跨批次可识别已有引用，不报告无关旧行；被动、怪物表或运行时才装配的技能角色，单靠 `initSkills` 无法识别。
+
 - 两个敌对阵营、固定站位、对位及数量/横线/竖线/十字选目标。
 - 普通攻击、防御、技能费用、治疗、中毒伤害、复活、状态和属性 Buff。
 - 连击、追击、溅射、反击、吸血和反伤。
@@ -215,7 +240,7 @@ Buff 配置 `class: "buqu"` 创建 `BuffBuqu`，省略 `class` 仍创建普通 `
 
 普通攻击、默认普攻及敌方技能的主动主目标受嘲讽影响：执行时自动把主目标变为有效嘲讽来源，即使原指令显式选择了另一个合法敌人，也接受指令并重定向，不因此禁止行动。提交和执行时仍校验原指令的基础合法性；原本不存在、阵营错误或不符合技能目标资格的显式目标仍拒绝。原始 `input.target` 保持不变，提交后新增、驱散嘲讽或来源状态变化，均以执行时状态决定是否重定向；没有有效嘲讽则按原指令执行。`getTauntTarget(unit, sel)` 查询当前强制目标，`isLegalTarget(unit, target, sel)` 只检查基础目标资格。多份嘲讽按 `prior` 从小到大选择第一个有效来源，同优先级按 Buff 实例添加顺序，替换实例重新排队。确定有效嘲讽目标不抽取随机数。
 
-来源必须是本场仍在场的同一个单位实例、存活的敌人，并符合当前技能的死亡过滤和对位等基础目标资格。来源死亡、离场、成为友方或不符合技能资格时忽略该来源，继续检查其他嘲讽；没有有效来源则恢复原选目标规则。普攻的自动对位可以被嘲讽覆盖，显式要求对位的技能仍只接受合乎对位的来源。手动守尸指令也会在有有效嘲讽时重定向到嘲讽者；没有有效嘲讽则照常守尸，目标仍死亡时跳过，不自动换人。治疗、自身技能、防御、取消不受嘲讽限制，群攻只重定向主目标，副目标仍走原选取规则；配置子技能若继承目标则锁定上一段实际目标，不重新嘲讽选人；重新选目标的配置子技能按其选择规则处理。普攻内置连击、追击和反击仍保留原目标规则。持续时间、驱散及死亡清理复用普通 Buff 流程，客户端和简报复用 Buff 增删及动作消息，不发送 `sync`。
+来源必须是本场仍在场的同一个单位实例、存活的敌人，并符合当前技能的死亡过滤和对位等基础目标资格。来源死亡、离场、成为友方或不符合技能资格时忽略该来源，继续检查其他嘲讽；没有有效来源则恢复原选目标规则。普攻的自动对位可以被嘲讽覆盖，显式要求对位的技能仍只接受合乎对位的来源。手动守尸指令也会在有有效嘲讽时重定向到嘲讽者；没有有效嘲讽则照常守尸，目标仍死亡时跳过，不自动换人。治疗、自身技能、防御、取消不受嘲讽限制，单体加溅射只重定向主目标，副目标仍走原选取规则；num > 1 的直接群体选择不受嘲讽重定向；配置子技能若继承目标则锁定上一段实际目标，不重新嘲讽选人；重新选目标的配置子技能按其选择规则处理。普攻内置连击、追击和反击仍保留原目标规则。持续时间、驱散及死亡清理复用普通 Buff 流程，客户端和简报复用 Buff 增删及动作消息，不发送 `sync`。
 
 反射配置 `class: "reflect"` 创建 `BuffReflect`，同时监听 `beforeHurt/beforeHeal`，默认 `prior: 0`。默认只反射魔法伤害：取消自身这次扣血，把进入该监听时的伤害值交给原攻击者的 `onHurt` 结算，伤害来源记为反射者；物理伤害照常承受。反射前不按反射者当前生命截断伤害，接收者仍按自身的防御状态、伤害修改 Buff、不屈、生命上限及死亡/自动复活流程结算，不重新计算技能伤害。取消的原受伤不产生原攻击者吸血或普通反伤；反射数值不重新施放技能。原攻击者是自身、已死亡或已离场时，不转移伤害，按原流程受伤。关键配置例如：
 
@@ -326,7 +351,7 @@ const accepted = await loop.onInput(unitId, {
 // 生命周期由 loop.run() 驱动；上面的输入处理挂到宿主网络事件中。
 ```
 
-`onInput` 返回 `Promise<boolean>`，`false` 表示没有入队，`true` 表示已接收入队，仍可能在出队复验时失效而丢弃。调用方应 await 或处理拒绝：结算、动画异常会传播并关闭输入窗口，清空剩余技能，不能继续使用该次失败结算。缺回合号、旧回合/未来回合、非 skill 指令、未知/非控制单位、死亡、禁止技能、休息、未学会技能、非法目标、技能冷却中或当前费用不足时不会入队；接收时复制指令，执行前再次检查目标、状态、冷却与资源。资源只在真正执行时扣除。`canCost()` 为不扣资源的预检，`costSkill()` 仍做实际收费校验。宿主负责鉴权，回合号和冷却不能替代鉴权。
+`onInput` 返回 `Promise<boolean>`，`false` 表示没有入队，`true` 表示已接收入队，仍可能在出队复验时失效而丢弃。调用方应 await：结算或动画异常会统一记录并判攻击方失败，关闭输入窗口、清空剩余技能，本次返回 false；不再向调用方传播为 Promise 拒绝。缺回合号、旧回合/未来回合、非 skill 指令、未知/非控制单位、死亡、禁止技能、休息、未学会技能、非法目标、技能冷却中或当前费用不足时不会入队；接收时复制指令，执行前再次检查目标、状态、冷却与资源。资源只在真正执行时扣除。`canCost()` 为不扣资源的预检，`costSkill()` 仍做实际收费校验。宿主负责鉴权，回合号和冷却不能替代鉴权。
 
 技能可配置 `cd: 2`，省略或 `0` 表示无冷却，只接受非负安全整数。第 1 回合施放后第 3 回合可再次施放，剩余冷却通过 `unit.getSkillCd(skillId)` 查询。冷却由每个单位按技能 ID 保存，只随全局回合推进，重复输入、重新学习、死亡与复活不会清除；新战斗开始时重置。费用检查通过、正式尝试施放时启动冷却，概率未发动或未命中也消耗 CD；非法输入、费用不足及无可用目标不启动。公共主动技能入口统一执行此规则，装配普攻及连招、追击、反击、协战等反应链不读取或启动主动 CD。
 
@@ -340,44 +365,66 @@ const accepted = await loop.onInput(unitId, {
 
 查看完整两回合烟雨简报：运行 `npm run test:build`，再执行 `node --test .test-build/tests/report/test_report_yanyu.js`。示例中剑客装配 `[流云剑]` 自动普攻；动画间隙先后提交低速女侠的 `[寒梅指]` 和剑客的 `[破阵掌]`，两个即时技能先于后续普攻执行，且不消耗女侠的普攻机会。第二回合即时技能击杀双方敌人后停止队列，逐批验证客户端一致性，并验证相同种子与输入安排的协议、简报均可复现。
 
-## 怪物 AI
+## 怪物 AI 与规则
 
-`FightUnitMonster` 可以同时持有多个 AI，使用 `addAI(ai, prior = 0)`、`removeAI(ai)` 管理，`ais` 返回列表副本。所有 AI 的事件监听和属性修正都参与；输入按 `prior` 从小到大询问，同优先级按添加顺序，第一个返回指令者生效。基础 `FightAI.waitInput()` 返回 `undefined` 表示不决定，事件型血轴和受伤轴因此不会挡住周期 AI；全部未决定时回退普攻。完全没有 AI 时保留旧逻辑：`inputSkill → 技能首项 → 普攻`。旧 `monster.ai = ...` 仍可用，赋值会替换整个列表，读取则为优先级最前的实例；设为 undefined 清空。
+每个 `FightUnitMonster` 只有一个 `ai: FightAI`，负责通过 `waitInput(unit, turn, ctx)` 根据场面选择本次普通行动。返回 undefined 时回退普攻；赋值替换 AI 会解绑旧监听，但不会移除规则。AI 可继承公共的监听、生命周期和属性修正能力，不能通过 `addRule` 混入规则列表。
 
-AI 输入不重复推进单位输入次数，不负责回合调度。输入和属性修正的先后由 `addAI` 的 prior 决定，事件监听优先级仍由 `listen()` 的参数决定。当前三个派生类如下：
+`FightAIRearDoctor` 优先普攻敌方存活的后排医生（`attr.career === CarerrEnum.医生`），多个候选通过战斗随机源选一个，只有一个时不抽样；没有候选或没有地图则沿用默认选目标。后排由 `FightMap.isBackRow(pos)` 统一判断：内部坐标 y 从 0 开始，策划行号为 y+1，行号大于 `ceil(ny/2)` 属于后排，即 3×3 第 3 排、5×5 第 4、5 排，矩形地图按高度 ny 计算。嘲讽仍在执行时覆盖原始目标。可直接赋值 `monster.ai = new FightAIRearDoctor()`，也可统一通过怪物模板的 `ai: { type: "rearDoctor" }` 装配。
 
-| AI | 配置 | 行为 |
-| --- | --- | --- |
-| 血轴 `FightAIHp` | `[{ hp: 0.7, attackRate: 0.2 }, { hp: 0.4, attackRate: 0.3 }]` | 生命比例到 70% 增攻 20%，到 40% 再增攻 30%，累计 50% |
-| 回合轴 `FightAITurn` | `(3, skillId)` | 第 3、6、9…全局回合选择该技能，替代当次普攻 |
-| 受伤轴 `FightAIHurt` | `(3)` 或 `(3, skillId)` | 每三次有效直接受伤后，当前完整 action 结束时朝刚才的攻击者发动一次新攻击 |
+多个固定行为放进 `rules`，使用 `addRule(rule, prior = 0)`、`removeRule(rule)` 管理，`rules` 返回列表副本。规则按 prior 从小到大、同优先级按添加顺序执行，彼此不争抢输入。没有 AI 但有规则时普通行动为普攻；两者都没有时沿用 `inputSkill → 技能首项 → 普攻`。原 `FightAIHp/FightAITurn/FightAIHurt`、`addAI/removeAI/ais` 已分别改名为 `FightRuleHp/FightRuleTurn/FightRuleHurt`、`addRule/removeRule/rules`。
+
+战斗中支持切换阶段：`monster.setAI(configOrInstance)` 设置唯一 AI，`setAI()` 移除；也可继续直接赋值 `ai`。`monster.setRules(configsOrInstances)` 整组替换规则，`clearRules()` 或 `setRules([])` 清空。配置与 MonsterData 中的 AIData/RuleData 相同；配置创建新实例，传入已有规则实例则保留该实例的血线阶段、计数和监听，实例形式的 prior 默认 0，数据形式读取 prior。新配置和绑定先准备完成，再移除旧规则；配置非法、重复实例、实例属于其他单位或初始化抛错时保留原列表，并清理本次新监听。替换后统一重算属性，不影响 AI、被动与 Buff。
+
+已经进入行动条的旧规则行动保留并照常复验、执行；切换不会取消当前完整 action。旧规则尚未执行的事件收尾回调在解绑后失效。新 AI 从下一次 waitInput 起决定普通输入，不改已提交指令；新周期规则在之后的 processBeforeTurn 边界登记行动。
 
 ```ts
-monster.addAI(new FightAIHp([
+// Boss 狂暴：用新配置创建一套规则，不再保留旧规则的计数。
+boss.setAI({ type: "rearDoctor" });
+boss.setRules([
+    { type: "turn", every: 1, skill: rageSkillId },
+    { type: "hurt", every: 2 },
+]);
+// boss.clearRules(); // 清空规则，已插入行动保留
+// boss.setAI();      // 移除 AI，不影响规则
+```
+
+| 规则 | 配置 | 行为 |
+| --- | --- | --- |
+| 血轴 `FightRuleHp` | `[{ hp: 0.7, attackRate: 0.2 }, { hp: 0.4, attackRate: 0.3 }]` | 每条血线每场一次，增攻比例相加；回血、复活不刷新，新战斗重置 |
+| 回合轴 `FightRuleTurn` | `(3, skillId, pos?)` | 第 3、6、9…全局回合插入独立技能行动，保留普通行动；默认剩余队列最前 |
+| 受伤轴 `FightRuleHurt` | `(3)` 或 `(3, skillId)` | 每三次有效直接受伤后，完整 action 结束时朝刚才的攻击者发动一次即时新攻击，保持不进入行动条 |
+
+```ts
+monster.ai = new MyFightAI(); // 可选：仅负责普通行动决策
+monster.addRule(new FightRuleHp([
     { hp: 0.7, attackRate: 0.2 },
     { hp: 0.4, attackRate: 0.3 },
 ]));
-// 同一怪物每三回合用一次已学技能，不装配为全体破盾的大招槽。
-monster.addAI(new FightAITurn(3, skillId));
-// 同时每挨打三次追加一次普攻，支持装配的 attackSkill。
-monster.addAI(new FightAIHurt(3));
+monster.addRule(new FightRuleTurn(3, skillId, InsertActionPos.first));
+monster.addRule(new FightRuleHurt(3));
 ```
 
-血轴每条每场只触发一次，单次伤害跨多条会全部触发，初始生命已低于血线也会进入对应阶段；回血、死亡与复活不刷新次数，新战斗重置。增攻比例相加，作用于物理/魔法的普通、连击、追击、溅射和反击攻击力，治疗与毒攻击力不变。加成通过属性重算应用，不修改 `attrOri`，不会重复累计；监听 `hp` 事件，因此保护分担的扣血也会触发血轴，而不展开普通受伤反应。血线变化发送 `["aiHp", uid, hpRatio, cumulativeAttackBonus]`，简报显示血线与累计增攻。
+血轴通过属性重算应用，不修改 `attrOri`，作用于物理/魔法各攻击分组，不改变治疗和毒攻击力。监听真实 `hp` 变化，因此保护分担也会触发。受伤轴只累计实际扣血的 `source: "skill"` 直接攻击，受伤时禁止 `attack` 就不计次；Buff、反伤、反射、分担和零伤害不计。达到次数后在完整 action 结束时复查双方存活、阵营、休息和禁止攻击。默认使用装配普攻，指定技能要求已学攻击类技能，使用基础攻击属性，不走 fback，不额外支付主动费用/CD，也不推进 inputTurn。即时新攻击可触发对方受伤规则，共享原反应上限。已有表现消息 `aiHp/aiAttack` 保留兼容，含义对应血轴与受伤规则。
 
-回合轴按全局回合计算，同一回合多次输入只选择一次周期技能；技能未学习、CD 中、封印、没有合法目标等情况回退普攻。周期技能走普通技能校验及结算，保留怪物不耗资源的规则，与全体破盾的独立大招机会无关。PC、西游执行该 AI 指令；烟雨仅对显式配置 AI 的怪物使用 AI 指令，其余单位保持原自动普攻逻辑。
+回合规则在全局 `processBeforeTurn` 登记额外行动，每条规则每回合最多成功登记一次。多条回合规则可以分别插入，普通行动不被替换。登记时和执行前均检查状态、目标、CD、资源；施放时复用公共技能管线及怪物原有资源规则，CD 正常生效。技能应已学，且独立于全体破盾的 ultimateSkill 槽。追加行动不调用 inputStart，不重复触发输入周期 Buff 或推进 inputTurn。
 
-受伤轴只计实际扣血的 `source: "skill"` 直接攻击；Buff、反伤、反射、保护分担及零伤害不计。**受伤时禁止 `attack` 就完全不累计次数。** 达到次数后，在完整 action 结束时复查双方存活、阵营、休息与禁止攻击，再对刚才的伤害来源执行新攻击。它不走 `fback`，不使用反击属性；`nofback` 或只禁止 `fback` 不拦截它。未指定技能时使用普通攻击（含 `attackSkill`），指定时要求已学攻击技能，以普通攻击属性执行，不额外支付主动技能费用/CD。计数攻击不推进输入次数、不发送 `actor/sort`、不更新行动条；`["aiAttack", uid, target]` 供表现层识别。新攻击仍会累计对方的受伤轴，并共享已有反应预算；超限仍按 `Reaction limit` 中止战斗。
+规则和 AI 的实例不能跨单位共享。战斗结束解绑监听，新战斗重置计数与阶段；移除受伤规则后旧实例登记的即时反应不再执行。公共 `hp(unit, ctx, attacker, previous, current)` 表达真实生命变化，`hurt(unit, ctx, attacker, damage, pending)` 的最后一项携带来源。测试见 `tests/core/ai/test_ai.ts`、`test_rule_actions.ts`。
 
-派生 AI 通过 `listen()` 监听带 ctx 事件，可指定优先级；替换/移除 AI 和战斗结束会解绑，旧实例排队的新攻击也会取消。一个实例只能绑定一个单位，新战斗重置阶段与计数。`hp(unit, ctx, attacker, previous, current)` 只在真实生命变化时发送；`hurt(unit, ctx, attacker, damage, pending)` 的最后一项提供伤害来源信息，已有监听参数保持兼容。测试位于 `tests/core/ai/test_ai.ts`。
+### 插入行动与行动条
 
-查看三个轴同时生效的三回合简报：运行 `npm run test:build` 后执行 `node --test .test-build/tests/report/test_report_ai.js`。双方通过 MonsterData 与阵型 ID 查表生成，首领跨血线从攻击力 80 提升到 96、120，第二次受伤后追加一次普攻，第三回合施放周期技能；逐批通过客户端一致性校验，并验证同配置同种子的协议与简报可复现。
+`fight.insertAction(unit, input, pos?, ctx?)` 或 `loop.insertAction(...)` 插入独立行动，返回是否接受。`InsertActionPos` 包含 `first`（默认）、`last`、`random`、`afterSelf`。随机间隙只用 `Fight.random()`；相同固定位置保持提交顺序。afterSelf 在自己当前行动或下一条普通行动后插入，自己的普通行动已完成则回退队首；不打断正在执行的完整 action。普通行动因速度变化重排时，afterSelf 项仍跟随所属普通行动，其他插入项不参与速度竞争。每回合最多接受 64 次插入，超限抛错；取消不返还上限。
+
+队列现为 `FightAction` 记录，包含独立 id、unit、复制保存的 input 和 inserted。`loop.actions` 可读取记录，`loop.cancelAction(id)` 可取消追加行动并同步；`processUnits` 保留单位列表的读取及整体赋值接口，直接修改读取结果不会改动内部队列。追加行动取消、状态失效或目标死亡时只移除对应记录；切换回合、结束战斗会清理剩余项。需要与当前结算消息一起发送时传 ctx，避免行动条先于本次资源变化同步。
+
+没有追加项时沿用 `["sort", uid[]]`；存在追加项时发送 `["sort", uid[], FightActionDisplay[]]`，描述包含 `{ id, uid, inserted?, skill? }`。追加出手为 `["actor", uid, speed, "insert", actionId]`，客户端按 actionId 只移除一次，普通 actor 也只移除第一个匹配项。`FightClient.actions` 保存描述，`sort` 仍可包含重复 UID；宿主可据此渲染技能与追加标记。简报会在行动条标出“追加[技能]”，出手显示“追加行动”。原即时技能和破盾大招依然不占行动条。PC、西游、烟雨共用该队列。
+
+查看三个规则同时生效的三回合简报：运行 `npm run test:build` 后执行 `node --test .test-build/tests/report/test_report_ai.js`。首领跨血线从攻击力 80 提升到 96、120，第二次受伤后即时追加普攻，第三回合在队首插入裂地斩后仍保留猛虎拳；逐批验证客户端一致性和同配置、同种子的可复现性。
 
 ## 怪物模板与阵型生成
 
-`MonsterData` 保存怪物模板：`id/name/character`、`attr: FightAttr`、`skills/passiveSkills`、`attackSkill/fbackSkill/supportSkill/ultimateSkill/inputSkill` 和 `ais: AIData[]`。模板不保存战斗 `uid` 或站位。同一模板 ID 可以反复生成，运行单位用 `monsterId` 保留来源 ID。属性既可提供 FightAttr 实例，也可由表加载为同结构的 JSON 对象，生成时恢复为 FightAttr 并深拷贝。
+`MonsterData` 保存怪物模板：`id/name/character`、`attr: FightAttr`、`skills/passiveSkills`、`attackSkill/fbackSkill/supportSkill/ultimateSkill/inputSkill`、单个 `ai: AIData` 和 `rules: RuleData[]`。`CreateMonsterSide` 一次完成 AI、规则及被动装配，不要求宿主生成后再逐只绑定。模板不保存战斗 `uid` 或站位。同一模板 ID 可以反复生成，运行单位用 `monsterId` 保留来源 ID。属性既可提供 FightAttr 实例，也可由表加载为同结构的 JSON 对象，生成时恢复为 FightAttr 并深拷贝。
 
-`AIData` 为配置数据，每次生成都创建新实例：`{ type: "hp", lines, prior? }`、`{ type: "turn", every, skill, prior? }`、`{ type: "hurt", every, skill?, prior? }`。技能用 `[id, level]` 明确学习，AI 或装配不会自动学习技能。生成顺序为属性/显示、学习技能、初始化被动、显式装配、绑定多个 AI；显式装配包括 0 会覆盖被动，省略则保留被动装配。初始生命为 0 时生成死亡单位并执行普通死亡清理。
+`AIData` 当前支持 `{ type: "rearDoctor" }`，由 `createAI` 创建唯一决策实例；`RuleData` 支持 `{ type: "hp", lines, prior? }`、`{ type: "turn", every, skill, pos?, prior? }`、`{ type: "hurt", every, skill?, prior? }`，由 `createRule` 创建多条规则。每只怪物的 AI、Rule 均为独立实例。技能用 `[id, level]` 明确学习，AI、Rule 或装配不会自动学习技能。生成顺序为属性/显示、学习技能、初始化被动、显式装配、绑定规则与 AI；显式装配包括 0 会覆盖被动，省略则保留被动装配。初始生命为 0 时生成死亡单位并执行普通死亡清理。
 
 阵型独立使用 `ZhenData { id, pos: number[] }`，通过 `initZhens()` 注册。生成时传阵型 ID `zhen`，由 `getZhenPos(zhen)` 查位置，`ids[i]` 对应位置数组第 i 项；函数返回副本。模板不承载阵型，玩家的阵型加成可由宿主基于同一个阵型 ID 扩展，怪物生成当前只消费站位。
 
@@ -386,7 +433,9 @@ monster.addAI(new FightAIHurt(3));
 initMonsters([{
     id: 1001, name: "山贼", character: 11, attr: monsterAttr,
     skills: [[101, 2], [102, 1]], attackSkill: 101,
-    ais: [
+    passiveSkills: [[201, 1]],
+    ai: { type: "rearDoctor" },
+    rules: [
         { type: "hp", lines: [{ hp: 0.7, attackRate: 0.2 }] },
         { type: "turn", every: 3, skill: 102 },
         { type: "hurt", every: 3 },

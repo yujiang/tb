@@ -13,14 +13,20 @@ test('package entry exports the current Fight implementation and has declaration
     assert.equal(typeof api.FightLoopPC, 'function');
     assert.equal(typeof api.FightLoop.prototype.waitInputUtimate, 'function');
     assert.equal(typeof api.FightLoop.prototype.onInputUltimate, 'function');
+    assert.equal(typeof api.FightLoop.prototype.onError, 'function');
     assert.equal(typeof api.FightUnit.prototype.getUltimateSkill, 'function');
+    assert.equal(typeof api.FightUnitMonster.prototype.setAI, 'function');
+    assert.equal(typeof api.FightUnitMonster.prototype.setRules, 'function');
+    assert.equal(typeof api.FightUnitMonster.prototype.clearRules, 'function');
     assert.equal(typeof api.FightAI, 'function');
+    assert.ok(api.FightAIRearDoctor.prototype instanceof api.FightAI);
+    assert.equal(typeof api.createAI, 'function');
     assert.ok(api.MonsterSide.prototype instanceof api.FightSide);
-    for (const name of ['CreateMonsterSide', 'initMonsters', 'getMonsterData', 'initZhens', 'getZhenPos', 'createAI']) {
+    for (const name of ['CreateMonsterSide', 'initMonsters', 'getMonsterData', 'initZhens', 'getZhenPos', 'createRule']) {
         assert.equal(typeof api[name], 'function');
     }
-    for (const name of ['FightAIHp', 'FightAITurn', 'FightAIHurt']) {
-        assert.ok(api[name].prototype instanceof api.FightAI);
+    for (const name of ['FightRuleHp', 'FightRuleTurn', 'FightRuleHurt']) {
+        assert.ok(api[name].prototype instanceof api.FightRule);
     }
     assert.equal(typeof api.FightClient, 'function');
     assert.equal(typeof api.FightReport, 'function');

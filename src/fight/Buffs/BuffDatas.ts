@@ -29,29 +29,44 @@ export type FightUnitEvent =
 export type BuffFuncEnum = 'poison' | 'heal'
 
 export interface BuffData extends StaticData{
-    class?: string;  // 特殊的类，省略时使用普通 FightBuff
-    classParam?: any; // 针对class的参数, 比如自动复活就是血量比例
+    /** 特殊实现名：buqu/relife/taunt/reflect/rest/protect；省略或未知名使用普通 FightBuff。 */
+    class?: string;
+    /** 子类参数：relife 为最大生命比例(0,1]、缺省0.2；reflect 为 {magicOnly?:boolean}、缺省true；其他内置类不读此项。 */
+    classParam?: any;
     // class="relife"：classParam 为 (0, 1] 的数值，省略默认 0.2。
     // class="reflect"：classParam.magicOnly 默认 true，false 时也反射物理伤害。
 
-    overlap: OverlapEnum;    
+    /** 同 ID 重复添加：NOT 保留旧实例，REPLACE 替换，REL​​PACE_BYPOWER 按 power 再等级比较；详见枚举实际拼写。 */
+    overlap: OverlapEnum;
 
-    turnType?: BuffTurnEnum;    //计时/周期触发边界，默认 thisTurn
-    lastTurn: number;           //持续后续几个对应边界；0 不按回合过期
+    /** 持续时间和周期效果的边界；缺省 thisTurn=全局回合前，inputTurn=本单位输入次数，afterTurn=全局回合后。 */
+    turnType?: BuffTurnEnum;
+    /** 持续的对应边界次数，必填；正数最后一次生效后移除，0 不按回合到期；不是秒数。 */
+    lastTurn: number;
     
-    times: number;              //使用次数
-    event: FightUnitEvent;      //times发生和扣除的时机
-    prior?: number;             //带 ctx 事件的监听优先级，默认 0，小的先执行，同优先级按注册顺序
+    /** 事件使用次数，类型必填，0 不按次数到期；普通 Buff 在 event 后扣减；不屈/自动复活固定一次。 */
+    times: number;
+    /** 普通次数 Buff 的计次事件；必须使用带 ctx 的事件，attr/speed 不是该签名；特殊类可固定监听别的事件。 */
+    event: FightUnitEvent;
+    /** 监听优先级，小的先执行，同级按注册顺序；普通/反射默认0，保护500，不屈/自动复活1000。 */
+    prior?: number;
 
-    func?: BuffFuncEnum;        
-    skill?: number;             //类型3对应的skill
+    /** 周期效果 heal 或 poison，缺省不执行周期数值效果；与状态、属性、特殊类可组合。 */
+    func?: BuffFuncEnum;
+    /** 周期效果引用的技能 ID；需已注册，用其原始配置计算，不再合并施放者单位属性。 */
+    skill?: number;
+    /** 周期引用技能的等级，缺省0；与 Buff 自身用于属性成长的 level 分开。 */
     skillLevel?: number;
 
-    notRemove?: boolean;        //不能驱散
-    dieNotRemove?: boolean;     //die不删除
-    notDisplay?: boolean;       //客户端不显示
+    /** true 禁止外部驱散；缺省false，自然到期、次数耗尽、死亡清理仍各自处理。 */
+    notRemove?: boolean;
+    /** true 死亡时保留；缺省false；自动复活 Buff 必须填 true 才能在死后继续监听。 */
+    dieNotRemove?: boolean;
+    /** true 不进入单位 Buff 展示列表；缺省false，不影响实际效果与服务端结算。 */
+    notDisplay?: boolean;
 
-    power?: number;             //removeBuff用到， 低power不能移除高power的buff
+    /** Buff 驱散强度，当前实现缺省0，显式0有效；驱散只比 power，覆盖同 ID 时还比较 Buff 等级。 */
+    power?: number;
 }
 
 const buffs = new Map<number,BuffData>();

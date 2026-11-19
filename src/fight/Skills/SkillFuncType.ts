@@ -6,6 +6,7 @@ import { skillAttackFunc } from "./Funcs/NomalSkill";
 import { poisonFunc } from "./Funcs/Poison";
 import { relifeFunc } from "./Funcs/Relife";
 import { FightContex } from "../Fight";
+import { multiFunc } from "./Funcs/Multi";
 
 
 export type SkillFuncType = (attacker: FightUnit, defender: FightUnit, skill: FightSkill, ctx: FightContex) => boolean;
@@ -33,7 +34,12 @@ export function skillFunc(attacker: FightUnit, defender: FightUnit, skillId: num
 
     // defender 可能不合适了，因为可能被前面的人打飞了~
     const sel = skill.getSel();
-    if (!defender || !defender.isFillterDie(sel.die)) {
+    if (skill.isMulti()) {
+        if (!f.getAllUnits().some(target => f.isLegalTarget(attacker, target, sel) && !skill.getTargetHint(target))) {
+            attacker.hintClient("没有可用目标");
+            return false;
+        }
+    } else if (!defender || !defender.isFillterDie(sel.die)) {
         defender = f.selectMainTarget(attacker, sel);
         if (!defender) {
             attacker.hintClient("没有可用目标");
@@ -48,6 +54,7 @@ export function skillFunc(attacker: FightUnit, defender: FightUnit, skillId: num
     if (cost && !attacker.costSkill(cost, ctx)) return;
     attacker.startSkillCd(skill, ctx);
 
+    if (skill.isMulti() && func !== skillAttackFunc) return multiFunc(attacker, skill, ctx, func);
     const result = func(attacker, defender, skill, ctx);
     // 普通攻击类在整条反应链结束后处理自身效果；其余技能在本次执行完成后处理。
     if (result && func !== skillAttackFunc) afterSelfBuff(attacker, skill, ctx);

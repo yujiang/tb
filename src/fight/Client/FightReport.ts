@@ -166,12 +166,16 @@ export class FightReport{
                     this.write(`第 ${msg[1]} 回合`);
                     break;
                 case "sort":
-                    this.write(`剩余行动顺序：${(msg[1] as number[]).map(name).join(" → ") || "无"}`);
+                    this.write(`剩余行动顺序：${(msg[1] as number[]).map((uid, index) => {
+                        const action = msg[2]?.[index];
+                        return name(uid) + (action?.inserted ? `（追加${action.skill !== undefined ? this.skillName(action.skill) : "行动"}）` : "");
+                    }).join(" → ") || "无"}`);
                     break;
                 case "actor":
                     this.write("");
                     this.write(msg[3] === "ultimate" ? `${name(msg[1])} 施放大招` :
-                        msg[3] === "skill" ? `${name(msg[1])} 施放即时技能` : `${name(msg[1])} 行动（速度 ${msg[2]}）`);
+                        msg[3] === "skill" ? `${name(msg[1])} 施放即时技能` :
+                        msg[3] === "insert" ? `${name(msg[1])} 追加行动` : `${name(msg[1])} 行动（速度 ${msg[2]}）`);
                     break;
                 case "ultimateReady":
                     this.write(`${msg[1] === 0 ? "攻击方" : "防守方"}${msg[2] ? "获得一次大招机会" : "的大招机会结束"}`);

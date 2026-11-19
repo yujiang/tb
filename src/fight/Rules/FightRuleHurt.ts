@@ -1,11 +1,11 @@
 import { strict as assert } from "node:assert";
-import { FightAI } from "./FightAI";
+import { FightRule } from "./FightRule";
 import type { FightUnit, HurtOptions } from "../Unit/FightUnit";
 import { skillAttackFunc } from "../Skills/Funcs/NomalSkill";
 import { attackFunc } from "../Skills/Funcs/NormalAttack";
 
 // 只在允许攻击时计次；完整 action 结束后，对伤害来源发动普通攻击，不走 fback。
-export class FightAIHurt extends FightAI {
+export class FightRuleHurt extends FightRule {
     private hits = 0;
     constructor(readonly every: number, readonly skill?: number) {
         super();

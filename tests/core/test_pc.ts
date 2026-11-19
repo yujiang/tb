@@ -203,23 +203,27 @@ test("pc: victory stops remaining input requests and automatic actions", async (
     assert.equal(s.b.myInputTurn, 0); assert.ok(s.client.checkSame(s.fight));
 });
 
-// 测试：输入回调抛错应向宿主传播并关闭窗口，不能继续向失败的调度提交指令。
-test("pc: input callback errors propagate and close the input window", async () => {
+// 测试：输入回调抛错应记录错误、判攻击方失败并关闭窗口，不能继续提交指令。
+test("pc: input callback errors end the fight and close the input window", async t => {
+    const logged = t.mock.method(console, "error", () => {});
     const s = setup(); s.prepare();
     s.loop.on("input", () => { throw new Error("input failure"); });
-    await assert.rejects(s.loop.processOneTurn(1), /input failure/);
+    await s.loop.processOneTurn(1);
+    assert.equal(s.fight.win, FightResultEnum.defend); assert.equal(logged.mock.callCount(), 1);
     assert.equal(s.loop.inputUnit, undefined);
     assert.equal(s.loop.onInput(s.a.uid, { cmd: FightCmdEnum.attack }), false); s.loop.end();
 });
 
-// 测试：输入回调提交成功后再抛错也必须传播，不能被已完成的输入 Promise 吞掉。
-test("pc: errors after synchronous input submission are not swallowed", async () => {
+// 测试：输入回调提交成功后再抛错也必须判负并记录，不能被已完成的输入 Promise 吞掉。
+test("pc: errors after synchronous input submission end the fight", async t => {
+    const logged = t.mock.method(console, "error", () => {});
     const s = setup(); s.prepare();
     s.loop.on("input", unit => {
         s.loop.onInput(unit.uid, { cmd: FightCmdEnum.attack });
         throw new Error("after input failure");
     });
-    await assert.rejects(s.loop.processOneTurn(1), /after input failure/);
+    await s.loop.processOneTurn(1);
+    assert.equal(s.fight.win, FightResultEnum.defend); assert.equal(logged.mock.callCount(), 1);
     assert.equal(s.loop.inputUnit, undefined); s.loop.end();
 });
 

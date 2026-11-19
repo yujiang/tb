@@ -1,15 +1,17 @@
 import { strict as assert } from "node:assert";
-import { FightAI } from "./FightAI";
+import { FightRule } from "./FightRule";
 import type { FightContex } from "../Fight";
 import type { FightAttr } from "../FightAttr";
 import type { FightUnit } from "../Unit/FightUnit";
 
 export interface HpAxisLine {
-    hp: number;         // 当前生命比例 <= hp 时触发，例如 0.7
-    attackRate: number; // 攻击力增量比例，例如 0.2 表示增加 20%，各条相加
+    /** 血线比例，有限数(0,1]；当前 hp/hpMax <= 此值时触发，包括初始生命已在血线以下。 */
+    hp: number;
+    /** 增攻比例，非负有限数；0.2 表示增加20%，多条累计相加，只影响物理/魔法各攻击分组。 */
+    attackRate: number;
 }
 
-export class FightAIHp extends FightAI {
+export class FightRuleHp extends FightRule {
     private lines: HpAxisLine[];
     private reached = new Set<number>();
     private attackBonus = 0;

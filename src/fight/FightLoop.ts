@@ -1,13 +1,79 @@
 import { Fight, FightContex, initFightContex } from "./Fight";
 import { FightUnit, sortByAttr } from "./Unit/FightUnit";
-import { FightCmdEnum, FightInput, fightMsg, FightSideEnum } from "./struct";
+import { FightCmdEnum, FightInput, fightMsg, FightSideEnum, InsertActionPos, FightResultEnum } from "./struct";
 import EventEmitter from "node:events";
+import { FightActionQueue, FightAction } from "./FightActionQueue";
 
 export type bcMsgFunc = (msgs: fightMsg | fightMsg[])=>void;
 export interface UltimateInput { unit: FightUnit; input: FightInput; }
+export interface FightErrorContext {
+    fid: number;
+    seed: number;
+    turn: number;
+    action?: number;
+    actor?: number;
+    input?: FightInput;
+}
 
 export abstract class FightLoop {
+    protected readonly actionQueue = new FightActionQueue();
+    protected currentAction: FightAction | undefined;
+    private queueTurn = -1;
+    get actions(): readonly FightAction[] { return this.actionQueue.actions; }
+    // 兼容宿主读取/设置普通单位队列；调度内部使用可重复单位的行动记录。
+    get processUnits(): FightUnit[] { return this.actionQueue.units; }
+    set processUnits(units: FightUnit[]) { this.actionQueue.reset(units); this.queueTurn = this.fight.turn; }
+    private actionInserter = (unit: FightUnit, input: FightInput, pos: InsertActionPos, ctx?: FightContex) => this.insertAction(unit, input, pos, ctx);
+    insertAction(unit: FightUnit, input: FightInput, pos = InsertActionPos.first, ctx?: FightContex): boolean {
+        if (this.stopped || this.fight.isEnd() || this.queueTurn !== this.fight.turn ||
+            unit.fight !== this.fight || !this.fight.getAllUnits().includes(unit) || !this.fight.checkPC(unit, input)) return false;
+        this.actionQueue.insert(unit, input, pos, () => this.fight.random(), this.currentAction);
+        this.syncActionOrder(ctx);
+        return true;
+    }
+    cancelAction(id: number): boolean {
+        if (!this.actionQueue.cancel(id)) return false;
+        this.syncActionOrder(); return true;
+    }
+    protected syncActionOrder(ctx?: FightContex) {
+        const msg: fightMsg = ["sort", this.processUnits.map(unit => unit.uid)];
+        if (this.actions.some(action => action.inserted)) msg.push(this.actionQueue.display());
+        if (ctx) ctx.msgs.push(msg); else this.bcMsg(msg);
+    }
+    protected takeAction() { return this.currentAction = this.actionQueue.shift(); }
+    protected insertedContext(action: FightAction): FightContex | undefined {
+        if (!this.fight.checkPC(action.unit, action.input)) return undefined;
+        return this.fight.processUnit(action.unit, action.input);
+    }
+    protected actorMessage(action: FightAction): fightMsg {
+        return action.inserted ? ["actor", action.unit.uid, action.unit.getSpeed(), "insert", action.id] :
+            ["actor", action.unit.uid, action.unit.getSpeed()];
+    }
     protected stopped = false;
+    protected failed = false;
+    // 宿主可以覆盖日志入口；原始异常对象保留堆栈，context 保存当前行动意图。
+    onError(error: unknown, context: FightErrorContext) {
+        console.error("战斗异常，停止战斗并判攻击方失败：", context, error);
+    }
+    private reportFailure(error: unknown, unit?: FightUnit, input?: FightInput) {
+        if (this.failed) return;
+        this.failed = true;
+        this.fight.win = FightResultEnum.defend;
+        this.fight.resetUltimate();
+        const action = unit === undefined && input === undefined ? this.currentAction : undefined;
+        unit ??= this.currentAction?.unit;
+        input ??= this.currentAction?.input ?? unit?.input;
+        const context: FightErrorContext = { fid: this.fight.fid, seed: this.fight.seed, turn: this.fight.turn,
+            ...(action ? { action: action.id } : {}),
+            ...(unit ? { actor: unit.uid } : {}), ...(input ? { input: { ...input } } : {}) };
+        try { this.onError(error, context); }
+        catch (loggingError) { console.error("战斗异常日志回调失败：", loggingError, "原始异常：", error); }
+    }
+    protected fail(error: unknown, unit?: FightUnit, input?: FightInput) {
+        if (this.failed) return;
+        this.reportFailure(error, unit, input);
+        this.end();
+    }
     private ultimateInput: { side: FightSideEnum; turn: number; resolve: (choice?: UltimateInput) => void } | undefined;
     get ultimateSide(): FightSideEnum | undefined { return this.ultimateInput?.side; }
     fight: Fight;
@@ -31,6 +97,11 @@ export abstract class FightLoop {
     }
 
     async run() {
+        try { return await this.runBattle(); }
+        catch (error) { this.fail(error); return this.fight.win; }
+    }
+
+    private async runBattle() {
         const f = this.fight;
         this.start();
         f.checkOutcome();
@@ -80,6 +151,9 @@ export abstract class FightLoop {
 
     start() {
         this.stopped = false;
+        this.failed = false;
+        this.actionQueue.clear(); this.queueTurn = -1; this.currentAction = undefined;
+        this.fight.setActionInserter(this.actionInserter);
         this.closeUltimateInput();
         this.fight.resetUltimate();
         const all = this.fight.getAllUnits();        
@@ -98,11 +172,19 @@ export abstract class FightLoop {
     end() {
         if (this.stopped) return;
         this.stopped = true;
+        this.fight.clearActionInserter(this.actionInserter);
+        this.actionQueue.clear(); this.queueTurn = -1; this.currentAction = undefined;
         this.closeUltimateInput();
         this.fight.offUnitEvent("speed", this.speedListener);
-        for (const unit of this.fight.getAllUnits()) unit.endFight();
-        this.bcMsg(["end", this.fight.win]);
-        this.emitEvent("end");
+        for (const unit of this.fight.getAllUnits()) {
+            try { unit.endFight(); }
+            catch (error) { this.reportFailure(error, unit); }
+        }
+        // 收尾回调完成后再发送最终结果，回调异常同样按攻击方失败结算。
+        try { this.emitEvent("end"); }
+        catch (error) { this.reportFailure(error); }
+        try { this.bcMsg(["end", this.fight.win]); }
+        catch (error) { this.reportFailure(error); }
     }
 
     nextTurn() {
@@ -110,15 +192,17 @@ export abstract class FightLoop {
         const turn = this.fight.nextTurn();
         this.emitEvent("turn")
         this.bcMsg(["turn", turn]);
-        this.bcMsg(["sort", this.sortUnitsByProcess(false).map(unit => unit.uid)]);
+        this.currentAction = undefined;
+        this.sortUnitsByProcess(false);
+        this.syncActionOrder();
         return turn;
     }
 
     private speedListener = (unit: FightUnit) => this.onChangeSpeed(unit);
     onChangeSpeed(unit: FightUnit) {
         if (!this.processUnits?.includes(unit)) return;
-        this.processUnits.sort((a, b) => this.compareProcessUnits(a, b, false));
-        this.bcMsg(["sort", this.processUnits.map(unit => unit.uid)]);
+        this.actionQueue.sort((a, b) => this.compareProcessUnits(a, b, false));
+        this.syncActionOrder();
     }
 
     // return 0: 超时, 1: 正常结束
@@ -141,6 +225,11 @@ export abstract class FightLoop {
     }
 
     onInputUltimate(id: number, input: FightInput): boolean {
+        try { return this.acceptUltimateInput(id, input); }
+        catch (error) { this.fail(error, this.fight.getUnitById(id), input); return false; }
+    }
+
+    private acceptUltimateInput(id: number, input: FightInput): boolean {
         const pending = this.ultimateInput;
         if (this.stopped || !pending || this.fight.isEnd() || pending.turn !== this.fight.turn ||
             !input || (input.turn !== undefined && input.turn !== pending.turn)) return false;
@@ -161,6 +250,11 @@ export abstract class FightLoop {
     }
 
     protected async processUltimate(turn: number, waitBefore = false) {
+        try { await this.processUltimateActions(turn, waitBefore); }
+        catch (error) { this.fail(error); }
+    }
+
+    private async processUltimateActions(turn: number, waitBefore: boolean) {
         for (const side of [FightSideEnum.attack, FightSideEnum.defend]) {
             if (!this.fight.hasUltimateChance(side) || !this.getUltimateUnits(side).length) continue;
             if (waitBefore) await this.waitDrawOver();
@@ -191,7 +285,6 @@ export abstract class FightLoop {
     // 默认每回合统一等待；逐动作等待的循环可覆盖，避免重复等待。
     protected async waitTurnDrawOver() { await this.waitDrawOver(); }
 
-    processUnits: FightUnit[];
     compareProcessUnits(a: FightUnit, b: FightUnit, withInput = true) {
         const priority = (unit: FightUnit) => withInput && unit.input?.cmd === FightCmdEnum.protect ? 1 : 0;
         return priority(b) - priority(a) || b.getSpeedOrder() - a.getSpeedOrder();

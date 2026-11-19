@@ -16,22 +16,26 @@ export class FightLoopWest extends FightLoopOnline {
         return super.sortUnitsByProcess(withInput);
     }
     override async processOneTurn(turn: number) {
+        try { await this.processQueue(turn); }
+        catch (error) { this.fail(error); }
+    }
+
+    private async processQueue(turn: number) {
         // 根据玩家速度来建立出手列表
         // 按出手列表顺序,依次处理
         let index = 0;
-        let all = this.processUnits;
         this.inputOrderReady = true;
         // 指令收齐后按优先级、速度统一排序，先同步行动条，再逐个执行。
-        all.sort((a, b) => this.compareProcessUnits(a, b));
-        this.bcMsg(["sort", all.map(u => u.uid)]);
-        while (all.length && !this.fight.isEnd() && !this.stopped) {
-            const u = all.shift();
-            let ctx = u.processOneTurn(turn);
+        this.actionQueue.sort((a, b) => this.compareProcessUnits(a, b));
+        this.syncActionOrder();
+        while (this.actionQueue.length && !this.fight.isEnd() && !this.stopped) {
+            const action = this.takeAction(), u = action.unit;
+            let ctx = action.inserted ? this.insertedContext(action) : u.processOneTurn(turn);
             if (ctx) {
-                ctx.msgs.unshift(["actor", u.uid, u.getSpeed()]);
+                ctx.msgs.unshift(this.actorMessage(action));
                 this.bcMsg(ctx.msgs);
                 if (this.fight.xls.allShieldBreak) await this.processUltimate(turn, true);
-            }
+            } else this.syncActionOrder();
             index++;
         }
     }
@@ -40,14 +44,15 @@ export class FightLoopWest extends FightLoopOnline {
         const all = this.processUnits;
         if (all?.includes(u)) {
             // this.processUnits 重新排序？
-            all.sort((a, b) => this.compareProcessUnits(a, b, this.inputOrderReady));
-            this.bcMsg(["sort", all.map(u => u.uid)]);
+            this.actionQueue.sort((a, b) => this.compareProcessUnits(a, b, this.inputOrderReady));
+            this.syncActionOrder();
         }
     }
 
     input = 0;
     inputed = 0;
     inputResolve: (value: number) => void = null;
+    private inputTimer: AbortController | undefined;
     override async waitInput(turn: number, ctx: FightContex): Promise<number> {
         const all = this.fight.getAllUnits();
         let input = 0;
@@ -66,6 +71,7 @@ export class FightLoopWest extends FightLoopOnline {
         });
         const wait = this.fight.xls.waitInputSec || 30;
         const timer = new AbortController();
+        this.inputTimer = timer;
         const p2 = delay(wait * 1000, 0, { signal: timer.signal });
         try {
             return await Promise.race([p, p2]);
@@ -73,10 +79,16 @@ export class FightLoopWest extends FightLoopOnline {
             this.input = 0;
             this.inputResolve = null;
             timer.abort();
+            if (this.inputTimer === timer) this.inputTimer = undefined;
         }
     }
 
     onInput(id: number, input: FightInput) {
+        try { this.acceptInput(id, input); }
+        catch (error) { this.fail(error, this.fight.getUnitById(id), input); }
+    }
+
+    private acceptInput(id: number, input: FightInput) {
         if (this.input == 0 || this.fight.isEnd() || input?.turn !== this.fight.turn) return;
 
         const unit = this.fight.getUnitById(id);
@@ -95,5 +107,13 @@ export class FightLoopWest extends FightLoopOnline {
                 }
             }
         }
+    }
+
+    override end() {
+        const resolve = this.inputResolve;
+        this.input = 0; this.inputed = 0; this.inputResolve = null;
+        resolve?.(0);
+        this.inputTimer?.abort(); this.inputTimer = undefined;
+        super.end();
     }
 }

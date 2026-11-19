@@ -3,6 +3,7 @@ import { FightContex } from "../Fight";
 import { FightCmdEnum, FightInput } from "../struct";
 import { FightLoopOnline } from "./FightLoopOnline";
 import { FightUnitMonster } from "../Unit/FightUnitMonster";
+import type { FightUnit } from "../Unit/FightUnit";
 
 // 烟雨江湖
 // 对位自动普攻自动打, 玩家只需要按技能
@@ -48,10 +49,12 @@ export class FightLoopYanYu extends FightLoopOnline {
 
     // 返回是否接受入队；实际执行时仍复验，等待期间可能死亡、封印或资源不足。
     override async onInput(id: number, input: FightInput): Promise<boolean> {
-        if (!this.canCast(id, input)) return false;
-        this.skills.push({ id, input: { ...input } });
-        await this.drain(this.fight.turn);
-        return true;
+        try {
+            if (!this.canCast(id, input)) return false;
+            this.skills.push({ id, input: { ...input } });
+            await this.drain(this.fight.turn);
+            return !this.failed;
+        } catch (error) { this.fail(error, this.fight.getUnitById(id), input); return false; }
     }
 
     private canCast(id: number, input: FightInput): boolean {
@@ -79,24 +82,28 @@ export class FightLoopYanYu extends FightLoopOnline {
     }
 
     private async processQueue(turn: number) {
+        let activeUnit: FightUnit | undefined;
+        let activeInput: FightInput | undefined;
         // 先让 running 完成赋值，消息回调中的重入输入只入队，不另开结算循环。
         await Promise.resolve();
         try {
             while (this.started && !this.fight.isEnd() && this.fight.turn === turn) {
+                activeUnit = undefined; activeInput = undefined;
                 const queued = this.skills.shift();
                 let ctx: FightContex;
                 if (queued) {
+                    activeUnit = this.fight.getUnitById(queued.id); activeInput = queued.input;
                     if (!this.canCast(queued.id, queued.input)) continue;
                     const unit = this.fight.getUnitById(queued.id);
                     ctx = this.fight.processUnit(unit, queued.input);
                     if (ctx) ctx.msgs.unshift(["actor", unit.uid, unit.getSpeed(), "skill"]);
                 } else if (this.automaticTurn === turn && this.processUnits?.length) {
-                    const unit = this.processUnits.shift();
+                    const action = this.takeAction(), unit = action.unit;
                     // 显式 FightAI 可以选择主动技能；未配置 AI 的单位保留原自动普攻行为。
                     const input = unit instanceof FightUnitMonster && unit.ai ? unit.input : undefined;
-                    ctx = this.fight.processUnit(unit, input ?? { cmd: FightCmdEnum.attack });
-                    if (ctx) ctx.msgs.unshift(["actor", unit.uid, unit.getSpeed()]);
-                    else this.bcMsg(["sort", this.processUnits.map(unit => unit.uid)]);
+                    ctx = action.inserted ? this.insertedContext(action) : this.fight.processUnit(unit, input ?? { cmd: FightCmdEnum.attack });
+                    if (ctx) ctx.msgs.unshift(this.actorMessage(action));
+                    else this.syncActionOrder();
                 } else break;
                 if (ctx) {
                     this.bcMsg(ctx.msgs);
@@ -106,9 +113,7 @@ export class FightLoopYanYu extends FightLoopOnline {
             }
             if (this.automaticTurn === turn || this.fight.isEnd()) this.accepting = false;
         } catch (error) {
-            this.accepting = false;
-            this.skills.length = 0;
-            throw error;
+            this.fail(error, activeUnit, activeInput);
         } finally {
             if (this.automaticTurn === turn) this.automaticTurn = undefined;
             if (!this.accepting || this.fight.isEnd()) this.skills.length = 0;

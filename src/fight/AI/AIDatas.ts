@@ -1,20 +1,15 @@
 import { FightAI } from "./FightAI";
-import { FightAIHp, HpAxisLine } from "./FightAIHp";
-import { FightAITurn } from "./FightAITurn";
-import { FightAIHurt } from "./FightAIHurt";
+import { FightAIRearDoctor } from "./FightAIRearDoctor";
 
-// 模板只放配置，每次生成怪物都创建新 AI 实例，不共享计数、阶段或监听。
-export type AIData = { prior?: number } & (
-    { type: "hp"; lines: HpAxisLine[] } |
-    { type: "turn"; every: number; skill: number } |
-    { type: "hurt"; every: number; skill?: number }
-);
+// 每只怪物只选一个决策 AI；固定行为组合放在 RuleData 中。
+export interface AIData {
+    /** rearDoctor：普攻优先敌方存活后排医生，多人随机；无候选回退默认目标，嘲讽仍可覆盖。 */
+    type: "rearDoctor";
+}
 
 export function createAI(data: AIData): FightAI {
     switch (data.type) {
-        case "hp": return new FightAIHp(data.lines);
-        case "turn": return new FightAITurn(data.every, data.skill);
-        case "hurt": return new FightAIHurt(data.every, data.skill);
-        default: throw new Error(`Unknown AI type: ${(data as { type: string }).type}`);
+        case "rearDoctor": return new FightAIRearDoctor();
+        default: throw new Error(`Unknown AI type: ${data.type}`);
     }
 }

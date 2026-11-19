@@ -3,7 +3,7 @@
 
 import { strict as assert } from "node:assert";
 import { isDeepStrictEqual } from "node:util";
-import { fightMsg } from "../struct";
+import { fightMsg, FightActionDisplay } from "../struct";
 import { Fight } from "../Fight";
 import { FightLoop } from "../FightLoop";
 import { FightUnit } from "../Unit/FightUnit";
@@ -17,6 +17,7 @@ export class FightClient{
     win = FightResultEnum.ongoing;
     sides: [FightClientUnit[], FightClientUnit[]] = [[], []];
     sort: number[] = [];
+    actions: FightActionDisplay[] = [];
     actor: number | undefined;
     ultimateReady: [boolean, boolean] = [false, false];
     private boundLoops = new WeakMap<FightLoop, { autocheck: boolean }>();
@@ -60,6 +61,7 @@ export class FightClient{
                     this.win = FightResultEnum.ongoing;
                     this.sides = [[], []];
                     this.sort = [];
+                    this.actions = [];
                     this.actor = undefined;
                     break;
                 case "side":
@@ -74,13 +76,19 @@ export class FightClient{
                     if (this.win !== FightResultEnum.ongoing) this.ultimateReady = [false, false];
                     this.actor = undefined;
                     this.sort = [];
+                    this.actions = [];
                     break;
                 case "sort":
                     this.sort = [...msg[1]];
+                    this.actions = msg[2] ? structuredClone(msg[2]) : this.sort.map((uid, id) => ({ id, uid }));
                     break;
                 case "actor":
                     this.actor = msg[1];
-                    if (msg[3] !== "skill" && msg[3] !== "ultimate") this.sort = this.sort.filter(id => id !== this.actor);
+                    if (msg[3] !== "skill" && msg[3] !== "ultimate") {
+                        const index = msg[4] !== undefined ? this.actions.findIndex(action => action.id === msg[4]) :
+                            this.sort.indexOf(this.actor);
+                        if (index >= 0) { this.sort.splice(index, 1); this.actions.splice(index, 1); }
+                    }
                     break;
                 case "ultimateReady":
                     this.ultimateReady[msg[1] as 0 | 1] = msg[2];

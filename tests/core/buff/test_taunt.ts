@@ -32,7 +32,7 @@ function setup(extra: Partial<BuffData> = {}) {
         { ...common, id: healId, func: "heal", sel: { target: TargetSelectEnum.friend, sortAttr: "hp" } },
         { ...common, id: selfId, func: "heal", sel: { target: TargetSelectEnum.self } },
         { ...common, id: positionId, sel: { target: TargetSelectEnum.duiwei } },
-        { ...common, id: areaId, spread: spreadId, sel: { target: TargetSelectEnum.enmey, num: 2, sortAttr: "hp" } },
+        { ...common, id: areaId, spread: spreadId, sel: { target: TargetSelectEnum.enmey, numSpread: 2, sortAttr: "hp" } },
         { ...common, id: spreadId, sel: { target: TargetSelectEnum.enmey } },
     ]);
     const fight = new Fight(97800, { maxTurn: 10, waitInputSec: 1, duiwei: false }, 0);

@@ -1,9 +1,10 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { BaseAttack, Fight, FightAIHp, FightAITurn, FightAIHurt, FightAttr, FightClient, FightCmdEnum,
+import { BaseAttack, Fight, FightRuleHp, FightRuleTurn, FightRuleHurt, FightAttr, FightClient, FightCmdEnum,
+    FightAIRearDoctor,
     FightLoopPC, FightReport, MonsterData, MonsterSide, CreateMonsterSide, initMonsters, getMonsterData,
     initZhens, getZhenPos, getZhenData, initSkills, initPassives, initBuffs, TargetSelectEnum,
-    OverlapEnum, BuffTurnEnum, initFightContex, WeaponEnum } from "../../src";
+    OverlapEnum, BuffTurnEnum, initFightContex, WeaponEnum, CarerrEnum } from "../../src";
 
 const monsterId = 1001200, skillId = 1001201, cycleId = 1001202, ultimateId = 1001203,
     passiveId = 1001204, buffId = 1001205, zhenId = 1001206;
@@ -30,7 +31,7 @@ function setup() {
     const data: MonsterData = { id: monsterId, name: "山贼", character: 0, attr: attributes(),
         skills: [[skillId, 2], [cycleId, 1], [ultimateId, 1]], passiveSkills: [[passiveId, 1]],
         supportSkill: skillId, fbackSkill: 0,
-        ais: [{ type: "hp", lines: [{ hp: 0.7, attackRate: 0.2 }], prior: 10 },
+        rules: [{ type: "hp", lines: [{ hp: 0.7, attackRate: 0.2 }], prior: 10 },
             { type: "hurt", every: 2, prior: 5 }, { type: "turn", every: 3, skill: cycleId }] };
     initMonsters([data]); initZhens([{ id: zhenId, pos: [4, 0, 2, 6] }]);
     let nextUid = 0; const allocateUid = () => nextUid++;
@@ -47,16 +48,58 @@ test("monster side: lookup template IDs and formation IDs to create distinct uni
     assert.equal(side.units[0].findSkill(skillId).level, 2); assert.equal(side.units[0].attackSkill, skillId);
     assert.equal(side.units[0].ultimateSkill, ultimateId); assert.equal(side.units[0].supportSkill, skillId);
     assert.equal(side.units[0].attr.magic.base.attack, 120); assert.equal(side.units[0].attrOri.magic.base.attack, 100);
-    assert.ok(side.units[0].ais[0] instanceof FightAITurn); assert.ok(side.units[0].ais[1] instanceof FightAIHurt);
-    assert.ok(side.units[0].ais[2] instanceof FightAIHp);
+    assert.ok(side.units[0].rules[0] instanceof FightRuleTurn); assert.ok(side.units[0].rules[1] instanceof FightRuleHurt);
+    assert.ok(side.units[0].rules[2] instanceof FightRuleHp);
 });
 
-// 测试：同模板的属性、被动 Buff 和 AI 实例互相独立，运行中的变化不回写模板。
-test("monster side: attributes, passive buffs and AI state are independent for repeated IDs", () => {
+// 怪物模板一次装配单个 AI、多条规则与被动，重复模板生成的实例互不共享。
+test("monster side: one template assembles AI rules and passives together", () => {
+    const { data, allocateUid } = setup();
+    const configured = { ...data, id: monsterId + 24, ai: { type: "rearDoctor" as const } };
+    const original = structuredClone(configured);
+    initMonsters([configured]);
+    const [first, second] = CreateMonsterSide([configured.id, configured.id], zhenId, allocateUid).units;
+    assert.ok(first.ai instanceof FightAIRearDoctor);
+    assert.ok(second.ai instanceof FightAIRearDoctor);
+    assert.notEqual(first.ai, second.ai);
+    assert.equal(first.rules.length, 3);
+    assert.ok(first.rules[0] instanceof FightRuleTurn);
+    assert.notEqual(first.rules[0], second.rules[0]);
+    assert.ok(first.findBuff(buffId));
+    assert.notEqual(first.findBuff(buffId), second.findBuff(buffId));
+    assert.equal(first.attr.magic.base.attack, 120);
+    assert.deepEqual(structuredClone(configured), original);
+});
+
+// 完全从表生成的 AI、规则和被动可直接运行，优先打后排医生并保持客户端增量一致。
+test("monster side: a template-equipped AI attacks the generated rear doctor", () => {
+    const { data, allocateUid } = setup();
+    const doctorAttr = attributes(); doctorAttr.career = CarerrEnum.医生;
+    initMonsters([{ ...data, id: monsterId + 25, ai: { type: "rearDoctor" } },
+        { id: monsterId + 26, name: "医生", attr: doctorAttr }]);
+    initZhens([{ id: zhenId + 50, pos: [0, 6] }]);
+    const left = CreateMonsterSide([monsterId + 25], zhenId, allocateUid);
+    const right = CreateMonsterSide([monsterId + 26, monsterId + 26], zhenId + 50, allocateUid);
+    const fight = new Fight(1001502, { maxTurn: 2, waitInputSec: 1, duiwei: true }, 0);
+    fight.createSide(left, right); fight.createMap(3, 3);
+    const loop = new FightLoopPC(fight), client = new FightClient();
+    loop.onMsg(msgs => client.onMsg(structuredClone(msgs))); loop.start(); loop.nextTurn();
+    const monster = left.units[0];
+    monster.inputStart(1, initFightContex(fight));
+    assert.equal(monster.input.target, right.units[1].uid);
+    const ctx = fight.processUnit(monster, monster.input); loop.bcMsg(ctx.msgs);
+    assert.equal(right.units[0].getHp(), 1000);
+    assert.ok(right.units[1].getHp() < 1000);
+    assert.equal(monster.rules.length, 3); assert.ok(monster.findBuff(buffId));
+    assert.ok(client.checkSame(fight)); loop.end();
+});
+
+// 测试：同模板的属性、被动 Buff 和规则实例互相独立，运行中的变化不回写模板。
+test("monster side: attributes, passive buffs and rule state are independent for repeated IDs", () => {
     const { data, allocateUid } = setup(), before = JSON.stringify(data);
     const side = CreateMonsterSide([monsterId, monsterId], zhenId, allocateUid), [a, b] = side.units;
     assert.notEqual(a.attrOri, b.attrOri); assert.notEqual(a.attrOri.point, b.attrOri.point);
-    assert.notEqual(a.findBuff(buffId), b.findBuff(buffId)); assert.notEqual(a.ais[0], b.ais[0]);
+    assert.notEqual(a.findBuff(buffId), b.findBuff(buffId)); assert.notEqual(a.rules[0], b.rules[0]);
     const enemy = CreateMonsterSide([monsterId], zhenId, allocateUid);
     const fight = new Fight(1001200, { maxTurn: 1, waitInputSec: 1, duiwei: false }, 0); fight.createSide(side, enemy);
     const ctx = initFightContex(fight); fight.resolveAction(() => a.onHurt(enemy.units[0], "test", 400, ctx, { source: "buff" }));
@@ -72,7 +115,7 @@ test("monster side: plain JSON attributes become FightAttr instances without opt
     initZhens([{ id: 0, pos: [0] }]);
     const unit = CreateMonsterSide([0], 0, allocateUid).units[0];
     assert.equal(unit.monsterId, 0); assert.ok(unit.attrOri instanceof FightAttr); assert.ok(unit.attr instanceof FightAttr);
-    assert.equal(unit.getAttr("hp"), 1000); assert.equal(unit.ais.length, 0);
+    assert.equal(unit.getAttr("hp"), 1000); assert.equal(unit.rules.length, 0);
     unit.inputStart(1, { fight: undefined, attack: null, defend: null, msgs: [], effects: [] });
     assert.equal(unit.input.cmd, FightCmdEnum.none);
 });
@@ -80,9 +123,9 @@ test("monster side: plain JSON attributes become FightAttr instances without opt
 // 测试：显式零装配覆盖被动，省略装配保留被动，零级技能保留固定加成。
 test("monster side: zero equipment overrides passives and level zero remains meaningful", () => {
     const { data, allocateUid } = setup();
-    initMonsters([{ ...data, id: monsterId + 20, attackSkill: 0, ultimateSkill: 0, ais: [], skills: [[skillId, 0], [ultimateId, 0]] }]);
+    initMonsters([{ ...data, id: monsterId + 20, attackSkill: 0, ultimateSkill: 0, rules: [], skills: [[skillId, 0], [ultimateId, 0]] }]);
     const unit = CreateMonsterSide([monsterId + 20], zhenId, allocateUid).units[0];
-    assert.equal(unit.attackSkill, 0); assert.equal(unit.ultimateSkill, 0); assert.equal(unit.ais.length, 0);
+    assert.equal(unit.attackSkill, 0); assert.equal(unit.ultimateSkill, 0); assert.equal(unit.rules.length, 0);
     assert.equal(unit.findSkill(skillId).level, 0); assert.equal(unit.findSkill(skillId).getAttack().attack, 10);
 });
 
@@ -119,8 +162,8 @@ test("monster side: missing learned skills and passives are configuration errors
     assert.equal(getMonsterData(monsterId).name, "山贼");
 });
 
-// 测试：查表生成的双方能直接运行单机战斗，多个 AI 同时工作并逐批通过客户端一致性校验。
-test("monster side: generated units run together with all three AI axes", async () => {
+// 测试：查表生成的双方能直接运行单机战斗，多个规则同时工作并逐批通过客户端一致性校验。
+test("monster side: generated units run together with all three rule axes", async () => {
     const { allocateUid } = setup(); const left = CreateMonsterSide([monsterId], zhenId, allocateUid);
     const right = CreateMonsterSide([monsterId], zhenId, allocateUid);
     const fight = new Fight(1001200, { maxTurn: 3, waitInputSec: 1, duiwei: false }, 0); fight.createSide(left, right);
@@ -138,7 +181,7 @@ test("monster side: generated units run together with all three AI axes", async 
 // 测试：模板显式初始生命为零时生成死亡单位并清理普通 Buff，不把尸体当成存活怪物。
 test("monster side: zero initial life creates a dead unit with normal death cleanup", () => {
     const { data, allocateUid } = setup(), attr = attributes(); attr.point.hp = 0;
-    initMonsters([{ ...data, id: monsterId + 23, attr, ais: [] }]);
+    initMonsters([{ ...data, id: monsterId + 23, attr, rules: [] }]);
     const unit = CreateMonsterSide([monsterId + 23], zhenId, allocateUid).units[0];
     assert.equal(unit.isDied(), true); assert.equal(unit.getHp(), 0); assert.equal(unit.findBuff(buffId), undefined);
     assert.equal(unit.attr.magic.base.attack, 115); assert.equal(unit.attrOri.magic.base.attack, 100);

@@ -38,9 +38,19 @@ export class FightLoopPC extends FightLoop {
         await Promise.resolve();
         try {
             while (this.started && !this.fight.isEnd() && this.fight.turn === turn && this.processUnits?.length) {
-                const unit = this.processUnits.shift();
+                const action = this.takeAction(), unit = action.unit;
+                if (action.inserted) {
+                    const ctx = this.insertedContext(action);
+                    if (ctx) {
+                        ctx.msgs.unshift(this.actorMessage(action));
+                        this.bcMsg(ctx.msgs);
+                        await this.waitDrawOver();
+                        await this.processUltimate(turn);
+                    } else this.syncActionOrder();
+                    continue;
+                }
                 if (unit.isDied()) {
-                    this.bcMsg(["sort", this.processUnits.map(unit => unit.uid)]);
+                    this.syncActionOrder();
                     continue;
                 }
                 this.bcMsg(["actor", unit.uid, unit.getSpeed()]);
@@ -67,9 +77,7 @@ export class FightLoopPC extends FightLoop {
                 await this.processUltimate(turn);
             }
         } catch (error) {
-            this.started = false;
-            this.fight.offUnitEvent("die", this.onWaitingUnitDied);
-            throw error;
+            this.fail(error);
         } finally {
             this.closeInput();
             this.running = undefined;
@@ -86,6 +94,11 @@ export class FightLoopPC extends FightLoop {
     }
 
     override onInput(id: number, input: FightInput): boolean {
+        try { return this.acceptInput(id, input); }
+        catch (error) { this.fail(error, this.fight.getUnitById(id), input); return false; }
+    }
+
+    private acceptInput(id: number, input: FightInput): boolean {
         const pending = this.waiting;
         if (!this.started || !pending || this.fight.isEnd() || id !== pending.unit.uid ||
             pending.turn !== this.fight.turn || !input || (input.turn !== undefined && input.turn !== pending.turn)) return false;

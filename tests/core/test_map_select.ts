@@ -61,7 +61,7 @@ function secondaryTargets(main: FightUnit, shape: MapShapeEnum, die = DiedSelect
     const param: SelectParam = {
         target: TargetSelectEnum.enmey,
         die,
-        num: 1,
+        numSpread: 1,
         shape,
     };
     return names(fight.selectTargets(main, param));
@@ -152,7 +152,7 @@ test("numeric secondary selection chooses sorted allies and excludes the main ta
     const selected = fight.selectTargets(a00, {
         target: TargetSelectEnum.enmey,
         die: DiedSelectEnum.alive,
-        num: 2,
+        numSpread: 2,
         sortAttr: "hp",
     });
 

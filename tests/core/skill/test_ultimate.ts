@@ -210,11 +210,13 @@ test("ultimate: cancelling the choice declines this round's opportunity", async 
     assert.equal(s.actor.attr.point.mp, 80); loop.end();
 });
 
-// 测试：大招输入回调异常向宿主传播并清空独立窗口，不留下仍能提交的失效输入。
-test("ultimate: input callback errors close the ultimate window", async () => {
+// 测试：大招输入回调异常会记录错误并判攻击方失败，不留下仍能提交的失效输入。
+test("ultimate: input callback errors close the ultimate window", async t => {
+    const logged = t.mock.method(console, "error", () => {});
     const s = setup(), loop = new ProbeLoop(s.fight); loop.onMsg(msgs => s.loop.bcMsg(msgs)); loop.start(); s.breakAll();
     loop.on("ultimate", () => { throw new Error("ultimate input failure"); });
-    await assert.rejects(loop.runUltimate(1), /ultimate input failure/);
+    await loop.runUltimate(1);
+    assert.equal(s.fight.win, 1); assert.equal(logged.mock.callCount(), 1);
     assert.equal(loop.ultimateSide, undefined); loop.end();
 });
 

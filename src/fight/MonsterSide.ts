@@ -5,7 +5,6 @@ import { FightUnitMonster } from "./Unit/FightUnitMonster";
 import { MonsterData, getMonsterData } from "./Unit/MonsterDatas";
 import { getSkillData } from "./Skills/SkillDatas";
 import { getPassiveData } from "./Passives/PassiveDatas";
-import { createAI } from "./AI/AIDatas";
 import { getZhenPos } from "./ZhenDatas";
 import { clone } from "../public/Utilts";
 
@@ -49,7 +48,8 @@ export class MonsterSide extends FightSide {
         if (data.supportSkill !== undefined) unit.setSupportSkill(data.supportSkill);
         if (data.ultimateSkill !== undefined) unit.setUltimateSkill(data.ultimateSkill);
         if (data.inputSkill !== undefined) unit.inputSkill = data.inputSkill;
-        for (const ai of data.ais ?? []) unit.addAI(createAI(ai), ai.prior ?? 0);
+        if (data.rules) unit.setRules(data.rules);
+        if (data.ai) unit.setAI(data.ai);
         if (unit.getHp() <= 0) unit.die();
         return unit;
     }

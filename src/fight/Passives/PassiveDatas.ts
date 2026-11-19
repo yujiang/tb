@@ -7,11 +7,16 @@ import { StaticData } from "../Buffs/StaticData";
 // 3. 初始化之后为FightUnit添加一个buff
 
 export interface PassiveData extends StaticData{
+    /** 初始化时给自身附加 [Buff ID, Buff 等级][]；缺省无附加 Buff，等级不自动继承被动等级。 */
     addbuff?: IdLevelArray;
-    attackSkill?: number;   // 装配已有技能替代普通攻击，不学习或改变等级
-    fbackSkill?: number;    // 反击技
-    supportSkill?: number;  // 装配已有的协战技能，不学习或改变技能等级
-    ultimateSkill?: number; // 装配已有大招，不学习或改变等级
+    /** 初始化时装配已学替代普攻技能，不学习或改等级；缺省不变，0 卸下。 */
+    attackSkill?: number;
+    /** 初始化时装配已学反击技能；缺省不变，当前此入口忽略0，模板显式装配仍可用0卸下。 */
+    fbackSkill?: number;
+    /** 初始化时装配已学协战技能；缺省不变，0 卸下，不学习或改等级。 */
+    supportSkill?: number;
+    /** 初始化时装配已学破盾大招；缺省不变，0 卸下，不学习或改等级。 */
+    ultimateSkill?: number;
 }
 
 

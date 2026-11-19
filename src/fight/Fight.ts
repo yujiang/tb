@@ -10,17 +10,23 @@ import EventEmitter from "node:events";
 import { skillFunc } from "./Skills/SkillFuncType";
 import { attackFunc } from "./Skills/Funcs/NormalAttack";
 import { getBuffData } from "./Buffs/BuffDatas";
+import { InsertActionPos } from "./struct";
 
 export type AllUnitType = [FightUnit[], FightUnit[]];
 
 //表格化数据
 export interface FightData {
+    /** 全局回合上限，0 不设上限；正数允许完整执行该轮，轮末仍未分胜负则防守方胜。 */
     maxTurn: number;
+    /** 西游整轮输入等待秒数，可用小数；0/缺省运行时回退30秒，PC 不限时、烟雨不等待收齐。 */
     waitInputSec: number;
-    duiwei: boolean;            //是否对位战斗？    
-    protectBuff?: number;       //保护指令施加的 Buff ID，配置 class: "protect"
+    /** true 时默认普攻按对位查找，需先 createMap；false 时随机敌方存活单位，手动目标仍优先。 */
+    duiwei: boolean;
+    /** 保护指令施加的已注册 Buff ID，必须 class:protect；缺省保护指令不可用。 */
+    protectBuff?: number;
 
-    allShieldBreak?: boolean;   // 敌方所有存活单位破盾的时刻触发；action 完成后选己方一人放大招，每队每回合一次
+    /** 缺省false；敌方最后一面盾打破且全体存活单位均破盾后，action 结束开放队伍共享一次大招，每回合最多一次。 */
+    allShieldBreak?: boolean;
 }
 
 // 上下文, 因为反击,连击, 需要回溯堆栈来得到上下文
@@ -50,6 +56,12 @@ export function initFightContex(f:Fight) : FightContex{
 }
 
 export class Fight{
+    private actionInserter?: (unit: FightUnit, input: FightInput, pos: InsertActionPos, ctx?: FightContex) => boolean;
+    setActionInserter(handler: NonNullable<typeof this.actionInserter>) { this.actionInserter = handler; }
+    clearActionInserter(handler: typeof this.actionInserter) { if (this.actionInserter === handler) this.actionInserter = undefined; }
+    insertAction(unit: FightUnit, input: FightInput, pos = InsertActionPos.first, ctx?: FightContex): boolean {
+        return this.actionInserter?.(unit, { ...input }, pos, ctx) ?? false;
+    }
     fid: number;
     // seed为随机数种子
     seed: number;
@@ -306,6 +318,15 @@ export class Fight{
         }
     }
     
+    // 群体选择不经过主目标，也不受嘲讽重定向；人数足够时保持阵营顺序，不额外抽样。
+    selectGroupTargets(attack: FightUnit, sel: SelectMainParam, canTarget?: (target: FightUnit) => boolean): FightUnit[] {
+        const units = this.getAllUnits().filter(target => this.isLegalTarget(attack, target, sel) && (!canTarget || canTarget(target)));
+        const num = sel.num ?? 1;
+        if (sel.sortAttr) sortByAttr(units, sel.sortAttr, sel.sortDescend);
+        else if (num < units.length) this.shuffleArray(units);
+        return units.slice(0, num);
+    }
+
     selectTargetsNum(main: FightUnit, sel:SelectParam, num: number) : FightUnit[]|undefined {
         const side = main.side;
         const units = this.getSideUnitsDie(side,sel.die, main);
@@ -320,13 +341,13 @@ export class Fight{
     }
 
     // 加血一个主单位多个副单位，
-    // 1. 群体治疗 没有shape, num = 3
+    // 1. 数量溅射 没有shape, numSpread = 3
     // 2. 溅射等有多个副目标, shape = line or cross 没有num
     selectTargets(main: FightUnit, sel:SelectParam) : FightUnit[]|undefined {
         assert(main);
         // 
         if (sel.shape === undefined){
-            const num = sel.num || 1;
+            const num = sel.numSpread ?? 1;
             return this.selectTargetsNum(main, sel, num);
         }
         const units = this.map.selectTargetsShape(main, sel);
@@ -365,6 +386,7 @@ export class Fight{
     }
 
     getTauntTarget(unit: FightUnit, sel: SelectMainParam): FightUnit | undefined {
+        if ((sel.num ?? 1) > 1) return undefined;
         if (sel.target !== TargetSelectEnum.enmey && sel.target !== TargetSelectEnum.duiwei) return undefined;
         // Map 保持添加顺序，稳定排序使同优先级按 Buff 实例注册顺序处理。
         const buffs = [...unit.buffs.values()].sort((a, b) => (a.getXls().prior ?? 0) - (b.getXls().prior ?? 0));
@@ -404,6 +426,7 @@ export class Fight{
         if (!attack && !skill) return { ...input };
         const targets = this.getPCTargets(unit, input);
         if (!targets) return undefined;
+        if ((skill ?? (attack ? unit.getAttackSkill() : undefined))?.isMulti()) return { ...input };
         const sel = skill ? skill.getSel() : { target: this.xls.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey };
         const taunt = this.getTauntTarget(unit, sel);
         if (sel.sortAttr) sortByAttr(targets, sel.sortAttr, sel.sortDescend);
@@ -415,12 +438,13 @@ export class Fight{
 
     private getPCTargets(unit: FightUnit, input: FightInput): FightUnit[] | undefined {
         const attack = input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none;
-        const skill = input.cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) : undefined;
+        const equipped = attack ? unit.getAttackSkill() : undefined;
+        const skill = input.cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) : equipped?.isMulti() ? equipped : undefined;
         const sel = skill ? skill.getSel() : { target: this.xls.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey };
         const explicit = input.target !== undefined ? this.getUnitById(input.target) : undefined;
         if (input.target !== undefined && !explicit) { unit.hintClient("目标不存在"); return undefined; }
         if (attack && explicit?.isDied()) { unit.hintClient("目标已死亡"); return undefined; }
-        let targets = explicit ? [explicit] : this.getAllUnits().filter(target => this.isLegalTarget(unit, target, sel));
+        let targets = explicit && !skill?.isMulti() ? [explicit] : this.getAllUnits().filter(target => this.isLegalTarget(unit, target, sel));
         let hint: string | undefined;
         if (skill) {
             targets = targets.filter(target => {
@@ -472,6 +496,9 @@ export class Fight{
             unit.hintClient("当前无法普通攻击");
             return false;
         }
+        if ((input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none) && unit.getAttackSkill()?.isMulti()) {
+            sel = unit.getAttackSkill().getSel();
+        }
         if (input.target !== undefined) {
             const target = this.getUnitById(input.target);
             if (!Number.isSafeInteger(input.target) || !target) {
@@ -522,6 +549,15 @@ export class Fight{
         if (cmd === FightCmdEnum.defend){
             unit.doDefend();
             return;
+        }
+
+        const actionSkill = cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) :
+            cmd === FightCmdEnum.attack ? unit.getAttackSkill() : undefined;
+        if (actionSkill?.isMulti()) {
+            const ctx: FightContex = { fight: this, attack: unit, defend: null, msgs: [], effects: [] };
+            if (cmd === FightCmdEnum.skill) skillFunc(unit, null, input.skill, ctx);
+            else attackFunc(unit, null, ctx);
+            return ctx;
         }
 
         // 不改写提交的 input，只在实际执行时按当前有效嘲讽覆盖主目标。

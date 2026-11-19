@@ -392,11 +392,13 @@ test("yanyu: reentrant message input is serialized by the same drain", async () 
     assert.deepEqual(s.messages.filter(msg => msg[0] === "actor").map(msg => msg[1]), [0, 1]);
 });
 
-// 测试：动画等待抛错时向调用方传播错误，关闭输入窗口，不能执行残留队列。
-test("yanyu: failed animation propagates and closes further input", async () => {
+// 测试：动画等待抛错时记录错误并判攻击方失败，关闭输入窗口且不能执行残留队列。
+test("yanyu: failed animation ends the fight and closes further input", async t => {
+    const logged = t.mock.method(console, "error", () => {});
     const s = await setup();
     s.loop.waitDrawOver = async () => { throw new Error("draw failed"); };
-    await assert.rejects(s.input(), /draw failed/);
+    assert.equal(await s.input(), false);
+    assert.equal(s.fight.win, FightResultEnum.defend); assert.equal(logged.mock.callCount(), 1);
     assert.equal(await s.input(), false);
 });
 

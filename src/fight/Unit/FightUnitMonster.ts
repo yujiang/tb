@@ -1,80 +1,107 @@
-import { FightContex } from "../Fight";
+import { Fight, FightContex } from "../Fight";
 import { FightCmdEnum, SkillCost } from "../struct";
 import { FightUnit } from "./FightUnit";
 import { FightAI } from "../AI/FightAI";
+import { FightRule } from "../Rules/FightRule";
 import { FightAttr } from "../FightAttr";
-import { Fight } from "../Fight";
 import { strict as assert } from "node:assert";
-
+import { AIData, createAI } from "../AI/AIDatas";
+import { RuleData, createRule } from "../Rules/RuleDatas";
 
 export class FightUnitMonster extends FightUnit {
-    monsterId?: number; // 查表生成时保留模板 ID，与战斗 uid 分开
-    private aiEntries: { ai: FightAI; prior: number; order: number }[] = [];
-    private nextAIOrder = 0;
-    get ais(): readonly FightAI[] { return this.aiEntries.map(entry => entry.ai); }
-    // 兼容单 AI：读取优先级最前者，赋值时替换整个 AI 列表。
-    get ai(): FightAI | undefined { return this.aiEntries?.[0]?.ai; }
+    monsterId?: number;
+    private decisionAI: FightAI | undefined;
+    private ruleEntries: { rule: FightRule; prior: number; order: number }[] = [];
+    private nextRuleOrder = 0;
+    get ai(): FightAI | undefined { return this.decisionAI; }
     set ai(value: FightAI | undefined) {
-        if ((!value && !this.aiEntries.length) || (this.aiEntries.length === 1 && this.ai === value)) return;
-        value?.bind(this);
-        for (const entry of this.aiEntries) if (entry.ai !== value) entry.ai.unbind(this);
-        this.aiEntries = value ? [{ ai: value, prior: 0, order: this.nextAIOrder++ }] : [];
+        assert.ok(value === undefined || value instanceof FightAI, "ai must be a FightAI");
+        if (this.decisionAI === value) return;
+        value?.bind(this); // 先确认新实例可绑定，失败时保留原 AI。
+        this.decisionAI?.unbind(this);
+        this.decisionAI = value;
         this.calcAttr();
     }
-    addAI(ai: FightAI, prior = 0): boolean {
-        assert.ok(Number.isFinite(prior), "AI prior must be finite");
-        if (this.aiEntries.some(entry => entry.ai === ai)) return false;
-        ai.bind(this);
-        this.aiEntries.push({ ai, prior, order: this.nextAIOrder++ });
-        this.aiEntries.sort((a, b) => a.prior - b.prior || a.order - b.order);
-        this.calcAttr();
-        return true;
+    setAI(value?: FightAI | AIData) {
+        this.ai = value instanceof FightAI ? value : value === undefined ? undefined : createAI(value);
     }
-    removeAI(ai: FightAI): boolean {
-        const index = this.aiEntries.findIndex(entry => entry.ai === ai);
+    get rules(): readonly FightRule[] { return this.ruleEntries.map(entry => entry.rule); }
+    // 可直接使用表里的规则配置；传入已有实例时保留其计数、阶段和监听。
+    setRules(values: readonly (FightRule | RuleData)[]) {
+        const entries = values.map((value, index) => ({
+            rule: value instanceof FightRule ? value : createRule(value),
+            prior: value instanceof FightRule ? 0 : value.prior ?? 0,
+            order: this.nextRuleOrder + index,
+        }));
+        for (const entry of entries) {
+            assert.ok(!(entry.rule instanceof FightAI), "Assign decision AI through ai, not setRules");
+            assert.ok(Number.isFinite(entry.prior), "Rule prior must be finite");
+        }
+        const next = new Set(entries.map(entry => entry.rule));
+        assert.equal(next.size, entries.length, "Rules must not contain duplicate instances");
+        const bound: FightRule[] = [];
+        try {
+            for (const entry of entries) if (entry.rule.bind(this)) bound.push(entry.rule);
+        } catch (error) {
+            for (const rule of bound.reverse()) rule.unbind(this);
+            throw error;
+        }
+        for (const entry of this.ruleEntries) if (!next.has(entry.rule)) entry.rule.unbind(this);
+        this.ruleEntries = entries.sort((a, b) => a.prior - b.prior || a.order - b.order);
+        this.nextRuleOrder += entries.length;
+        this.calcAttr();
+    }
+    clearRules() { this.setRules([]); }
+    addRule(rule: FightRule, prior = 0): boolean {
+        assert.ok(!(rule instanceof FightAI), "Assign decision AI through ai, not addRule");
+        assert.ok(Number.isFinite(prior), "Rule prior must be finite");
+        if (this.ruleEntries.some(entry => entry.rule === rule)) return false;
+        rule.bind(this);
+        this.ruleEntries.push({ rule, prior, order: this.nextRuleOrder++ });
+        this.ruleEntries.sort((a, b) => a.prior - b.prior || a.order - b.order);
+        this.calcAttr(); return true;
+    }
+    removeRule(rule: FightRule): boolean {
+        const index = this.ruleEntries.findIndex(entry => entry.rule === rule);
         if (index < 0) return false;
-        this.aiEntries.splice(index, 1); ai.unbind(this); this.calcAttr(); return true;
+        this.ruleEntries.splice(index, 1); rule.unbind(this); this.calcAttr(); return true;
     }
     override startFight(fight: Fight) {
         super.startFight(fight);
-        for (const entry of [...this.aiEntries]) { entry.ai.bind(this); entry.ai.startFight(this); }
-        if (this.aiEntries.length) this.calcAttr();
+        this.ai?.bind(this); this.ai?.startFight(this);
+        for (const entry of [...this.ruleEntries]) { entry.rule.bind(this); entry.rule.startFight(this); }
+        if (this.ai || this.ruleEntries.length) this.calcAttr();
     }
-    override endFight() { for (const entry of this.aiEntries) entry.ai.unbind(this); }
+    override endFight() {
+        this.ai?.unbind(this);
+        for (const entry of this.ruleEntries) entry.rule.unbind(this);
+    }
     protected override modifyAttr(attr: FightAttr) {
-        for (const entry of [...(this.aiEntries ?? [])]) {
-            if (this.aiEntries.includes(entry)) entry.ai.modifyAttr(this, attr);
+        this.ai?.modifyAttr(this, attr);
+        for (const entry of [...(this.ruleEntries ?? [])]) {
+            if (this.ruleEntries.includes(entry)) entry.rule.modifyAttr(this, attr);
+        }
+    }
+    override processBeforeTurn(turn: number, ctx: FightContex) {
+        super.processBeforeTurn(turn, ctx);
+        for (const entry of [...this.ruleEntries]) {
+            if (this.ruleEntries.includes(entry)) entry.rule.beforeTurn(this, turn, ctx);
         }
     }
     override isMonster() { return true; }
-
     inputSkill = 0;
     override inputStart(turn: number, ctx: FightContex) {
-        super.inputStart(turn,ctx);
-        if (this.aiEntries.length) {
-            for (const entry of [...this.aiEntries]) {
-                if (!this.aiEntries.includes(entry)) continue;
-                const input = entry.ai.waitInput(this, turn, ctx);
-                if (input) { this.input = { ...input }; return; }
-            }
-            this.input = { cmd: FightCmdEnum.attack };
+        super.inputStart(turn, ctx);
+        if (this.ai || this.ruleEntries.length) {
+            const input = this.ai?.waitInput(this, turn, ctx);
+            this.input = { ...(input ?? { cmd: FightCmdEnum.attack }) };
             return;
         }
-        // ai来做选择
-        if (this.inputSkill) {
-            this.input = { cmd: FightCmdEnum.skill, skill: this.inputSkill };
-        }
-        else if (this.skills.size > 0) {
-            // 没有配置 AI 时保留原行为：选择已学技能中的首项。
-            this.input = { cmd: FightCmdEnum.skill, skill: this.skills.keys().next().value };
-        }
-        else {
-            this.input = { cmd: FightCmdEnum.none };
-        }
+        // 无 AI、无规则时保留原固定技能和技能首项的处理。
+        if (this.inputSkill) this.input = { cmd: FightCmdEnum.skill, skill: this.inputSkill };
+        else if (this.skills.size > 0) this.input = { cmd: FightCmdEnum.skill, skill: this.skills.keys().next().value };
+        else this.input = { cmd: FightCmdEnum.none };
     }
-
     // monster不消耗
-    costSkill(cost: SkillCost) {
-        return true;
-    }
+    costSkill(cost: SkillCost) { return true; }
 }
