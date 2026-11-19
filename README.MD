@@ -35,7 +35,21 @@ tb = turnbase 回合制
 
 # 当前实现
 
-当前 TypeScript 实现以 `Fight` 为战斗对象，`FightLoopWest` 驱动每轮收齐指令后按速度行动的流程。`FightUnit`、`FightSkill`、`FightBuff` 和 `FightMap` 分别负责单位、技能、Buff 与站位。
+单位可通过 `addSkill(attackId, level)` 学习，再用 `setAttackSkill(attackId)`（字段 `attackSkill`）装配攻击技能替代普攻，`getAttackSkill()` 查询，`setAttackSkill(0)` 卸下。显式 `attack` 和默认 `none` 指令优先使用有效装配；未学会或未装配时回退到原物理普攻。替代普攻走攻击管线、使用技能自身配置和已学等级，不额外支付主动费用，发动失败不补原普攻；仍检查 `attack` 禁止状态并保留普攻目标、嘲讽和守尸规则。被动及技能命中后的公共效果也可配置 `attackSkill`，只装配、不学习或改等级，`attackSkill: 0` 可卸下；与 `supportSkill/fbackSkill` 的职责一致。详细配置与边界见 `document/技能.md`。
+
+属性相克与相生使用 `PropEnum.none/金/木/水/火/土`，单位的 `FightAttr.charProp` 和 `weaponProp` 默认无属性，技能用 `skillProp` 覆盖。攻击及毒伤取 `skillProp ?? 施放者.weaponProp`，治疗取 `skillProp ?? 施放者.charProp`，默认目标取 `charProp`；NPC 配置弱点后，受伤改用下述弱点规则，治疗仍取 `charProp`；显式 `none` 不回退。相克采用传统五行“金→木→土→水→火→金”，相生按“金→水→木→火→土→金”，关系函数命中时返回 1.5，其余为 1。攻击伤害将相克加成与 damageRate 加法合并：基础公式伤害（含免伤）× (damageRate + 相克倍率 - 1 + 暴击加成)，相克固定加 0.5；治疗合并 healRate、相生与暴击加成，毒伤合并 poisonRate 与相克加成，毒伤不判暴击。均在资源实际变化之前应用。普通攻击、各类子技能及周期效果均使用真实施放者，复活、吸血及已经计算好的反伤/反射/分担数值不重复乘属性倍率。旧 `BaseAttack.property` 已移除。详细规则见 `document/技能.md`，回归测试为 `tests/core/skill/test_properties.ts`。
+
+NPC 的弱点分为 `weakProp?: PropEnum[]`（五行）和 `weakWeapon?: WeaponEnum[]`（兵器）。例如 `weakProp: [PropEnum.火]`、`weakWeapon: [WeaponEnum.刀]` 表示怕火或怕刀，直接匹配攻击属性或真实施放者的兵器，命中任一弱点给伤害或毒伤倍率加 0.5，多个命中不叠加，沿用 `克` 效果标记。任一列表已配置时替代该 NPC 的受伤相克；空列表没有弱点，两者都未配置时仍使用人物相克。玩家、召唤物及治疗相生的规则不变。旧混合 `WeakPoint` 类型和 `weakPoint` 字段已替换，枚举数值未调整。
+
+NPC 可配置 `FightAttr.shield` 开启弱点盾，`undefined` 不启用，`0` 表示已破盾。`attrOri.shield` 是初始及回满格数，`attr.shield` 是当前格数。一次有效弱点命中只扣一格，五行、兵器同时命中不重复扣；攻击及主动/周期毒伤使用真实施放者判断弱点，未命中、未发动、被取消的伤害不扣盾。盾仍大于 0 时伤害减半；扣到 0 的这一击按全伤结算，立即进入眩晕，连招后续段也读取破盾状态。反伤、反射、分担不扣盾，但仍受其实际受伤者的盾减伤；吸血、反伤使用半伤后的实际扣血。
+
+只有破盾后才在下个全局回合的 `processBeforeTurn()` 回满，未破的盾保留剩余格数，同回合重复处理不恢复；回盾解除盾造成的眩晕，其他 Buff 的眩晕仍有效。属性重算和死亡不补盾，新战斗初始化重置。单位展示数据增加可选 `shield/shieldMax`，变化通过 `["shield", uid, current, "recover"?]` 发送，恢复时才带 `"recover"`；客户端校验包含盾状态，简报显示扣盾、破盾和回盾。测试见 `tests/core/skill/test_shield.ts`。
+
+暴击与技能、属性加成统一相加，普通暴击加成是 `0.5 + clamp(critDeep - critDeepAnit, 0, 1)`；暴击未发生时加 0，概率只判一次，保留 `crit` 标记。伤害先计算基础公式及固定/比例免伤，之后才乘合并倍率；治疗也使用合并倍率。基础伤害 100、damageRate=1，同时相克与普通暴击时为 200，不再是独立乘区的 225。
+
+生克效果沿用 `hurt/heal` 协议下标 6 的 `effects`：治疗相生加 `"生"`，攻击及毒伤相克加 `"克"`，可与 `"crit"` 同时存在，无对应关系则不加。每次公式计算独立记录，不串用前一次标记，吸血和复活恢复不继承旧生克效果。简报保留数字颜色并显示“伤害（克）”“点生命（治疗，生）”，不新增协议字段。
+
+当前 TypeScript 实现以 `Fight` 为战斗对象，`FightLoopWest` 驱动每轮收齐指令后按速度行动，`FightLoopYanYu` 驱动不等待指令的自动普攻与即时技能。单机驱动 `FightLoopPC` 按速度逐单位等待指令；三个驱动复用 `FightLoop` 的初始化、行动条、速度事件、结束广播及回合前后处理，`FightLoopOnline` 保留网游基类入口。`FightUnit`、`FightSkill`、`FightBuff` 和 `FightMap` 分别负责单位、技能、Buff 与站位。
 
 `FightClient` 接收 `fightMsg` 或消息数组，独立保存 `fid/turn/win`、两方单位 `sides`、剩余行动顺序 `sort` 和当前行动者 `actor`，可通过 `getUnitById(id)` 查询单位。本地调试调用 `client.bindFightLoop(loop)`，会订阅循环消息，并在回合及结束消息处理后检查一致性，发现差异时抛出断言；第二个参数传 `false` 可关闭自动检查。
 
@@ -81,11 +95,11 @@ const mud = new FightMud(console.log, true, {
 
 受伤与死亡根据出手消息关联技能，分批接收不会中断关联；反伤、分担、反射和周期伤害不借用攻击技能的文案。治疗与复活消息本身没有技能编号，使用人物及组合文案，不推测技能。零伤害使用内置描述，避免出现未扣血却吐血的文字。文案中需要呈现的伤害和生命数值由占位符明确指定。
 
-伤势描述依据消息中实际剩余生命占最大生命的比例：80% 及以上为轻伤，50% 至不足 80% 为伤势渐重，20% 至不足 50% 为重伤，低于 20% 为气若游丝。零血仅描述濒死，收到 `die` 才描写倒地，收到 `relife` 才描写重新站起；治疗使用生命上限截断后的实际恢复量。描写不调用战斗随机源，不改变战斗规则；同一份消息和配置生成相同文字。运行 `npm run test:build` 后执行 `node --test .test-build/tests/core/test_mud.js`，可查看完整的实时战斗描写示例及自动验证。
+伤势描述依据消息中实际剩余生命占最大生命的比例：80% 及以上为轻伤，50% 至不足 80% 为伤势渐重，20% 至不足 50% 为重伤，低于 20% 为气若游丝。零血仅描述濒死，收到 `die` 才描写倒地，收到 `relife` 才描写重新站起；治疗使用生命上限截断后的实际恢复量。描写不调用战斗随机源，不改变战斗规则；同一份消息和配置生成相同文字。运行 `npm run test:build` 后执行 `node --test .test-build/tests/report/test_mud.js`，可查看完整的实时战斗描写示例及自动验证。
 
 `FightReport` 为文字表现提供受保护的 `describe(msg)` 扩展点：父类先处理增量状态，再调用描写方法；返回 `true` 表示该消息已描写，返回 `false` 则使用原简报格式。子类复用名称查询、颜色、输出与日志保存，不需要重新实现客户端消息逻辑。`FightMud` 的消息再次描写只是文字输出，不是战斗逻辑恢复或录像接口。
 
-`FightReport` 收到整批行动消息时，会在同一批内前瞻查找紧随主攻击的实际协战，将双方出手合并为一行“同时攻击”，伤害、治疗、死亡仍在原结算位置输出；协战未命中时，在原位置显示蓝色“未命中”。仅合并已确认命中主目标、同阵营另一人攻击同一目标的协战，遇到其他出手或行动边界就停止查找。拆批或关联不明时保留逐条输出，不跨批缓存或预测发动概率。`FightMud` 自身的逐消息描写不受影响。运行 `npm run test:build` 后执行 `node --test .test-build/tests/core/test_report_protect_support.js` 可查看保护优先、同时出手、连续分担受伤及协战次数限制的真实单回合简报，示例逐批检查客户端一致性。
+`FightReport` 收到整批行动消息时，会在同一批内前瞻查找紧随主攻击的实际协战，将双方出手合并为一行“同时攻击”，伤害、治疗、死亡仍在原结算位置输出；协战未命中时，在原位置显示蓝色“未命中”。仅合并已确认命中主目标、同阵营另一人攻击同一目标的协战，遇到其他出手或行动边界就停止查找。拆批或关联不明时保留逐条输出，不跨批缓存或预测发动概率。`FightMud` 自身的逐消息描写不受影响。运行 `npm run test:build` 后执行 `node --test .test-build/tests/report/test_report_protect_support.js` 可查看保护优先、同时出手、连续分担受伤及协战次数限制的真实单回合简报，示例逐批检查客户端一致性。
 
 表现分组由独立公开类 `FightPreParse` 完成，`FightReport` 消费其结果，图形客户端也可复用：
 
@@ -119,7 +133,7 @@ for (const group of plan.groups) {
 
 普通主动攻击技能的发动概率判定失败时，发送 `["skillFailed", 行动者ID, 目标ID, 技能ID, 技能名称]`，简报显示 `[技能名称]未发动（发动概率判定失败）`，与发动后未命中的情况区分。不会因此自动改用普通攻击。
 
-攻击/未命中消息使用 `["skill"或"miss", skillId, attackerId, targetId, reaction?]`，不传单位名、技能名；`reaction` 仅在连击、连招、追击、反击时附加 `next/combo/kill/fback`，普通动作省略。简报从初始单位数据及本地技能配置恢复名称，并对应显示 `【连击】/【连招】/【追击】/【反击】`。技能伤害的 `why` 固定为 `"skill"`，不重复传单位名。`skillFailed` 为 `["skillFailed", attackerId, targetId, skillId]`；`skipAction` 为 `["skipAction", unitId, buffId]`。`buffTrigger` 为 `["buffTrigger", unitId, buffId, effect, targetId?]`，`effect` 使用 `buqu/relife/reflectHurt/reflectHeal/protect`，反射和保护附加目标 ID，由简报组装描述。这些展示消息不改变结算及随机抽样；使用旧格式的宿主需同步更新读取位置。运行 `npm run test:build` 后执行 `node .test-build/tests/simple/test_report_reactions.js`，可查看固定种子、两回合的完整示例：连击、追击、反击、50% 吸血和 20% 反伤，并在初始化收齐后逐批验证客户端一致性。
+攻击/未命中消息使用 `["skill"或"miss", skillId, attackerId, targetId, reaction?]`，不传单位名、技能名；`reaction` 仅在连击、连招、追击、反击时附加 `next/combo/kill/fback`，普通动作省略。简报从初始单位数据及本地技能配置恢复名称，并对应显示 `【连击】/【连招】/【追击】/【反击】`。技能伤害的 `why` 固定为 `"skill"`，不重复传单位名。`skillFailed` 为 `["skillFailed", attackerId, targetId, skillId]`；`skipAction` 为 `["skipAction", unitId, buffId]`。`buffTrigger` 为 `["buffTrigger", unitId, buffId, effect, targetId?]`，`effect` 使用 `buqu/relife/reflectHurt/reflectHeal/protect`，反射和保护附加目标 ID，由简报组装描述。这些展示消息不改变结算及随机抽样；使用旧格式的宿主需同步更新读取位置。运行 `npm run test:build` 后执行 `node -e "require('./.test-build/tests/report/fixtures/report_reactions').runReactionReport()"`，可查看固定种子、两回合的完整示例：连击、追击、反击、50% 吸血和 20% 反伤，并在初始化收齐后逐批验证客户端一致性。
 
 已支持：
 
@@ -238,15 +252,15 @@ attackLevel: { attack: 5 },
 
 `attackRate: 0` 可表达只使用技能固定值及成长。尚未合并单位的原始技能数值仍只有固定加成和等级成长（单位项为 0），不会把原始配置也乘上倍率；周期 Buff 等现有原始数值读取路径保持这一规则。
 
-`SkillData.damageRate` 是有限、非负的最终伤害倍率，默认 `1`，显式 `0` 有效；在普通伤害公式完成后、进入 `onHurt` 前相乘，再按正常减伤、反射、实际扣血、吸血和反伤流程处理。它与 `attackRate` 可以组合：`attackRate` 在减去防御之前缩放单位攻击力，`damageRate` 在普通伤害公式之后缩放最终伤害。各段 `attack/attackLevel` 等仍从对应单位属性合并，不改基础属性；倍率不改变配置或累计成长。0.4、0.7、1.0 的名义总倍率为 2.1，但逐段取整、属性差异、减伤及剩余生命会影响实际总和。
+`SkillData.damageRate` 是有限、非负的最终伤害倍率，默认 `1`，显式 `0` 有效；在普通伤害公式完成后，与相克、暴击加成按加法合并（相克加 0.5，暴击加 0.5 加暴击增伤减免后的有效值，其余加 0），进入 `onHurt` 前乘以合并倍率，再按正常减伤、反射、实际扣血、吸血和反伤流程处理。它与 `attackRate` 可以组合：`attackRate` 在减去防御之前缩放单位攻击力，`damageRate` 在普通伤害公式之后缩放最终伤害。各段 `attack/attackLevel` 等仍从对应单位属性合并，不改基础属性；倍率不改变配置或累计成长。没有属性相克时，0.4、0.7、1.0 的名义总倍率为 2.1；相克时各段分别增加 0.5，零 damageRate 也不屏蔽属性或暴击加成，但逐段取整、属性差异、减伤及剩余生命会影响实际总和。
 
-`SkillData.healRate`、`poisonRate` 分别为治疗公式结果、毒伤公式结果的倍率，默认 `1`，显式 `0` 有效；必须为有限非负数。`attackRate` 仍先参与单位攻击属性合并，随后按对应公式计算，再乘效果倍率，最后进入 `onHeal/onHurt` 取整及生命上限处理。周期 Buff 引用的技能也读取这两个倍率。`damageRate` 不额外缩放治疗或毒伤。
+`SkillData.healRate`、`poisonRate` 分别为治疗公式结果、毒伤公式结果的倍率，默认 `1`，显式 `0` 有效；必须为有限非负数。`attackRate` 仍先参与单位攻击属性合并，随后按对应公式计算，再乘合并倍率（healRate + 相生加成 + 暴击加成，或 poisonRate + 相克加成），最后进入 `onHeal/onHurt` 取整及生命上限处理。相生/相克固定加 0.5，否则加 0；零 rate 不屏蔽属性及对应的暴击加成。周期 Buff 引用的技能也读取这两个倍率。`damageRate` 不额外缩放治疗或毒伤。
 
 复活技能 `func: "relife"` 直接恢复 `healRate × 被复活者最大生命`，向下取整，上限为最大生命；不再使用 `attack.attack` 表示复活比例，也不读取攻击属性或攻击等级成长。旧复活配置需将 `attack: {attack: 0.5}` 改为 `healRate: 0.5`，表示恢复目标最大生命的 50%；省略倍率为 `1`（满血复活）。结果不足 1 血时不复活，避免生成存活但零血的单位。示例（其余通用字段照常填写）：
 
 ```ts
-{ func: "heal", healRate: 1.5 }     // 治疗公式结果 × 1.5
-{ func: "poison", poisonRate: 0.5 } // 毒伤公式结果 × 0.5
+{ func: "heal", healRate: 1.5 }     // 无相生时治疗公式结果 × 1.5
+{ func: "poison", poisonRate: 0.5 } // 无相克时毒伤公式结果 × 0.5
 { func: "relife", healRate: 0.3 }   // 复活并恢复目标最大生命的 30%
 ```
 
@@ -271,7 +285,7 @@ attackLevel: { attack: 5 },
 
 补齐配置子技能链后，子技能的选目标及后续反应配置会实际生效，相同旧配置/种子的结果可能因此改变；未配置新字段的普通攻击内置次数规则保持原状。
 
-`FightLoopPC` 和 `FightLoopYY` 仍是待实现的驱动骨架。冷却、多波、剧情暂停、快照恢复、录像与通用数据校验尚未实现。当前使用 Node 的事件、断言和定时器 API；浏览器接入仍需适配。
+`FightLoopPC` 已支持按速度逐单位输入，主动技能支持全局回合冷却；多波、剧情暂停、快照恢复、录像与通用数据校验尚未实现。当前使用 Node 的事件、断言和定时器 API；浏览器接入仍需适配。
 
 后续功能沿着当前代码架构逐步扩展，以实际玩法和测试验证设计取舍。
 
@@ -285,11 +299,163 @@ npm test
 npm run example
 ```
 
-`npm run build` 将当前源码编译到 `bin-debug/`，同时生成声明文件和 source map。包入口是 `bin-debug/index.js`，不再使用旧 `lib/` 目录里的遗留产物。`npm test` 运行包入口检查及 `tests/core/`、`tests/core/buff/`、`tests/core/skill/` 下的全部自动测试；Buff 通用行为及各特殊 Buff 测试放在 `tests/core/buff/`，三连击等特殊技能测试放在 `tests/core/skill/`。
+`npm run build` 将当前源码编译到 `bin-debug/`，同时生成声明文件和 source map。包入口是 `bin-debug/index.js`，不再使用旧 `lib/` 目录里的遗留产物。`npm test` 运行包入口检查及 `tests/core/`、`tests/core/buff/`、`tests/core/skill/`、`tests/core/ai/`、`tests/report/` 下的全部自动测试；Buff 通用行为及各特殊 Buff 测试放在 `tests/core/buff/`，三连击等特殊技能测试放在 `tests/core/skill/`；简报、MUD 和表现预解析测试统一放在 `tests/report/`，专用夹具放在其 `fixtures/` 子目录。
 
-`npm run example` 编译并运行手写示例 `tests/simple/test_loop.ts`，输出多单位战斗日志和最终结果。该示例不提供录像校验。`tests/simple/` 保留手写流程示例；自动回归测试位于 `tests/core/`。
+`npm run example` 编译并运行手写示例 `tests/simple/test_loop.ts`，输出多单位战斗日志和最终结果。该示例不提供录像校验。`tests/simple/` 保留手写流程示例；自动回归测试位于 `tests/core/` 和 `tests/report/`。
 
 # 接入约定
+
+## 烟雨式自动普攻与即时技能
+
+`FightLoopYanYu` 每回合推进一次单位输入边界，不等玩家收齐指令；自动队列按速度执行：显式配置 `FightAI` 的怪物使用其输入，其余单位执行 `attack`（含装配的 `attackSkill`）；未配置 AI 的怪物仍不读取旧 `inputSkill` 指令。设置 `FightData.duiwei: true` 并创建地图时，沿用当前对位查找：优先对位、无存活对位者时寻找其他位置的存活敌人。自动普攻仍受死亡、禁止攻击、休息与嘲讽等规则约束。
+
+手动技能是额外行动，不占用或替代本回合自动普攻。它不按速度排序，处于动作动画等待期间时按提交顺序排队；当前完整动作及其反应链绘制完后，先执行等待的技能，再继续自动普攻。技能不会打断正在结算的反应链。剩余普攻队列因速度变化重排，已行动者不重新加入。
+
+```ts
+const loop = new FightLoopYanYu(fight);
+loop.onMsg(msgs => transport.send(msgs));
+// 图形宿主可覆盖：每次完整动作发出后，等待它及反应链的播放完成。
+loop.waitDrawOver = async () => { await animations.waitForCurrentAction(); };
+// 在宿主鉴权通过后调用网络入口：
+const accepted = await loop.onInput(unitId, {
+    turn: fight.turn,
+    cmd: FightCmdEnum.skill,
+    skill: skillId,
+    target: targetId,
+});
+// 生命周期由 loop.run() 驱动；上面的输入处理挂到宿主网络事件中。
+```
+
+`onInput` 返回 `Promise<boolean>`，`false` 表示没有入队，`true` 表示已接收入队，仍可能在出队复验时失效而丢弃。调用方应 await 或处理拒绝：结算、动画异常会传播并关闭输入窗口，清空剩余技能，不能继续使用该次失败结算。缺回合号、旧回合/未来回合、非 skill 指令、未知/非控制单位、死亡、禁止技能、休息、未学会技能、非法目标、技能冷却中或当前费用不足时不会入队；接收时复制指令，执行前再次检查目标、状态、冷却与资源。资源只在真正执行时扣除。`canCost()` 为不扣资源的预检，`costSkill()` 仍做实际收费校验。宿主负责鉴权，回合号和冷却不能替代鉴权。
+
+技能可配置 `cd: 2`，省略或 `0` 表示无冷却，只接受非负安全整数。第 1 回合施放后第 3 回合可再次施放，剩余冷却通过 `unit.getSkillCd(skillId)` 查询。冷却由每个单位按技能 ID 保存，只随全局回合推进，重复输入、重新学习、死亡与复活不会清除；新战斗开始时重置。费用检查通过、正式尝试施放时启动冷却，概率未发动或未命中也消耗 CD；非法输入、费用不足及无可用目标不启动。公共主动技能入口统一执行此规则，装配普攻及连招、追击、反击、协战等反应链不读取或启动主动 CD。
+
+宿主可覆盖单位的 `hintClient(message)` 向该单位的客户端发送操作提示，默认空实现。冷却中、生命或法力不足、目标不存在/死亡/不合要求、未学会技能、禁止行动等情况会提示；输入预检与执行复验共用这些原因，不额外广播到战斗简报。`canCost()` 费用预检失败也会提示。普攻仍允许手动守尸，若执行时目标尚未复活则提示并跳过；死亡单位在西游式输入阶段仍可正常提交指令。
+
+开始冷却时发送 `["skillCd", uid, skillId, readyTurn]`，单位初始展示数据仅在已有冷却记录时附加 `skillCds: [[skillId, readyTurn], ...]`。`FightClient` 保存这些恢复回合并纳入 `checkSame()`；界面可用 `Math.max(0, readyTurn - client.turn)` 显示剩余冷却，无需每回合发送递减消息。过期记录可继续保留，简报不单独输出冷却消息。
+
+即时施法的 `actor` 消息为 `["actor", uid, speed, "skill"]`；普通自动行动仍为 `["actor", uid, speed]`。`FightClient` 更新即时施放者但不把他从待普攻行动条移除，`FightReport` 显示“施放即时技能”。每次自动普攻/即时技能分别调用一次 `waitDrawOver()`，回合末不重复等待；默认实现只让出 Node 事件循环，不模拟实际动画耗时。回合自动队列与已接收技能处理完成、战斗结束或异常后关闭输入；下一轮输入边界准备好后再开放。
+
+`start/side/turn/sort/end`、周期 Buff、延迟复活及动作结束后胜负检查都沿用公共流程；达到回合上限前仍会执行完整一轮。`tests/core/test_yanyu.ts` 覆盖初始化、自动对位、FIFO 插队、费用与目标复验、行动条、速度重排、重入输入、动画异常及胜负截止。
+
+查看完整两回合烟雨简报：运行 `npm run test:build`，再执行 `node --test .test-build/tests/report/test_report_yanyu.js`。示例中剑客装配 `[流云剑]` 自动普攻；动画间隙先后提交低速女侠的 `[寒梅指]` 和剑客的 `[破阵掌]`，两个即时技能先于后续普攻执行，且不消耗女侠的普攻机会。第二回合即时技能击杀双方敌人后停止队列，逐批验证客户端一致性，并验证相同种子与输入安排的协议、简报均可复现。
+
+## 怪物 AI
+
+`FightUnitMonster` 可以同时持有多个 AI，使用 `addAI(ai, prior = 0)`、`removeAI(ai)` 管理，`ais` 返回列表副本。所有 AI 的事件监听和属性修正都参与；输入按 `prior` 从小到大询问，同优先级按添加顺序，第一个返回指令者生效。基础 `FightAI.waitInput()` 返回 `undefined` 表示不决定，事件型血轴和受伤轴因此不会挡住周期 AI；全部未决定时回退普攻。完全没有 AI 时保留旧逻辑：`inputSkill → 技能首项 → 普攻`。旧 `monster.ai = ...` 仍可用，赋值会替换整个列表，读取则为优先级最前的实例；设为 undefined 清空。
+
+AI 输入不重复推进单位输入次数，不负责回合调度。输入和属性修正的先后由 `addAI` 的 prior 决定，事件监听优先级仍由 `listen()` 的参数决定。当前三个派生类如下：
+
+| AI | 配置 | 行为 |
+| --- | --- | --- |
+| 血轴 `FightAIHp` | `[{ hp: 0.7, attackRate: 0.2 }, { hp: 0.4, attackRate: 0.3 }]` | 生命比例到 70% 增攻 20%，到 40% 再增攻 30%，累计 50% |
+| 回合轴 `FightAITurn` | `(3, skillId)` | 第 3、6、9…全局回合选择该技能，替代当次普攻 |
+| 受伤轴 `FightAIHurt` | `(3)` 或 `(3, skillId)` | 每三次有效直接受伤后，当前完整 action 结束时朝刚才的攻击者发动一次新攻击 |
+
+```ts
+monster.addAI(new FightAIHp([
+    { hp: 0.7, attackRate: 0.2 },
+    { hp: 0.4, attackRate: 0.3 },
+]));
+// 同一怪物每三回合用一次已学技能，不装配为全体破盾的大招槽。
+monster.addAI(new FightAITurn(3, skillId));
+// 同时每挨打三次追加一次普攻，支持装配的 attackSkill。
+monster.addAI(new FightAIHurt(3));
+```
+
+血轴每条每场只触发一次，单次伤害跨多条会全部触发，初始生命已低于血线也会进入对应阶段；回血、死亡与复活不刷新次数，新战斗重置。增攻比例相加，作用于物理/魔法的普通、连击、追击、溅射和反击攻击力，治疗与毒攻击力不变。加成通过属性重算应用，不修改 `attrOri`，不会重复累计；监听 `hp` 事件，因此保护分担的扣血也会触发血轴，而不展开普通受伤反应。血线变化发送 `["aiHp", uid, hpRatio, cumulativeAttackBonus]`，简报显示血线与累计增攻。
+
+回合轴按全局回合计算，同一回合多次输入只选择一次周期技能；技能未学习、CD 中、封印、没有合法目标等情况回退普攻。周期技能走普通技能校验及结算，保留怪物不耗资源的规则，与全体破盾的独立大招机会无关。PC、西游执行该 AI 指令；烟雨仅对显式配置 AI 的怪物使用 AI 指令，其余单位保持原自动普攻逻辑。
+
+受伤轴只计实际扣血的 `source: "skill"` 直接攻击；Buff、反伤、反射、保护分担及零伤害不计。**受伤时禁止 `attack` 就完全不累计次数。** 达到次数后，在完整 action 结束时复查双方存活、阵营、休息与禁止攻击，再对刚才的伤害来源执行新攻击。它不走 `fback`，不使用反击属性；`nofback` 或只禁止 `fback` 不拦截它。未指定技能时使用普通攻击（含 `attackSkill`），指定时要求已学攻击技能，以普通攻击属性执行，不额外支付主动技能费用/CD。计数攻击不推进输入次数、不发送 `actor/sort`、不更新行动条；`["aiAttack", uid, target]` 供表现层识别。新攻击仍会累计对方的受伤轴，并共享已有反应预算；超限仍按 `Reaction limit` 中止战斗。
+
+派生 AI 通过 `listen()` 监听带 ctx 事件，可指定优先级；替换/移除 AI 和战斗结束会解绑，旧实例排队的新攻击也会取消。一个实例只能绑定一个单位，新战斗重置阶段与计数。`hp(unit, ctx, attacker, previous, current)` 只在真实生命变化时发送；`hurt(unit, ctx, attacker, damage, pending)` 的最后一项提供伤害来源信息，已有监听参数保持兼容。测试位于 `tests/core/ai/test_ai.ts`。
+
+查看三个轴同时生效的三回合简报：运行 `npm run test:build` 后执行 `node --test .test-build/tests/report/test_report_ai.js`。双方通过 MonsterData 与阵型 ID 查表生成，首领跨血线从攻击力 80 提升到 96、120，第二次受伤后追加一次普攻，第三回合施放周期技能；逐批通过客户端一致性校验，并验证同配置同种子的协议与简报可复现。
+
+## 怪物模板与阵型生成
+
+`MonsterData` 保存怪物模板：`id/name/character`、`attr: FightAttr`、`skills/passiveSkills`、`attackSkill/fbackSkill/supportSkill/ultimateSkill/inputSkill` 和 `ais: AIData[]`。模板不保存战斗 `uid` 或站位。同一模板 ID 可以反复生成，运行单位用 `monsterId` 保留来源 ID。属性既可提供 FightAttr 实例，也可由表加载为同结构的 JSON 对象，生成时恢复为 FightAttr 并深拷贝。
+
+`AIData` 为配置数据，每次生成都创建新实例：`{ type: "hp", lines, prior? }`、`{ type: "turn", every, skill, prior? }`、`{ type: "hurt", every, skill?, prior? }`。技能用 `[id, level]` 明确学习，AI 或装配不会自动学习技能。生成顺序为属性/显示、学习技能、初始化被动、显式装配、绑定多个 AI；显式装配包括 0 会覆盖被动，省略则保留被动装配。初始生命为 0 时生成死亡单位并执行普通死亡清理。
+
+阵型独立使用 `ZhenData { id, pos: number[] }`，通过 `initZhens()` 注册。生成时传阵型 ID `zhen`，由 `getZhenPos(zhen)` 查位置，`ids[i]` 对应位置数组第 i 项；函数返回副本。模板不承载阵型，玩家的阵型加成可由宿主基于同一个阵型 ID 扩展，怪物生成当前只消费站位。
+
+```ts
+// 先加载所引用的技能、被动和 Buff 表，monsterAttr 为完整 FightAttr 结构。
+initMonsters([{
+    id: 1001, name: "山贼", character: 11, attr: monsterAttr,
+    skills: [[101, 2], [102, 1]], attackSkill: 101,
+    ais: [
+        { type: "hp", lines: [{ hp: 0.7, attackRate: 0.2 }] },
+        { type: "turn", every: 3, skill: 102 },
+        { type: "hurt", every: 3 },
+    ],
+}]);
+initZhens([{ id: 1, pos: [4, 2, 0] }]);
+let nextUid = 100;
+const allocateUid = () => nextUid++;
+const monsters = CreateMonsterSide([1001, 1001], 1, allocateUid);
+fight.createSide(playerSide, monsters);
+// 两只同模板怪物 uid 为 100、101，站位为 4、2，各自拥有独立 AI、属性与 Buff。
+```
+
+`MonsterSide` 继承 FightSide，可以直接交给 `Fight.createSide()`。`CreateMonsterSide(ids, zhen, allocateUid)` 也可写成 `new MonsterSide(...)`；UID 分配由宿主负责，两方共享分配器可避免冲突，0 是有效模板 ID、UID、阵型 ID 和位置。阵型可多留位置，取前 N 个；位置不足、已用位置重复或为负数、未知模板/阵型、重复或非安全整数 UID 均报错。位置的地图上界由宿主按地图配置保证，生成过程不消耗战斗随机数。属性、显示、被动 Buff、技能及 AI 运行实例互相独立，不改动模板。测试见 `tests/core/test_monster_side.ts`。
+
+## 全体破盾大招
+
+破盾通过单位上下文事件 `break(unit, ctx, attacker, allBroken)` 发布，也会传给普通单位监听和战斗全局监听。盾从正数降到 0 时，先加入 `shield` 消息再发事件，随后继续本次伤害结算；已破盾、回盾、未命中或取消的伤害均不重复触发。`allBroken` 保存事件瞬间本阵营是否全体破盾，后续 Buff 立即回盾也不会抹掉这个事实。Buff 可以用 `event: "break"` 按现有次数规则消耗、到期解绑；派生 Buff 通过 `onEvent()` 实现破盾效果，`onContex()` 的优先级规则保持不变。全体破盾大招改为监听这个事件，不增加网络消息。
+
+```ts
+unit.onContex("break", (unit, ctx, attacker, allBroken) => {
+    // 处理本单位破盾；allBroken 表示它是不是本阵营最后一个破盾的存活单位。
+}, prior);
+```
+
+`FightData.allShieldBreak` 默认关闭。某一击打破敌方最后一个未破盾者时，若敌方所有存活单位均配置了盾且盾为 0，就登记一次大招事件；完整 action 的连招、反击、死亡及自动复活全部结束、确认战斗仍在继续后，才发出机会消息。当前行动动画完成后，PC、西游、烟雨均调用公共 `waitInputUtimate(turn, side)` 等待选择己方一人，合法输入后立即施放大招，再恢复原队列。每队每个全局回合最多触发一次，多个弱点或多段攻击不重复触发；这是破盾事件，回盾不会取消已经触发的输入。存在未配置盾的存活敌人时不触发，仅杀掉无盾者也不补发破盾事件。
+
+单位通过 `ultimateSkill`、`getUltimateSkill()`、`setUltimateSkill(id)` 装配大招，0 卸下；技能必须已学会。`SkillData/PassiveData.ultimateSkill` 也可装配，不学习或改动原技能等级。大招严格检查己方、存活、休息/封印、目标资格、费用和 CD，普通技能指令不能直接施放已装配的大招。大招复用技能结算及完整反应链，不推进普通输入次数，不消耗普通行动位。正式尝试时消耗整队机会，概率未发动和未命中也不返还；非法选择不消费，仍等待重选。
+
+```ts
+fight.xls.allShieldBreak = true;
+hero.addSkill(ultimateId, level);
+hero.setUltimateSkill(ultimateId);
+loop.on("ultimate", (side, turn, units) => {
+    // 宿主界面从该方候选单位中选人，并提交目标。
+    showUltimatePanel(units, (id, target) => loop.onInputUltimate(id, {
+        cmd: FightCmdEnum.skill, target, turn,
+    }));
+});
+```
+
+`loop.ultimateSide` 为当前独立大招窗口的阵营；`onInputUltimate()` 同步返回 boolean，技能 ID 默认取该单位装配值，显式传其他 ID 会拒绝。网游必须携带当前 `turn`，PC 可省略；控制权仍由宿主鉴权。提交 `cmd: FightCmdEnum.cancel` 可放弃本回合机会。无人装配或没有存活且未封印、未休息、未冷却的候选人时不打开窗口。独立输入无超时；`end()` 释放等待，回调错误关闭窗口并传播。
+
+消息 `["ultimateReady", side, boolean]` 表示待处理机会，`FightClient.ultimateReady` 保存并参与一致性检查。大招行动使用 `["actor", uid, speed, "ultimate"]`，不移除普通行动条中的单位，简报显示“获得一次大招机会”“施放大招”。测试在 `tests/core/skill/test_ultimate.ts`，覆盖三名敌人最后一人破盾、完整连招结束、队伍次数、三种循环与逐批客户端校验。
+
+## 单机逐单位输入
+
+输入校验有两个具名入口，均返回 boolean：`fight.checkPC(unit, input)` 严格检查立即行动的自身状态、费用及目标效果资格，`fight.checkOnline(unit, input)` 按网游收指令规则检查，保留死亡单位提交和普攻守尸。窗口、控制权与回合号仍由对应循环检查；烟雨循环另外预检即时费用。二者不扣费、不抽取自动目标；PC 校验通过后用 `preparePCInput()` 选一次并保存主目标。原 `validateInput()` 保留为基础合法性检查，供公共执行复验和已有本地调用使用。
+
+`FightLoopPC` 按速度逐个执行。玩家和受控召唤物轮到时触发 `input(unit, turn)` 事件，等本单位提交指令后立刻执行；NPC 在自己的输入边界调用原有 `inputStart()` 选择 AI 指令。没有真实时间超时，`waitInputSec` 不影响 PC。死亡单位轮到时跳过，提前被复活则照常行动；休息直接跳过输入。各单位的 `inputTurn` 周期效果仅在轮到它时推进一次，全局回合前后效果与盾恢复仍由公共边界统一处理。
+
+```ts
+const loop = new FightLoopPC(fight);
+loop.onMsg(msgs => renderer.receive(msgs));
+loop.waitDrawOver = async () => { await animations.waitForCurrentAction(); };
+loop.on("input", (unit, turn) => {
+    // openCommandPanel 为宿主界面，玩家选择后回调；无效输入时保留面板供重选。
+    openCommandPanel(unit, input => loop.onInput(unit.uid, { ...input, turn }));
+});
+const result = await loop.run();
+```
+
+`loop.inputUnit` 表示当前等待输入的单位。`onInput()` 同步返回 boolean，只接受当前单位；本地可省略 `turn`，提供时必须匹配。指令检查沿用公共目标、封印、CD 和费用规则，失败通过 `hintClient` 提示，继续等输入；`cancel` 返回 true 并继续等待。接受后关闭窗口并保存副本，不接受动画期间抢先输入或重复提交，执行时再复验。输入次数效果若产生消息，先等动画完成再开放输入；每次完整行动结束也等动画，回合末不重复等待。速度变化只重排剩余队列，当前行动者已取出，不会重复入队。
+
+PC 输入要求当前行动者存活且能执行所选指令，目标符合当前阵营、存活/死亡与效果资格。普通攻击和默认普攻拒绝尸体，网游守尸规则不变；复活只接受可复活的死亡目标，禁疗、禁毒、禁复活均在提交时提示并拒绝，不扣费、不启动 CD，继续等该单位重选。没有指定目标时先过滤不可接受对应效果的对象；没有可用对象时拒绝且不抽随机数，通过全部检查后才选一次并保存主目标。执行前再次检查目标资格，已接受的目标若失效则跳过而不扣费或启动 CD。满血治疗仍可提交，不把治疗收益为零当成非法目标。
+
+保护在当前单位轮到并提交时生效，不会倒排已经执行的行动；西游整轮收齐指令后统一排保护优先的规则保持原实现。胜负在完整反应链后检查，结束后不再请求后续输入。`end()` 可释放等待并停止主循环，不改写战斗胜负结果；输入回调、结算或动画异常会向宿主传播并关闭输入，包括同步提交后回调再抛错的情况，宿主应结束该场战斗。测试见 `tests/core/test_pc.ts`。
+
+## 西游式整轮输入
 
 网游宿主必须先鉴权，确认调用者拥有单位控制权。向 `FightLoopWest.onInput()` 提交的指令必须携带当前回合 `turn`：
 
@@ -317,7 +483,7 @@ loop.onInput(unitId, {
 
 技能使用禁止字段 `noblood/nodback/nofback/nosupport/noprotect`，分别禁止吸血、普通反伤、触发目标反击、队友协战及保护分担。所有禁止字段省略或 false 均表示不禁止，true 才关闭相应能力；能力仍需满足实际比例、概率及目标状态等条件。同名 tags 不控制这些行为。反击专用类仍禁止再次反击，连招中间段等固定流程限制保留。旧字段 `blood/dback/fback/support/protect` 已移除，旧表显式允许迁移为对应 no 字段 false 或省略，显式禁止迁移为 true；原先依赖省略关闭的能力现在须显式禁止。协议反应标记及属性分组名不改。
 
-反击执行时检查反击者当前的 `isForbid("attack")`，普通反击和配置技能反击都受这一限制；封印、眩晕等禁止攻击的状态会阻止反击，包括受击后才附加的状态。被阻止时不抽样、不计反击次数，也不视为已经发动反击，因此原有后续连击可继续；状态解除后恢复反击。普通被动反伤不受禁止攻击限制。
+反击执行时检查反击者当前的 `isForbid("attack")` 和 `isForbid("fback")`，普通反击和配置技能反击都受这一限制；封印、眩晕等禁止攻击的状态会阻止反击，包括受击后才附加的状态。被阻止时不抽样、不计反击次数，也不视为已经发动反击，因此原有后续连击可继续；状态解除后恢复反击。普通被动反伤不受禁止攻击限制。状态规则统一来自 `Buffs/FightStatus.ts` 的 `statusForbidActions`：禁止 `dodge` 时物理攻击直接命中，不抽取闪避随机数；每段攻击复查 `attack`，中途被禁止则停止后续连招。Buff 与破盾眩晕共用配置，不直接修改闪避属性，解除后恢复原行为。
 
 保护使用 `FightCmdEnum.protect`，必须明确指定存活队友，不能保护自己。战斗配置 `FightData.protectBuff` 指定已注册的 `class: "protect"` Buff ID；未配置或不是保护类时拒绝该指令。执行时以保护者 A 为施加者，向 B 添加一级保护 Buff，并占用 A 本次行动。沿用 Buff 的覆盖、驱散及显示字段，通常配置 `overlap: OverlapEnum.REPLACE`。示意（Buff 其他通用字段照常填写）：
 
@@ -343,6 +509,7 @@ loop.onInput(A.uid, { turn: fight.turn, cmd: FightCmdEnum.protect, target: B.uid
 Buff 的 `notRemove` 字段禁止驱散，`dieNotRemove` 字段使其在死亡时保留，`notDisplay` 字段使其不出现在单位展示数据中，三者独立，省略或 false 时不启用。`notRemove` 不阻止持续时间到期和次数耗尽；普通 Buff 在死亡时移除并清理监听，`dieNotRemove` Buff 保留属性和剩余次数。隐藏只影响展示，Buff 仍参与逻辑结算。`tags` 用于增益、减益等分类。
 
 单位构造参数中的被动技能使用 `[[被动ID, 等级]]`。被动配置的 `addbuff: [[Buff ID, Buff 等级]]` 在初始化时为自身添加 Buff，无需先绑定战斗；被动属性和附加 Buff 属性均参与最终重算。Buff 等级取自 `addbuff` 的配置，不自动继承被动等级。
+
 
 
 

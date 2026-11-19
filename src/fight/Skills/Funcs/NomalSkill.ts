@@ -59,7 +59,7 @@ class MagicSkill extends FightSkill {
 export function skillAttack(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex, reaction?: AttackReaction, combo?: ComboDamage) {
     // assert(skill);
     const f = ctx.fight;
-    if (attacker.isDied() || defender.isDied()) return false;
+    if (attacker.isDied() || defender.isDied() || attacker.isForbid("attack")) return false;
     ctx.reactionSteps = (ctx.reactionSteps ?? 0) + 1;
     if (ctx.reactionSteps > 64) throw new Error("Reaction limit exceeded (64 effects per action)");
     
@@ -88,9 +88,10 @@ export function skillAttack(attacker: FightUnit, defender: FightUnit, skill:Figh
 
     const ismagic = skill.isMagic();
     
-    let damage = skill.calcHurt(f, defender, ctx);
+    let damage = skill.calcHurt(f, defender, ctx, attacker);
     damage = defender.onHurt(attacker, "skill", damage, ctx,
-        { magic: ismagic, source: "skill", noprotect: !skill.canProtect() });
+        { magic: ismagic, source: "skill", noprotect: !skill.canProtect(),
+            weakPoint: defender.isWeakPoint(skill.getXls().skillProp ?? attacker.attr.weaponProp, attacker.attr.weapon) });
     if (combo && defender === combo.target) combo.damage += damage;
     afterHurt(attacker, defender, skill, ctx);
     if (damage > 1) {

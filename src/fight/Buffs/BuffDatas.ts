@@ -21,7 +21,10 @@ export enum BuffTurnEnum {
 // 但是1~5并不互斥，可以同时存在，所以没有type字段
 
 export type FightUnitEvent = 
-    'beforeHurt' | 'beforeHeal' | 'afterTurn' | 'die' | 'relife' | 'hurt' | 'heal' | 'addBuff' | "removeBuff" | "attr" | "speed";
+    'beforeHurt' | 'beforeHeal' | 'afterTurn' | 'die' | 'relife' | 'hurt' | 'heal' | 'hp' | 'break' | 'addBuff' | "removeBuff" | "attr" | "speed";
+// break(unit, ctx, attacker, allBroken)：盾正数变 0 时；allBroken 为该瞬间本阵营全体存活单位破盾的快照。
+// hp(unit, ctx, attacker, previous, current)：真实生命值变化，包含分担扣血与截断后的治疗。
+// hurt(unit, ctx, attacker, damage, pending)：最后一项提供 HurtOptions/source；分担伤害仍不发 hurt。
 
 export type BuffFuncEnum = 'poison' | 'heal'
 

@@ -153,7 +153,7 @@ export class FightReport{
                 case "side": {
                     const side = msg[1] === 0 ? "攻击方" : "防守方";
                     const units = this.client.sides[msg[1] as 0 | 1];
-                    this.write(`${side}：${units.map(u => `${name(u.uid)}，位置 ${u.pos ?? "未设置"}，生命 ${u.point.hp}/${u.point.hpMax}，法力 ${u.point.mp}/${u.point.mpMax}${u.dead ? "，已死亡" : ""}`).join("；") || "无单位"}`);
+                    this.write(`${side}：${units.map(u => `${name(u.uid)}，位置 ${u.pos ?? "未设置"}，生命 ${u.point.hp}/${u.point.hpMax}，法力 ${u.point.mp}/${u.point.mpMax}${u.shield !== undefined ? `，护盾 ${u.shield}/${u.shieldMax}` : ""}${u.dead ? "，已死亡" : ""}`).join("；") || "无单位"}`);
                     for (const unit of units) {
                         for (const buff of unit.buffs) {
                             this.write(`${name(unit.uid)} 初始携带 ${this.buffName(buff[0])}（等级 ${buff[1]}）`);
@@ -170,7 +170,17 @@ export class FightReport{
                     break;
                 case "actor":
                     this.write("");
-                    this.write(`${name(msg[1])} 行动（速度 ${msg[2]}）`);
+                    this.write(msg[3] === "ultimate" ? `${name(msg[1])} 施放大招` :
+                        msg[3] === "skill" ? `${name(msg[1])} 施放即时技能` : `${name(msg[1])} 行动（速度 ${msg[2]}）`);
+                    break;
+                case "ultimateReady":
+                    this.write(`${msg[1] === 0 ? "攻击方" : "防守方"}${msg[2] ? "获得一次大招机会" : "的大招机会结束"}`);
+                    break;
+                case "aiHp":
+                    this.write(`${name(msg[1])} 触发 ${Math.round(msg[2] * 100)}% 血线，攻击力累计提高 ${Math.round(msg[3] * 100)}%`);
+                    break;
+                case "aiAttack":
+                    this.write(`${name(msg[1])} 触发受伤计次攻击，目标为 ${name(msg[2])}`);
                     break;
                 case "skillFailed":
                     this.write(`${name(msg[1])} 的${this.skillName(msg[3])}未发动（发动概率判定失败）`);
@@ -180,6 +190,10 @@ export class FightReport{
                     break;
                 case "protect":
                     this.write(`${name(msg[1])} 保护 ${name(msg[2])}`);
+                    break;
+                case "shield":
+                    this.write(msg[3] === "recover" ? `${name(msg[1])} 护盾恢复至 ${msg[2]}，破盾眩晕解除` :
+                        msg[2] === 0 ? `${name(msg[1])} 护盾被击破，陷入眩晕` : `${name(msg[1])} 护盾剩余 ${msg[2]}`);
                     break;
                 case "hurt": {
                     if (sharedStarts.has(index)) {
@@ -200,9 +214,10 @@ export class FightReport{
                     const unit = this.client.getUnitById(msg[2]);
                     const after = unit?.point.hp ?? msg[5] + msg[4];
                     const reason = msg[1] === "blood" ? "吸血" : msg[1] === "relife" ? "复活治疗" : msg[1] === "reflect" ? "反射治疗" : "治疗";
+                    const effects = (msg[6] ?? []).map((effect: string) => effect === "crit" ? "暴击" : effect);
                     const prefix = `${name(msg[3])} 为 ${name(msg[2])} 恢复 `;
                     const amount = String(after - msg[5]);
-                    this.write(`${prefix}${amount} 点生命（${reason}），当前生命 ${after}/${unit?.point.hpMax ?? "未知"}`,
+                    this.write(`${prefix}${amount} 点生命（${reason}${effects.length ? `，${effects.join("、")}` : ""}），当前生命 ${after}/${unit?.point.hpMax ?? "未知"}`,
                         "green", { start: prefix.length, length: amount.length });
                     break;
                 }
@@ -241,6 +256,8 @@ export class FightReport{
                 case "无效":
                 case "无法复活":
                     this.write(`${name(msg[1])}：${msg[0]}`);
+                    break;
+                case "skillCd": // 冷却状态供客户端技能栏使用，无须逐次写入简报。
                     break;
                 case "end": {
                     const result = msg[1] === FightResultEnum.attack ? "攻击方获胜" :

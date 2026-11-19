@@ -4,12 +4,16 @@ import { FightUnit, UnitType } from "./FightUnit";
 
 
 export class FightUnitCost extends FightUnit {
-    canCost(cost: SkillCost) {
+    override canCost(cost: SkillCost) {
         const point = this.attr.point;
-        if (cost.hp && point.hp <= cost.hp)
+        if (cost.hp && point.hp <= cost.hp) {
+            this.hintClient("生命不足，无法支付技能消耗");
             return false;
-        if (cost.mp && point.mp < cost.mp)
+        }
+        if (cost.mp && point.mp < cost.mp) {
+            this.hintClient("法力不足，无法支付技能消耗");
             return false;
+        }
 
         return true;
     }

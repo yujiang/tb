@@ -1,4 +1,4 @@
-import { FightLoopWest } from '../../src/fight/Online/FightLoopOnline';
+import { FightLoopWest } from '../../src/fight/Online/FightLoopWest';
 import { BaseAttack, FinalAttack } from '../../src/fight/FightAttr';
 import { initSkills, SkillData } from '../../src/fight/Skills/SkillDatas';
 import { MapShapeEnum, SelectParam, TargetSelectEnum } from '../../src/fight/struct';
@@ -13,7 +13,6 @@ const sel : SelectParam = {
 
 function baseAttack(attack: number): BaseAttack {
     return {
-        property: 0,
         rand: 1,
         hit: 100,
         dodge: 0,

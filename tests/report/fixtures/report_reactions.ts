@@ -1,10 +1,10 @@
 import { Fight, FightAttr, BaseAttack, FightSide, FightLoopWest, FightUnitMonster,
-    FightClient, FightReport, initSkills, TargetSelectEnum, fightMsg } from "../../src";
+    FightClient, FightReport, initSkills, TargetSelectEnum, fightMsg } from "../../../src";
 
 const mainId = 97201, nextId = 97202, killId = 97203;
 
 function base(attack: number, rand = 0): BaseAttack {
-    return { property: 0, rand, hit: 100, dodge: 0, attack, defend: 0,
+    return { rand, hit: 100, dodge: 0, attack, defend: 0,
         hurt: 0, hurtP: 0, hurtAnti: 0, hurtPAnti: 0, critP: 0,
         critPAnit: 0, critDeep: 0, critDeepAnit: 0 };
 }

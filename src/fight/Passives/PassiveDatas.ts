@@ -8,8 +8,10 @@ import { StaticData } from "../Buffs/StaticData";
 
 export interface PassiveData extends StaticData{
     addbuff?: IdLevelArray;
+    attackSkill?: number;   // 装配已有技能替代普通攻击，不学习或改变等级
     fbackSkill?: number;    // 反击技
     supportSkill?: number;  // 装配已有的协战技能，不学习或改变技能等级
+    ultimateSkill?: number; // 装配已有大招，不学习或改变等级
 }
 
 

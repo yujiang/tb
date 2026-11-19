@@ -7,7 +7,7 @@ import { BaseAttack, BuffTurnEnum, Fight, FightAttr, FightClient, FightCmdEnum, 
 const mainId = 99560, supportId = 99561, secondId = 99562, protectId = 99563;
 
 function attributes(attack: number, speed: number, hp = 1000): FightAttr {
-    const base = (value: number, rand = 0): BaseAttack => ({ attack: value, rand, property: 0, hit: 100,
+    const base = (value: number, rand = 0): BaseAttack => ({ attack: value, rand, hit: 100,
         dodge: 0, defend: 0, hurt: 0, hurtP: 0, hurtAnti: 0, hurtPAnti: 0,
         critP: 0, critPAnit: 0, critDeep: 0, critDeepAnit: 0 });
     const attr = new FightAttr();

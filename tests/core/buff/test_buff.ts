@@ -12,7 +12,7 @@ import { initSkills, SkillData } from "../../../src/fight/Skills/SkillDatas";
 import { skillFunc } from "../../../src/fight/Skills/SkillFuncType";
 import { TargetSelectEnum } from "../../../src/fight/struct";
 import { attackFunc } from "../../../src/fight/Skills/Funcs/NormalAttack";
-import { FightLoopWest } from "../../../src/fight/Online/FightLoopOnline";
+import { FightLoopWest } from "../../../src/fight/Online/FightLoopWest";
 
 function createFightPair(random = () => 0) {
     const fight = new Fight(1, { maxTurn: 10, waitInputSec: 1, duiwei: false });
@@ -75,7 +75,6 @@ function skillData(id: number, func: string, extra: Partial<SkillData> = {}): Sk
         func,
         rand: 1,
         attack: {
-            property: 0,
             rand: 1,
             hit: 100,
             dodge: 0,

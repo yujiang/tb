@@ -5,7 +5,7 @@ import { FightTypeAttr, BaseAttack, FinalAttack } from "../../FightAttr";
 import { FightUnit } from "../../Unit/FightUnit";
 import { FightSkill } from "../FightSkill";
 import { SkillData } from "../SkillDatas";
-import { magicAttackFunc } from "./NomalSkill";
+import { magicAttackFunc, skillAttackFunc } from "./NomalSkill";
 
 // const AttackBaseRand = {
 //     next : 0,
@@ -23,7 +23,6 @@ const PhysicData : SkillData = {
     id: 0,
     name : "physic",
     magic: false,
-    property : 0,
     rand: 1,
 
     sel: null,
@@ -72,6 +71,8 @@ class PhysicSkill extends FightSkill {
 }
 
 export function attackFunc(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {  
+    const equipped = attacker.getAttackSkill();
+    if (equipped) return skillAttackFunc(attacker, defender, equipped, ctx);
     const skill = new PhysicSkill(
         "physic",attacker, attacker.attr.physic.base, attacker.attr.physic.final);
     return magicAttackFunc(attacker, defender, skill, ctx);

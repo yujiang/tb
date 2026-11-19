@@ -9,7 +9,7 @@ const tauntId = 97801, secondTauntId = 97802;
 const attackId = 97810, healId = 97811, selfId = 97812, positionId = 97813, areaId = 97814, spreadId = 97815;
 
 function attr(hp = 1000): FightAttr {
-    const base = (rand = 0): BaseAttack => ({ property: 0, rand, hit: 100, dodge: 0,
+    const base = (rand = 0): BaseAttack => ({ rand, hit: 100, dodge: 0,
         attack: 10, defend: 0, hurt: 0, hurtP: 0, hurtAnti: 0, hurtPAnti: 0,
         critP: 0, critPAnit: 0, critDeep: 0, critDeepAnit: 0 });
     const a = new FightAttr();

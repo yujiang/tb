@@ -9,6 +9,19 @@ test('package entry exports the current Fight implementation and has declaration
     const api = require('..');
     assert.equal(typeof api.Fight, 'function');
     assert.equal(typeof api.FightLoopWest, 'function');
+    assert.equal(typeof api.FightLoopYanYu, 'function');
+    assert.equal(typeof api.FightLoopPC, 'function');
+    assert.equal(typeof api.FightLoop.prototype.waitInputUtimate, 'function');
+    assert.equal(typeof api.FightLoop.prototype.onInputUltimate, 'function');
+    assert.equal(typeof api.FightUnit.prototype.getUltimateSkill, 'function');
+    assert.equal(typeof api.FightAI, 'function');
+    assert.ok(api.MonsterSide.prototype instanceof api.FightSide);
+    for (const name of ['CreateMonsterSide', 'initMonsters', 'getMonsterData', 'initZhens', 'getZhenPos', 'createAI']) {
+        assert.equal(typeof api[name], 'function');
+    }
+    for (const name of ['FightAIHp', 'FightAITurn', 'FightAIHurt']) {
+        assert.ok(api[name].prototype instanceof api.FightAI);
+    }
     assert.equal(typeof api.FightClient, 'function');
     assert.equal(typeof api.FightReport, 'function');
     assert.equal(typeof api.FightPreParse, 'function');

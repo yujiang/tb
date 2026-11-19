@@ -18,6 +18,7 @@ export class FightClient{
     sides: [FightClientUnit[], FightClientUnit[]] = [[], []];
     sort: number[] = [];
     actor: number | undefined;
+    ultimateReady: [boolean, boolean] = [false, false];
     private boundLoops = new WeakMap<FightLoop, { autocheck: boolean }>();
 
     getUnitById(id: number): FightClientUnit | undefined {
@@ -53,6 +54,7 @@ export class FightClient{
         for (const msg of this.toBatch(msgs)) {
             switch (msg[0]) {
                 case "start":
+                    this.ultimateReady = [false, false];
                     this.fid = msg[1];
                     this.turn = 0;
                     this.win = FightResultEnum.ongoing;
@@ -69,6 +71,7 @@ export class FightClient{
                     break;
                 case "end":
                     this.win = msg[1];
+                    if (this.win !== FightResultEnum.ongoing) this.ultimateReady = [false, false];
                     this.actor = undefined;
                     this.sort = [];
                     break;
@@ -77,7 +80,10 @@ export class FightClient{
                     break;
                 case "actor":
                     this.actor = msg[1];
-                    this.sort = this.sort.filter(id => id !== this.actor);
+                    if (msg[3] !== "skill" && msg[3] !== "ultimate") this.sort = this.sort.filter(id => id !== this.actor);
+                    break;
+                case "ultimateReady":
+                    this.ultimateReady[msg[1] as 0 | 1] = msg[2];
                     break;
                 case "hurt": {
                     const unit = this.getUnitById(msg[2]);
@@ -96,9 +102,23 @@ export class FightClient{
                     if (unit) unit.point[msg[0] === "costHp" ? "hp" : "mp"] = msg[3];
                     break;
                 }
+                case "skillCd": {
+                    const unit = this.getUnitById(msg[1]);
+                    if (unit) {
+                        const cds = new Map(unit.skillCds ?? []);
+                        cds.set(msg[2], msg[3]);
+                        unit.skillCds = [...cds];
+                    }
+                    break;
+                }
                 case "die": {
                     const unit = this.getUnitById(msg[1]);
                     if (unit) unit.dead = true;
+                    break;
+                }
+                case "shield": {
+                    const unit = this.getUnitById(msg[1]);
+                    if (unit) unit.shield = msg[2];
                     break;
                 }
                 case "relife": {
@@ -132,6 +152,7 @@ export class FightClient{
     // 检测是否跟服务器的战况完全一致，包括位置，display，point, buffs
     checkSame(f: Fight) : boolean{
         if (this.fid !== f.fid || !f.Sides) return false;
+        if (!isDeepStrictEqual(this.ultimateReady, [f.hasUltimateChance(0), f.hasUltimateChance(1)])) return false;
         for (const side of [FightSideEnum.attack, FightSideEnum.defend]) {
             const units = this.sides[side];
             const expected = f.getSide(side).units;
@@ -144,7 +165,9 @@ export class FightClient{
                 if (!actual || actual.pos !== snapshot.pos || actual.dead !== snapshot.dead ||
                     !isDeepStrictEqual(actual.display, snapshot.display) ||
                     !isDeepStrictEqual(actual.point, snapshot.point) ||
-                    !isDeepStrictEqual(actual.buffs, snapshot.buffs)) return false;
+                    !isDeepStrictEqual(actual.buffs, snapshot.buffs) ||
+                    actual.shield !== snapshot.shield || actual.shieldMax !== snapshot.shieldMax ||
+                    !isDeepStrictEqual(actual.skillCds ?? [], snapshot.skillCds ?? [])) return false;
             }
         }
         return true;

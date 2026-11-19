@@ -16,7 +16,6 @@ import { FightUnit } from "../../src/fight/Unit/FightUnit";
 
 function baseAttack(overrides: Partial<BaseAttack> = {}): BaseAttack {
     return {
-        property: 0,
         rand: 1,
         hit: 100,
         dodge: 0,
@@ -171,7 +170,7 @@ test("skill registry stores data by id and creates relative skills at the same l
     assert.equal(getSkillData(parentData.id), replacement);
 });
 
-// 测试：伤害计算应用暴击和防守方的固定及比例减伤。
+// 测试：伤害计算先应用固定及比例免伤，再乘包含暴击增伤的合并倍率。
 test("damage calculation applies critical hits and defender damage reduction", () => {
     const { fight, attacker, defender } = createFightPair();
     const ctx = contextFor(fight, attacker, defender);
@@ -185,7 +184,7 @@ test("damage calculation applies critical hits and defender damage reduction", (
         ctx,
     );
 
-    assert.equal(damage, 34.5);
+    assert.equal(damage, 30); // (24 - 4防御 - 4免伤) × 0.75 × (1 + 0.5 + 1暴击增伤)
     assert.deepEqual(ctx.effects, ["crit"]);
 });
 

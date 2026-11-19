@@ -1,4 +1,4 @@
-import { BaseAttack, FinalAttack } from "../FightAttr";
+import { BaseAttack, FinalAttack, PropEnum } from "../FightAttr";
 import { IdLevelRand, IdRand, SelectParam, SkillCost } from "../struct";
 
 //表格化数据
@@ -8,12 +8,13 @@ export interface SkillData {
     desc?: string;      // 描述
 
     magic: boolean;     // 是否魔法攻击
-    property?: number;  // 属性, 金木水火土有克制关系~
+    skillProp?: PropEnum;  // 技能属性；未填时攻击/毒伤用武器属性，治疗用人物属性；显式 none 不回退
 
     rand: number;       // 发生概率；不是闪避
 
     sel: SelectParam;   // 选择
     cost?: SkillCost;   // 消耗
+    cd?: number;       // 主动施放冷却的全局回合数，默认 0；第 t 回合施放后 t+cd 可再次施放
     
     func?: string;      // 技能效果函数名, 默认noraml
 
@@ -42,8 +43,10 @@ export interface SkillData {
     afterSelfBuff?: IdLevelRand[];  // 当前技能及后续链结束后给自身添加 [Buff ID, 等级, 概率]
     power?: number;                 // 1.现在removeBuff用到；2.将来战力统计用到
 
+    attackSkill?: number;           // 装配替代普通攻击的攻击技能；0 卸下
     fbackSkill?: number;            // 装备反击技能
     supportSkill?: number;          // 装备协战技能
+    ultimateSkill?: number;         // 装配已学的大招技能，0 卸下
 
     // 类型集合
     tags?: string[];

@@ -13,7 +13,7 @@ import { FightCmdEnum, IdLevelArray, TargetSelectEnum } from "../../src/fight/st
 
 function attackData(attack = 0): BaseAttack {
     return {
-        property: 0, rand: 0, hit: 100, dodge: 0, attack, defend: 0,
+        rand: 0, hit: 100, dodge: 0, attack, defend: 0,
         hurt: 0, hurtP: 0, hurtAnti: 0, hurtPAnti: 0,
         critP: 0, critPAnit: 0, critDeep: 0, critDeepAnit: 0,
     };

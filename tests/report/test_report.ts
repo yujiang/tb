@@ -5,7 +5,7 @@ import { FightReport } from "../../src/fight/Client/FightReport";
 import { FightClient } from "../../src/fight/Client/FightClient";
 import { Fight } from "../../src/fight/Fight";
 import { FightSide } from "../../src/fight/FightSide";
-import { FightLoopWest } from "../../src/fight/Online/FightLoopOnline";
+import { FightLoopWest } from "../../src/fight/Online/FightLoopWest";
 import { fightMsg } from "../../src/fight/struct";
 import { BuffData, initBuffs, OverlapEnum } from "../../src/fight/Buffs/BuffDatas";
 import { initSkills } from "../../src/fight/Skills/SkillDatas";
@@ -29,6 +29,17 @@ function initial(): fightMsg[] {
         buffs: [[97101, 3, 0, 0], [97102, 2, 0, 0]] });
     return [["start", 0], ["side", 0, [unit(0, "甲")]], ["side", 1, [unit(1, "乙")]]];
 }
+
+// 测试：伤害的克和治疗的生标记出现在简报中，标记不改变伤害、治疗数字的颜色。
+test("report: elemental effect markers are readable for damage and healing", () => {
+    const output: string[] = [], report = new FightReport(line => output.push(line));
+    report.onMsg([...initial(), ["hurt", "skill", 1, 0, 50, 50, ["克"]],
+        ["heal", "heal", 1, 0, 20, 50, ["生"]]]);
+    assert.match(report.toString(), /50 点伤害（克）/);
+    assert.match(report.toString(), /20 点生命（治疗，生）/);
+    assert.ok(output.some(line => line.includes("\x1b[31m50\x1b[0m 点伤害（克）")));
+    assert.ok(output.some(line => line.includes("\x1b[32m20\x1b[0m 点生命（治疗，生）")));
+});
 
 // 测试：只给每行开头的人名按阵营着色，后续同名引用保持原色，数字颜色与纯文本不变。
 test("report: only the leading unit name gets a side color", () => {

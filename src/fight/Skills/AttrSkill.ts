@@ -5,6 +5,7 @@ import { FightUnit } from "../Unit/FightUnit";
 import { calcAttack, calcPoison } from "./Calc";
 import { FightSkill, } from "./FightSkill";
 import { getSkillData, SkillData } from "./SkillDatas";
+import { getHealMul } from "../FightAttr";
 
 export type AttrFunc =(attacker: FightUnit, defender: FightUnit, skill:AttrSkill, name: string, ctx: FightContex)=>boolean;
 
@@ -32,12 +33,22 @@ export class AttrSkill extends FightSkill {
         this.attack = this.mergeAttackData(this.getAttr(attacker));
     }
 
-    calcHeal(f: Fight, defender: FightUnit, ctx: FightContex){
-        return calcAttack(f, this.getAttack(), this.getAttr(defender), ctx) * this.getHealRate();
+    calcHeal(f: Fight, defender: FightUnit, ctx: FightContex, attacker: FightUnit = ctx.attack){
+        const property = this.getXls().skillProp ?? attacker?.attr.charProp;
+        const propertyBonus = getHealMul(property, defender.attr.charProp) - 1;
+        ctx.effects = [];
+        const amount = calcAttack(f, this.getAttack(), this.getAttr(defender), ctx, this.getHealRate() + propertyBonus);
+        if (propertyBonus > 0) ctx.effects.push("生");
+        return amount;
     }
 
-    calcPoison(f: Fight, defender: FightUnit, ctx: FightContex){
-        return calcPoison(f, this.getAttack(), this.getAttr(defender), defender.getHp(), ctx) * this.getPoisonRate();
+    calcPoison(f: Fight, defender: FightUnit, ctx: FightContex, attacker: FightUnit = ctx.attack){
+        const property = this.getXls().skillProp ?? attacker?.attr.weaponProp;
+        const propertyBonus = defender.getHurtMul(property, attacker?.attr.weapon) - 1;
+        ctx.effects = [];
+        const damage = calcPoison(f, this.getAttack(), this.getAttr(defender), defender.getHp(), ctx);
+        if (propertyBonus > 0) ctx.effects.push("克");
+        return damage * (this.getPoisonRate() + propertyBonus);
     }
 
     getAttr(u: FightUnit){

@@ -19,7 +19,15 @@ const SkillFuncMap: Record<string, SkillFuncType> = {
 
 export function skillFunc(attacker: FightUnit, defender: FightUnit, skillId: number, ctx: FightContex) {
     const skill = attacker.findSkill(skillId);
-    if (!skill) return;
+    if (!skill) {
+        attacker.hintClient("未学会该技能");
+        return;
+    }
+    const cd = attacker.getSkillCd(skillId);
+    if (cd > 0) {
+        attacker.hintClient(`[${skill.getName()}]冷却中，还需 ${cd} 回合`);
+        return;
+    }
 
     const f = ctx.fight;
 
@@ -27,7 +35,10 @@ export function skillFunc(attacker: FightUnit, defender: FightUnit, skillId: num
     const sel = skill.getSel();
     if (!defender || !defender.isFillterDie(sel.die)) {
         defender = f.selectMainTarget(attacker, sel);
-        if (!defender) return;
+        if (!defender) {
+            attacker.hintClient("没有可用目标");
+            return;
+        }
     }
 
     const func = SkillFuncMap[skill.getFunc()] || skillAttackFunc;
@@ -35,6 +46,7 @@ export function skillFunc(attacker: FightUnit, defender: FightUnit, skillId: num
 
     const cost = skill.getCost();
     if (cost && !attacker.costSkill(cost, ctx)) return;
+    attacker.startSkillCd(skill, ctx);
 
     const result = func(attacker, defender, skill, ctx);
     // 普通攻击类在整条反应链结束后处理自身效果；其余技能在本次执行完成后处理。

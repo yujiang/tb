@@ -14,7 +14,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "npm run build && npm run test:build && node --test tests/*.test.cjs .test-build/tests/core/*.js .test-build/tests/core/buff/*.js .test-build/tests/core/skill/*.js",
+    "test": "npm run build && npm run test:build && node --test tests/*.test.cjs .test-build/tests/core/*.js .test-build/tests/core/buff/*.js .test-build/tests/core/skill/*.js .test-build/tests/core/ai/*.js .test-build/tests/report/*.js",
     "test:build": "node -e \"require('node:fs').rmSync('.test-build', { recursive: true, force: true })\" && tsc -p tsconfig.test.json",
     "example": "npm run test:build && node .test-build/tests/simple/test_loop.js"
   },

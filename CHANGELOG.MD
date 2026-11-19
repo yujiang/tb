@@ -43,3 +43,9 @@
 1. 3连还是从next改为combo
 2. 添加了protect保护,support协战
 3. passiveskill可以设置supportSkill,fbackSkill;
+
+# 0.1.3
+1. 添加属性和属性相生相克
+2. 把crit,damageRate,相生相克放在一起相加计算
+3. FightAI
+4. MonsterData and zhen

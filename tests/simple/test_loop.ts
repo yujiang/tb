@@ -1,5 +1,5 @@
 
-import {FightLoopWest} from '../../src/fight/Online/FightLoopOnline';
+import {FightLoopWest} from '../../src/fight/Online/FightLoopWest';
 import { createFightAndSide } from './help';
 
 // 测试：运行手写回合示例，查看战斗结束时的胜方和回合数。

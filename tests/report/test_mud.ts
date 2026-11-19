@@ -2,7 +2,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { FightReport, fightMsg, initBuffs, initSkills, OverlapEnum, TargetSelectEnum } from "../../src";
 import { FightMud } from "../../src/fight/Client/FightMud";
-import { runReactionReport } from "../fixtures/report_reactions";
+import { runReactionReport } from "./fixtures/report_reactions";
 
 function initial(): fightMsg[] {
     const unit = (uid: number, name: string) => ({ uid, pos: 0, dead: false,

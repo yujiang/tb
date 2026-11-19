@@ -10,7 +10,6 @@ const PhysicFBackData : SkillData = {
     id: 0,
     name : "fback",
     magic: false,
-    property : 0,
     rand: 1,
 
     sel: null,
@@ -45,7 +44,7 @@ function attackFback(attacker: FightUnit, defender: FightUnit, ctx: FightContex)
 }
 
 export function skillFBack(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {
-    if (attacker.isForbid("attack")) return false;
+    if (attacker.isForbid("attack") || attacker.isForbid("fback")) return false;
     ctx.fbackNum = (ctx.fbackNum || 0) + 1;
     const magic = new MagicFBackSkill(skill.getXls(), skill.level);
 
@@ -56,7 +55,7 @@ export function skillFBack(attacker: FightUnit, defender: FightUnit, skill:Fight
 }
 
 export function tryFBack(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
-    if (attacker.isForbid("attack")) return false;
+    if (attacker.isForbid("attack") || attacker.isForbid("fback")) return false;
     const fback = attacker.getFBackSkill();
     if (fback) {
         return skillFBack(attacker, defender, fback, ctx);

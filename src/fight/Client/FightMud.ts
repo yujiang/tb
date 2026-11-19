@@ -217,7 +217,8 @@ export class FightMud extends FightReport{
             msg[1] === "reflect" ? `${healer}转来的生机落在${target}身上，恢复 ` :
             msg[2] === msg[3] ? `${target}运气调息，恢复 ` : `${healer}为${target}渡入一股生机，恢复 `;
         const feeling = hp === msg[5] ? "气血未有变化。" : "气息稍稍平复。";
-        this.write(`${prefix}${amount} 点生命，${feeling}（生命 ${hp}/${unit?.point.hpMax ?? "未知"}）`,
+        const effects = (msg[6] ?? []).map((effect: string) => effect === "crit" ? "暴击" : effect);
+        this.write(`${prefix}${amount} 点生命${effects.length ? `（${effects.join("、")}）` : ""}，${feeling}（生命 ${hp}/${unit?.point.hpMax ?? "未知"}）`,
             "green", { start: prefix.length, length: amount.length });
     }
 }

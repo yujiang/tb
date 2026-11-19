@@ -70,7 +70,7 @@ export enum FightCmdEnum{
 }
 
 export interface FightInput {
-    turn?: number; // FightLoopWest 的网络输入必须携带当前回合；本地调用可省略
+    turn?: number; // FightLoopWest/YanYu 的网络输入必须携带当前回合；PC/本地可省略，提供时必须匹配
     cmd: FightCmdEnum;
     skill?: number;
     target?: number;

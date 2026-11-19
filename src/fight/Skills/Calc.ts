@@ -4,7 +4,7 @@ import { FinalAttack, BaseAttack, FightAttr, FightTypeAttr } from "../FightAttr"
 import { FightStatic } from "../Buffs/StaticData";
 import { clone } from "../../public/Utilts";
 
-const critBase = 1.5;
+const critBonusBase = 0.5;
 
 function finite(value: number, name: string): number {
     assert.ok(Number.isFinite(value), `${name} must be finite; received ${value}`);
@@ -22,9 +22,10 @@ function calcFinal(a: FinalAttack, d: FinalAttack, d1: number) {
     return d1;
 }
 
-export function calcHurt(f: Fight, a: BaseAttack, d: BaseAttack, af: FinalAttack, df: FinalAttack, ctx: FightContex) {
-    const d1 = calcAttack(f, a, d, ctx);
-    return finite(Math.max(calcFinal(af, df, d1), 1), "damage");
+export function calcHurt(f: Fight, a: BaseAttack, d: BaseAttack, af: FinalAttack, df: FinalAttack,
+    ctx: FightContex, rate = 1) {
+    const result = calcAttackParts(f, a, d, ctx);
+    return finite(Math.max(calcFinal(af, df, result.damage), 1) * (rate + result.critBonus), "damage");
 }
 
 export function clamp(v: number, min: number, max: number) {
@@ -37,17 +38,24 @@ export function calcPoison(f: Fight, a: BaseAttack, d: BaseAttack, hp: number, c
     return finite(Math.max(d2 * hp + d1, 1), "poison damage");
 }
 
-export function calcAttack(f: Fight, a: BaseAttack, d: BaseAttack, ctx: FightContex) : number {
+export function calcAttack(f: Fight, a: BaseAttack, d: BaseAttack, ctx: FightContex, rate = 1) : number {
+    const result = calcAttackParts(f, a, d, ctx);
+    return finite(result.damage * (rate + result.critBonus), "damage");
+}
+
+// 暴击只判定一次，返回加成，留到最终倍率阶段与技能及属性加成相加。
+function calcAttackParts(f: Fight, a: BaseAttack, d: BaseAttack, ctx: FightContex) {
     let d1 = a.attack - d.defend;
     d1 += a.hurt - d.hurtAnti;
     d1 *= 1 + Math.max(a.hurtP - d.hurtPAnti, 0);
 
+    let critBonus = 0;
     if (d1 > 1 && f.randomLess(a.critP - d.critPAnit)) {
-        d1 *= critBase + clamp(a.critDeep - d.critDeepAnit, 0, 1);
+        critBonus = critBonusBase + clamp(a.critDeep - d.critDeepAnit, 0, 1);
         ctx.effects.push("crit");
     }
 
-    return finite(Math.max(d1, 1), "damage");
+    return { damage: finite(Math.max(d1, 1), "damage"), critBonus };
 }
 
 // _a _b的字段必须匹配！

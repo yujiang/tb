@@ -31,13 +31,17 @@ function removeBuffFunc(attacker: FightUnit, defender: FightUnit, skill:FightSki
 // 装备技能~
 export function equipSkill(attacker: FightUnit, skill:FightSkill, ctx: FightContex) {
     const xls = skill.getXls();
+    if (xls.attackSkill != null) {
+        attacker.setAttackSkill(xls.attackSkill);
+    }
+    if (xls.ultimateSkill != null) attacker.setUltimateSkill(xls.ultimateSkill);
     if (xls.supportSkill) {
         attacker.setSupportSkill(xls.supportSkill);
     }
     if (xls.fbackSkill){
         attacker.setFBackSkill(xls.fbackSkill);
     }
-    return xls.supportSkill || xls.fbackSkill;
+    return xls.attackSkill || xls.supportSkill || xls.fbackSkill || xls.ultimateSkill;
 }
 
 export function afterHurt(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx: FightContex) {

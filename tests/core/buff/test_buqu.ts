@@ -10,7 +10,7 @@ const buffId = 97601, passiveId = 97602;
 
 function attributes(hp: number): FightAttr {
     const base = (attack: number, rand = 0): BaseAttack => ({
-        property: 0, rand, hit: 100, dodge: 0, attack, defend: 0, hurt: 0, hurtP: 0,
+        rand, hit: 100, dodge: 0, attack, defend: 0, hurt: 0, hurtP: 0,
         hurtAnti: 0, hurtPAnti: 0, critP: 0, critPAnit: 0, critDeep: 0, critDeepAnit: 0,
     });
     const attr = new FightAttr();

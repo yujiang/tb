@@ -3,7 +3,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight } from "../../src/fight/Fight";
 import { FightSide } from "../../src/fight/FightSide";
-import { FightLoopWest } from "../../src/fight/Online/FightLoopOnline";
+import { FightLoopWest } from "../../src/fight/Online/FightLoopWest";
 import { FightClient } from "../../src/fight/Client/FightClient";
 import { FightReport } from "../../src/fight/Client/FightReport";
 import { initFightContex } from "../../src/fight/Fight";

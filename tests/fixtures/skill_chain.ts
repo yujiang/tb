@@ -9,7 +9,7 @@ export const chainIds = { first: 98001, second: 98002, third: 98003, rest: 98004
 export type ChainSkill = SkillData;
 
 function attr(hp: number): FightAttr {
-    const base = (attack = 100, rand = 0): BaseAttack => ({ property: 0, rand, hit: 100, dodge: 0,
+    const base = (attack = 100, rand = 0): BaseAttack => ({ rand, hit: 100, dodge: 0,
         attack, defend: 0, hurt: 0, hurtP: 0, hurtAnti: 0, hurtPAnti: 0,
         critP: 0, critPAnit: 0, critDeep: 0, critDeepAnit: 0 });
     const a = new FightAttr();

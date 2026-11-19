@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { FightResultEnum } from "../../src";
-import { runReactionReport } from "../fixtures/report_reactions";
+import { runReactionReport } from "./fixtures/report_reactions";
 
 // 测试：固定种子战斗完整展示连击、追击、反击、吸血和反伤，简报可读且客户端一致。
 test("report: deterministic combo, pursuit, counterattack, lifesteal and reflection are readable", async () => {

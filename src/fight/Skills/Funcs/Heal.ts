@@ -12,7 +12,7 @@ export function heal(attacker: FightUnit, defender: FightUnit, skill:AttrSkill, 
         return false;
     }
 
-    const heal = skill.calcHeal(ctx.fight, defender, ctx);
+    const heal = skill.calcHeal(ctx.fight, defender, ctx, attacker);
     if (heal <= 0) {
         ctx.msgs.push(["禁疗", defender.uid])
         return false;

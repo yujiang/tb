@@ -11,7 +11,7 @@ function data(rate?: number, extra: Partial<SkillData> = {}): SkillData {
 }
 
 function base(attack = 100): BaseAttack {
-    return { attack, property: 0, rand: 1, hit: 90, dodge: 5, defend: 30,
+    return { attack, rand: 1, hit: 90, dodge: 5, defend: 30,
         critP: 0.2, critPAnit: 0, critDeep: 0, critDeepAnit: 0,
         hurt: 10, hurtP: 0.1, hurtAnti: 0, hurtPAnti: 0 };
 }

@@ -1,5 +1,5 @@
 import { Fight, FightContex} from "../Fight";
-import { FightAttr } from "../FightAttr";
+import { FightAttr, getAttackMul, PropEnum, WeaponEnum } from "../FightAttr";
 import { DiedSelectEnum, FightCmdEnum, FightDisplay, FightInput, FightSideEnum, IdLevelArray, IdRand, SkillCost } from "../struct";
 import { FightSkill } from "../Skills/FightSkill";
 import { getSkillData } from "../Skills/SkillDatas";
@@ -28,6 +28,7 @@ export interface HurtOptions {
     reflected?: boolean; // 已反射的伤害不再次反射
     source?: HurtSource; // 默认 skill（含普攻）；其他伤害来源不能触发保护
     noprotect?: boolean; // 禁止本次伤害被保护分担，省略为 false
+    weakPoint?: boolean; // 本次公式命中了受伤者的弱点，供破盾使用，不从 ctx 的展示标记推断
 }
 
 export interface PendingHurt extends HurtOptions {
@@ -76,8 +77,12 @@ export abstract class FightUnit {
     }
 
     startFight(f: Fight){
+        this.skillCds.clear();
+        this.attr.shield = this.attrOri.shield;
+        this.lastShieldBreakTurn = -1;
         this.speedRand = this.getSpeed() * (f.random() * 0.2 - 0.1);
     }
+    endFight() {}
 
     getHp(){
         return this.attr.point.hp;
@@ -112,6 +117,7 @@ export abstract class FightUnit {
         const actual = this.applyHurt(attacker, why, hp, ctx, options, results);
         // 同一次保护命中的双方先扣血、发送伤害，再处理受伤和死亡结果。
         for (const finish of results) finish();
+        ctx.fight.updateUltimate(ctx);
         return actual;
     }
 
@@ -120,10 +126,22 @@ export abstract class FightUnit {
         if (this.isDied()) return 0;
         if (this.isDefend()) {
             hp *= 0.5;
-        }     
+        }
+        // 扣掉最后一格的这一击已按破盾处理；先算半伤，让保护、不屈等看到正确的伤害。
+        const shield = this.hasShield() ? this.attr.shield : undefined;
+        const breaksShield = options.weakPoint && shield === 1;
+        if (shield > 0 && !breaksShield) hp *= 0.5;
         const pending: PendingHurt = { ...options, source: options.source ?? "skill", damage: hp };
         this.emitContext("beforeHurt", ctx, attacker, pending);
         if (pending.cancelled || this.isDied()) return 0;
+        if (shield > 0 && pending.weakPoint && pending.damage >= 1) {
+            this.attr.shield = Math.max(0, this.attr.shield - 1);
+            if (this.attr.shield === 0) {
+                this.lastShieldBreakTurn = ctx.fight.turn;
+            }
+            ctx.msgs.push(["shield", this.uid, this.attr.shield]);
+            if (this.attr.shield === 0) this.emitContext("break", ctx, attacker, ctx.fight.isAllShieldBroken(this.side));
+        }
         if (pending.share) {
             const share = pending.share;
             ctx.msgs.push(["buffTrigger", this.uid, share.buffId, "protect", share.unit.uid]);
@@ -134,6 +152,7 @@ export abstract class FightUnit {
         hp = Math.min(this.getHp(), Math.max(0, Math.floor(pending.damage)));
 
         const point = this.attr.point;
+        const previousHp = point.hp;
         point.hp -= hp;
         if (point.hp < this.minHp) {
             point.hp = this.minHp;
@@ -142,8 +161,9 @@ export abstract class FightUnit {
         ctx.msgs.push(["hurt", why, this.uid, attacker.uid, hp, point.hp, ctx.effects])
         this.addEnemy(attacker, hp);
         results.push(() => {
+            if (point.hp !== previousHp) this.emitContext("hp", ctx, attacker, previousHp, point.hp);
             // 分担只承担伤害，不展开保护者自己的受伤反应链；死亡流程仍正常执行。
-            if (pending.source !== "share") this.emitContext("hurt", ctx, attacker, hp);
+            if (pending.source !== "share") this.emitContext("hurt", ctx, attacker, hp, pending);
             if (point.hp <= 0) {
                 point.hp = 0;
                 ctx.msgs.push(["die", this.uid]);
@@ -170,15 +190,18 @@ export abstract class FightUnit {
     }
         
     onHeal(attacker: FightUnit, why: string, hp: number, ctx:FightContex, options: HealOptions = {}){
+        const effects = options.revive || why === "blood" ? [] : [...ctx.effects];
         const pending: PendingHeal = { ...options, heal: hp };
         this.emitContext("beforeHeal", ctx, attacker, pending);
         if (pending.cancelled) return;
         hp = Math.floor(pending.heal);
 
         const point = this.attr.point;
-        ctx.msgs.push(["heal", why, this.uid, attacker.uid, hp, point.hp, ctx.effects])
+        ctx.msgs.push(["heal", why, this.uid, attacker.uid, hp, point.hp, effects])
         this.addFriend(attacker, hp);
+        const previousHp = point.hp;
         point.hp = Math.min(point.hp + hp, point.hpMax);
+        if (point.hp !== previousHp) this.emitContext("hp", ctx, attacker, previousHp, point.hp);
         this.emitContext("heal", ctx, attacker, why, hp);
     }
 
@@ -250,6 +273,7 @@ export abstract class FightUnit {
         this.relife();
         ctx.msgs.push(["relife", this.uid]);
         this.emitContext("relife", ctx, attacker, why);
+        ctx.fight.updateUltimate(ctx);
     }
     relife(){
         this.dead = false;
@@ -279,12 +303,32 @@ export abstract class FightUnit {
     isUser() {return UnitType.user == this.type;}
     isUserSummon() {return UnitType.summon == this.type;}
     isMonster() {return UnitType.monster == this.type;}
+    private lastShieldBreakTurn = -1;
+    private hasShield() { return this.isMonster() && this.attr.shield !== undefined; }
+    isWeakPoint(property: PropEnum, weapon: WeaponEnum = WeaponEnum.none): boolean {
+        if (!this.isMonster()) return false;
+        const propMatch = property !== undefined && property !== PropEnum.none && this.attr.weakProp?.includes(property);
+        const weaponMatch = weapon !== WeaponEnum.none && this.attr.weakWeapon?.includes(weapon);
+        return !!(propMatch || weaponMatch);
+    }
+    // NPC 配置弱点后直接匹配，不与人物相克叠加；未配置弱点仍沿用原规则。
+    getHurtMul(property: PropEnum, weapon: WeaponEnum = WeaponEnum.none): number {
+        const { weakProp, weakWeapon } = this.attr;
+        if (this.isMonster() && (weakProp !== undefined || weakWeapon !== undefined)) {
+            return this.isWeakPoint(property, weapon) ? 1.5 : 1;
+        }
+        return getAttackMul(property, this.attr.charProp);
+    }
     // 死亡单位也要收指令：本轮轮到它之前可能被其他单位复活。
     needInput() {return this.isUser() || this.isUserSummon();}
 
     input: FightInput;
     // 回合前处理, buff
     processBeforeTurn(turn: number, ctx: FightContex){
+        if (this.hasShield() && this.attr.shield === 0 && this.lastShieldBreakTurn < turn && this.attrOri.shield > 0) {
+            this.attr.shield = this.attrOri.shield;
+            ctx.msgs.push(["shield", this.uid, this.attr.shield, "recover"]);
+        }
         this.onBuffTurn(turn, BuffTurnEnum.thisTurn, ctx);
     }
     // 回合后处理, dead...
@@ -327,7 +371,7 @@ export abstract class FightUnit {
     }
 
     onInput(input: FightInput){
-        if (!this.fight?.validateInput(this, input)) return false;
+        if (!this.fight?.checkOnline(this, input)) return false;
         this.input = {...input};
         if (input.cmd == FightCmdEnum.cancel){
             this.input = null;
@@ -335,13 +379,40 @@ export abstract class FightUnit {
         return true;
     }
 
+    // 默认无资源费用限制；玩家与召唤物覆盖，不足时 hintClient 提示，预检不扣费。
+    canCost(cost: SkillCost): boolean { return true; }
     abstract costSkill(cost: SkillCost, ctx: FightContex): boolean;
 
     skills = new Map<number,FightSkill>();
+    // 按单位、技能编号保存恢复回合；升级、死亡及复活不重置。
+    private skillCds = new Map<number, number>();
+    getSkillCd(id: number): number {
+        return Math.max(0, (this.skillCds.get(id) ?? 0) - (this.fight?.turn ?? 0));
+    }
+    startSkillCd(skill: FightSkill, ctx: FightContex) {
+        const cd = skill.getXls().cd ?? 0;
+        if (!cd) return;
+        const readyTurn = ctx.fight.turn + cd;
+        this.skillCds.set(skill.getId(), readyTurn);
+        ctx.msgs.push(["skillCd", this.uid, skill.getId(), readyTurn]);
+    }
     findSkill(id: number) : FightSkill{
         if (!id) return;
         return this.skills.get(id);
     }
+
+    // 装配替代普攻的攻击技能；0 表示使用原有普通攻击。
+    attackSkill = 0;
+    getAttackSkill(){
+        return this.findSkill(this.attackSkill);
+    }
+    setAttackSkill(id: number){
+        this.attackSkill = id;
+    }
+
+    ultimateSkill = 0;
+    getUltimateSkill() { return this.findSkill(this.ultimateSkill); }
+    setUltimateSkill(id: number) { this.ultimateSkill = id; }
 
     // 装配反击技能
     fbackSkill = 0;
@@ -407,6 +478,7 @@ export abstract class FightUnit {
     }
 
     inStatus(status: string) {
+        if (status === "眩晕" && this.hasShield() && this.attr.shield === 0) return true;
         for (const p of this.passiveSkills){
             if (p.inStatus(status)) return true;
         }
@@ -463,16 +535,21 @@ export abstract class FightUnit {
         }
         const oldspeed = this.attr?.speed;
         const point = this.attr?.point;
+        const shield = this.attr?.shield;
         this.attr = calcAttr(this.attrOri, attrs);
+        if (shield !== undefined && this.attr.shield !== undefined) this.attr.shield = shield;
         if (point) {
             this.attr.point.hp = point.hp;
             this.attr.point.mp = point.mp;
         }
+        this.modifyAttr(this.attr);
         this.emit("attr");
         if (oldspeed != this.attr.speed) {
             this.emit("speed", this.attr.speed);
         }
     }
+
+    protected modifyAttr(attr: FightAttr) {}
     
     addBuff(attacker: FightUnit, why: string, buff: number, lv: number, ctx:FightContex) : FightBuff{
         const rt = this._addBuff(attacker, why, buff, lv, ctx);        
@@ -591,8 +668,13 @@ export abstract class FightUnit {
             point: {...this.attr.getPointAttr()},
             // 被动技能不传输，但是buff要传
             buffs,
+            ...(this.hasShield() ? { shield: this.attr.shield, shieldMax: this.attrOri.shield } : {}),
+            ...(this.skillCds.size ? { skillCds: [...this.skillCds] } : {}),
         }
     }
+
+    // 提示单个客户端，由宿主覆盖发送；不写入战斗广播或简报。
+    hintClient(msg: string){}
 }
 
 // descend降序

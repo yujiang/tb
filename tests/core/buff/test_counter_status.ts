@@ -55,6 +55,22 @@ test("counterattack: direct skill counter entry also checks attack prohibition b
     assert.equal(actor.getHp(), 1000);
 });
 
+for (const skillCounter of [false, true]) {
+    // 测试：单独禁止 fback 也阻止反击，不要求同时禁止普通攻击，直接反击入口同样生效。
+    test(`counterattack: configured fback prohibition blocks ${skillCounter ? "skill" : "ordinary"} counters`, () => {
+        const s = setup("沉默", skillCounter);
+        s.target.isForbid = action => action === "fback";
+        const ctx = s.cast();
+        assert.equal(s.actor.getHp(), 1000);
+        assert.ok(!ctx.msgs.some(msg => msg[0] === "skill" && msg[4] === "fback"));
+        if (skillCounter) {
+            const direct = initFightContex(s.fight);
+            assert.equal(skillFBack(s.target, s.actor, s.target.getFBackSkill(), direct), false);
+            assert.equal(direct.fbackNum, undefined); assert.deepEqual(direct.msgs, []);
+        }
+    });
+}
+
 // 测试：触发受击后才附加的禁止攻击状态也能阻止反击，未触发反击时后续连击继续。
 test("counterattack: attack prohibition is rechecked after taking the triggering hit", () => {
     const { actor, target, fight, skills, flush, cast, buff } = setup("封印", false);

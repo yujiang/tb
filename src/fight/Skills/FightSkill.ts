@@ -14,13 +14,15 @@ export class FightSkill {
     constructor(xls: SkillData, level: number) {
         this.xls = xls;
         this.level = level;
+        assert.ok(Number.isSafeInteger(xls.cd ?? 0) && (xls.cd ?? 0) >= 0,
+            "cd must be a nonnegative safe integer");
         for (const field of ["healRate", "poisonRate"] as const) {
             const rate = xls[field] ?? 1;
             assert.ok(Number.isFinite(rate) && rate >= 0, `${field} must be finite and nonnegative`);
         }
         // 未与单位属性合并的技能（周期 Buff、复活、普攻）也能直接读取等级数值。
         this.attack = this.mergeAttackData({
-            property: 0, rand: 0, hit: 0, dodge: 0, attack: 0, defend: 0,
+            rand: 0, hit: 0, dodge: 0, attack: 0, defend: 0,
             hurt: 0, hurtP: 0, hurtAnti: 0, hurtPAnti: 0,
             critP: 0, critPAnit: 0, critDeep: 0, critDeepAnit: 0,
         });
@@ -108,6 +110,20 @@ export class FightSkill {
     getFunc(){
         return this.xls.func || "normal";
     }
+
+    // 即时输入的目标资格预检，不计算伤害、不抽样；执行函数仍保留自己的状态检查。
+    getTargetHint(target: FightUnit): string | undefined {
+        const func = this.getFunc();
+        if (func === "relife") {
+            if (!target.isDied()) return "目标尚未死亡";
+            if (target.inStatus("禁复活") || Math.floor(this.getHealRate() * target.getHpMax()) <= 0) return "目标无法复活";
+        } else if (func === "normal" || func === "heal" || func === "poison") {
+            if (target.isDied()) return "目标已死亡";
+            if (func === "heal" && target.inStatus("禁疗")) return "目标无法接受治疗";
+            if (func === "poison" && target.inStatus("禁毒")) return "目标无法中毒";
+        }
+        return undefined;
+    }
     getSel(){
         return this.xls.sel;
     }
@@ -120,17 +136,23 @@ export class FightSkill {
     }
 
     physicHitTest(f: Fight, defender: FightUnit) {
+        if (defender.isForbid("dodge")) return true;
         // 70 = 100 - 30
         const d2 = this.getAttack().hit - defender.attr.physic.base.dodge;
         return f.randomLess(d2 / 100);
     }
 
-    calcHurt(f: Fight, defender: FightUnit, ctx: FightContex){
+    calcHurt(f: Fight, defender: FightUnit, ctx: FightContex, attacker: FightUnit = ctx.attack){
         const ismagic = this.isMagic();
         const dft = ismagic ? defender.attr.magic  : defender.attr.physic;
         const rate = this.xls.damageRate ?? 1;
         assert.ok(Number.isFinite(rate) && rate >= 0, "damageRate must be finite and nonnegative");
-        return calcHurt(f, this.getAttack(), dft.base, this.getFinal(), dft.final, ctx) * rate;
+        const property = this.xls.skillProp ?? attacker?.attr.weaponProp;
+        const propertyBonus = defender.getHurtMul(property, attacker?.attr.weapon) - 1;
+        ctx.effects = [];
+        const damage = calcHurt(f, this.getAttack(), dft.base, this.getFinal(), dft.final, ctx, rate + propertyBonus);
+        if (propertyBonus > 0) ctx.effects.push("克");
+        return damage;
     }
 
     calcAttack(f: Fight, defender: FightUnit, ctx: FightContex){

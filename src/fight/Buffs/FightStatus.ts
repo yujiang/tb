@@ -1,7 +1,7 @@
 const statusForbidActions : Record<string, string[]> = {
     "封印": ['attack', 'skill'],
     "沉默": ['skill'],
-    "眩晕": ['attack', 'skill', 'item', 'escapse'], 
+    "眩晕": ['attack', 'skill', 'item', 'escapse', 'dodge', 'fback'], 
 }
 
 let actionForbidByStatus : Record<string, string[]>;

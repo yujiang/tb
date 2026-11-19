@@ -2,7 +2,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight, FightAttr, FightSide, FightUnitUser, FightLoopWest, FightClient, FightReport, FightMud,
     FightCmdEnum, SkillData, TargetSelectEnum, initSkills, initPassives, initFightContex,
-    initBuffs, OverlapEnum } from "../../../src";
+    initBuffs, OverlapEnum, PropEnum } from "../../../src";
 import { magicAttackFunc } from "../../../src/fight/Skills/Funcs/NomalSkill";
 
 const ids = { root: 99210, support: 99211, next: 99212, back: 99213, passive: 99214 };
@@ -26,7 +26,7 @@ for (const protectable of [false, true]) {
 
 function attr(): FightAttr {
     const attr = new FightAttr();
-    const base = (attack = 100, rand = 0) => ({ property: 0, rand, hit: 100, dodge: 0, attack, defend: 0,
+    const base = (attack = 100, rand = 0) => ({ rand, hit: 100, dodge: 0, attack, defend: 0,
         hurt: 0, hurtP: 0, hurtAnti: 0, hurtPAnti: 0, critP: 0, critPAnit: 0, critDeep: 0, critDeepAnit: 0 });
     const group = () => ({ base: base(100, 1), next: base(), kill: base(), spread: base(), fback: base(10),
         final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 } });
@@ -71,6 +71,17 @@ function setup(change?: (skills: SkillData[]) => void, passive = false,
     };
     return { fight, a, b, c, d, loop, client, report, mud, cast, skills };
 }
+
+// 测试：协战使用自身武器相克属性，不能误用共享上下文中的主攻者属性。
+test("support: elemental damage uses the supporter's weapon rather than the root actor", () => {
+    const s = setup();
+    s.b.attr.weaponProp = PropEnum.金;
+    s.a.attr.weaponProp = PropEnum.水;
+    s.c.attr.charProp = PropEnum.火;
+    const ctx = s.cast();
+    assert.deepEqual(ctx.msgs.filter(msg => msg[0] === "hurt" && msg[2] === s.c.uid).map(msg => msg[4]), [100, 90]);
+    assert.equal(s.c.getHp(), 810); // 协战伤害倍率 0.4 + 相克加成 0.5
+});
 
 // 测试：装备的协战紧跟主攻并继承目标，同回合只成功发动一次，下回合恢复。
 test("support: equipped ally follows the hit once per global turn", () => {

@@ -17,7 +17,6 @@ export interface simpleData {
 
 function defaultBaseAttack(): BaseAttack {
     return {
-        property: 0,
         rand: 0.5,
         hit: 100,
         dodge: 0,

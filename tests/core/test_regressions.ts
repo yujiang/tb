@@ -4,7 +4,7 @@ import { test } from "node:test";
 import { Fight } from "../../src/fight/Fight";
 import { BaseAttack, FightAttr } from "../../src/fight/FightAttr";
 import { FightSide } from "../../src/fight/FightSide";
-import { FightLoopWest } from "../../src/fight/Online/FightLoopOnline";
+import { FightLoopWest } from "../../src/fight/Online/FightLoopWest";
 import { FightUnitMonster } from "../../src/fight/Unit/FightUnitMonster";
 import { FightUnitSummon, FightUnitUser } from "../../src/fight/Unit/FightUnitUser";
 import { BuffData, initBuffs, OverlapEnum } from "../../src/fight/Buffs/BuffDatas";
@@ -37,7 +37,7 @@ test("regression: failed primary skill activation reports why the actor did noth
 });
 
 function base(extra: Partial<BaseAttack> = {}): BaseAttack {
-    return { property: 0, rand: 0, hit: 100, dodge: 0, attack: 20, defend: 0,
+    return { rand: 0, hit: 100, dodge: 0, attack: 20, defend: 0,
         hurt: 0, hurtP: 0, hurtAnti: 0, hurtPAnti: 0, critP: 0, critPAnit: 0,
         critDeep: 0, critDeepAnit: 0, ...extra };
 }
