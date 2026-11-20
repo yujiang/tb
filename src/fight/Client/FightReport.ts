@@ -76,6 +76,7 @@ export class FightReport {
 				}
 			}
 		}
+
 		return line;
 	}
 
@@ -134,6 +135,7 @@ export class FightReport {
 	// 接收消息
 	onMsg(msgs: fightMsg | fightMsg[]) {
 		if (!msgs?.length) return;
+
 		const parsed = this.preParser.parse(msgs);
 		const batch = parsed.messages;
 		const supportStarts = new Map<number, FightSupportGroup>();

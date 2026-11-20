@@ -49,6 +49,7 @@ export class FightRuleHp extends FightRule {
 
 	private checkLines(unit: FightUnit, ctx?: FightContex): boolean {
 		if (unit.getHpMax() <= 0) return false;
+
 		let changed = false;
 		this.lines.forEach((line, index) => {
 			if (!this.reached.has(index) && unit.getHp() / unit.getHpMax() <= line.hp) {

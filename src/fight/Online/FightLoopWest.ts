@@ -73,9 +73,11 @@ export class FightLoopWest extends FightLoopOnline {
 		let input = 0;
 		this.fight.resolveAction(() => {
 			for (const u of all) {
-				if (u instanceof FightUnitMonster && u.getExtraActions().length)
+				if (u instanceof FightUnitMonster && u.getExtraActions().length) {
 					u.inputStart(turn, ctx, true);
-				else u.inputStart(turn, ctx);
+				} else {
+					u.inputStart(turn, ctx);
+				}
 				if (u.needInput()) input++;
 			}
 		});
@@ -83,6 +85,7 @@ export class FightLoopWest extends FightLoopOnline {
 		this.inputed = 0;
 		this.inputResolve = null;
 		if (this.input == 0) return 1;
+
 		const p = new Promise<number>((resolve) => {
 			this.inputResolve = resolve;
 		});
@@ -109,7 +112,9 @@ export class FightLoopWest extends FightLoopOnline {
 	}
 
 	private acceptInput(id: number, input: FightInput) {
-		if (this.input == 0 || this.fight.isEnd() || input?.turn !== this.fight.turn) return;
+		if (this.input == 0 || this.fight.isEnd() || input?.turn !== this.fight.turn) {
+			return;
+		}
 
 		const unit = this.fight.getUnitById(id);
 		if (unit && unit.needInput()) {

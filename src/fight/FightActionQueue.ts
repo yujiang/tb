@@ -138,14 +138,18 @@ export class FightActionQueue {
 		if (
 			pos === InsertActionPos.first ||
 			(pos === InsertActionPos.afterSelf && after === undefined)
-		)
+		) {
 			this.firstActions.add(action.id);
+		}
 		this.insertedCount++;
 		return action;
 	}
 	cancel(id: number): boolean {
 		const index = this.entries.findIndex((action) => action.id === id);
-		if (index < 0 || !this.entries[index].inserted) return false;
+		if (index < 0 || !this.entries[index].inserted) {
+			return false;
+		}
+
 		// 取消时同步移除锚点，避免后续插队仍引用已不存在的行动。
 		this.entries.splice(index, 1);
 		this.firstActions.delete(id);

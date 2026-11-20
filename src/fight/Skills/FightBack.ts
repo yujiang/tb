@@ -55,7 +55,10 @@ export function skillFBack(
 	skill: FightSkill,
 	ctx: FightContex,
 ) {
-	if (attacker.isForbid('attack') || attacker.isForbid('fback')) return false;
+	if (attacker.isForbid('attack') || attacker.isForbid('fback')) {
+		return false;
+	}
+
 	ctx.fbackNum = (ctx.fbackNum || 0) + 1;
 	const magic = new MagicFBackSkill(skill.getXls(), skill.level);
 
@@ -66,11 +69,15 @@ export function skillFBack(
 }
 
 export function tryFBack(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
-	if (attacker.isForbid('attack') || attacker.isForbid('fback')) return false;
+	if (attacker.isForbid('attack') || attacker.isForbid('fback')) {
+		return false;
+	}
+
 	const fback = attacker.getFBackSkill();
 	if (fback) {
 		return skillFBack(attacker, defender, fback, ctx);
 	}
+
 	return attackFback(attacker, defender, ctx);
 }
 

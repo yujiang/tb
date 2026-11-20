@@ -31,15 +31,25 @@ export class FightAITarget extends FightAI {
 			unit.isDied() ||
 			unit.isForbid('action') ||
 			unit.isForbid(id !== undefined ? 'skill' : 'attack')
-		)
+		) {
 			return undefined;
-		if (id !== undefined && (id === unit.ultimateSkill || unit.getSkillCd(id) > 0))
+		}
+
+		if (id !== undefined && (id === unit.ultimateSkill || unit.getSkillCd(id) > 0)) {
 			return undefined;
-		if (skill.getFunc() === 'normal' && unit.isForbid('attack')) return undefined;
-		if (id !== undefined && skill.getCost() && !unit.canCost(skill.getCost())) return undefined;
+		}
+
+		if (skill.getFunc() === 'normal' && unit.isForbid('attack')) {
+			return undefined;
+		}
+
+		if (id !== undefined && skill.getCost() && !unit.canCost(skill.getCost())) {
+			return undefined;
+		}
 
 		const target = this.findTarget(unit, skill, ctx);
 		if (!target) return undefined;
+
 		const input: FightInput =
 			id !== undefined ? { cmd, skill: id, target: target.uid } : { cmd, target: target.uid };
 		return ctx.fight.checkPC(unit, input) ? input : undefined;
@@ -60,6 +70,7 @@ export class FightAITarget extends FightAI {
 			case 'rearDoctor': {
 				const map = ctx.fight.map;
 				if (!map) return undefined;
+
 				const doctors = ctx.fight
 					.getSideUnits(EnemySide(unit.side))
 					.filter(
@@ -69,6 +80,7 @@ export class FightAITarget extends FightAI {
 							map.isBackRow(candidate.pos),
 					);
 				if (!doctors.length) return undefined;
+
 				return doctors.length === 1 ? doctors[0] : ctx.fight.randArray(doctors);
 			}
 			case 'topThreat':
@@ -80,6 +92,7 @@ export class FightAITarget extends FightAI {
 			default:
 				return undefined;
 		}
+
 		// 同分保留首次贡献的记录顺序，不抽样；先跳过无效者，再取最高有效贡献者。
 		const ranked = [...contributions]
 			.filter(([, value]) => Number.isFinite(value) && value > 0)
@@ -88,6 +101,7 @@ export class FightAITarget extends FightAI {
 			const candidate = ctx.fight.getUnitById(uid);
 			if (valid(candidate)) return candidate;
 		}
+
 		return undefined;
 	}
 }

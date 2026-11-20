@@ -12,6 +12,7 @@ function addBuffFunc(
 ) {
 	const addbuff = skill.getXls().addBuff;
 	if (!addbuff) return false;
+
 	defender.addBuffs(attacker, 'buff', addbuff, ctx);
 	return true;
 }
@@ -29,11 +30,13 @@ function removeBuffFunc(
 		defender.removeBuffs(attacker, 'buff', buffs, skill.getPower(), ctx);
 		return true;
 	}
+
 	// 一般不可能同时有buffs+tag
 	if (tag) {
 		defender.removeBuffByTag(attacker, 'buff', tag, xls.removeBuffNum, skill.getPower(), ctx);
 		return true;
 	}
+
 	return false;
 }
 
@@ -77,5 +80,7 @@ export function nohurtFunc(
 // 一般攻击给对方上buff，这个给自己上buff； 比如三连击自己休息一回合。
 export function afterSelfBuff(attacker: FightUnit, skill: FightSkill, ctx: FightContex) {
 	const buffs = skill.getXls().afterSelfBuff;
-	if (!attacker.isDied() && buffs?.length) attacker.addBuffs(attacker, 'skill', buffs, ctx);
+	if (!attacker.isDied() && buffs?.length) {
+		attacker.addBuffs(attacker, 'skill', buffs, ctx);
+	}
 }

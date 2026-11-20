@@ -17,10 +17,12 @@ export function multiFunc(
 			attacker.hintClient('没有可用目标');
 			return false;
 		}
+
 		if (ctx.fight.randomGreat(skill.getRand())) {
 			ctx.msgs.push(['skillFailed', attacker.uid, targets[0].uid, skill.getId()]);
 			return false;
 		}
+
 		const single = skill.forSingleTarget();
 		const previous = ctx.defend;
 		try {

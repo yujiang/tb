@@ -77,8 +77,10 @@ export class FightPreParse {
 
 	private findSupport(messages: readonly fightMsg[], index: number): number {
 		const attack = messages[index];
-		if (attack[0] !== 'skill' || attack[4] === 'support' || !this.canSupport(attack[1]))
+		if (attack[0] !== 'skill' || attack[4] === 'support' || !this.canSupport(attack[1])) {
 			return -1;
+		}
+
 		let hit = false;
 		for (let next = index + 1; next < messages.length; next++) {
 			const msg = messages[next];
@@ -93,17 +95,25 @@ export class FightPreParse {
 					'skipAction',
 					'protect',
 				].includes(msg[0])
-			)
+			) {
 				return -1;
-			if (msg[0] === 'die' && (msg[1] === attack[2] || msg[1] === attack[3])) return -1;
+			}
+
+			if (msg[0] === 'die' && (msg[1] === attack[2] || msg[1] === attack[3])) {
+				return -1;
+			}
+
 			if (
 				msg[0] === 'hurt' &&
 				msg[1] === 'skill' &&
 				msg[2] === attack[3] &&
 				msg[3] === attack[2]
-			)
+			) {
 				hit = true;
-			if (msg[0] !== 'skill' && msg[0] !== 'miss') continue;
+			}
+			if (msg[0] !== 'skill' && msg[0] !== 'miss') {
+				continue;
+			}
 			const side = this.sides.get(attack[2]);
 			const allies = side !== undefined && side === this.sides.get(msg[2]);
 			return hit &&
@@ -114,6 +124,7 @@ export class FightPreParse {
 				? next
 				: -1;
 		}
+
 		return -1;
 	}
 }

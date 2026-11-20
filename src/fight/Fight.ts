@@ -125,10 +125,14 @@ export class Fight {
 	}
 
 	checkOutcome() {
-		if (this.isEnd() || !this.AllUnits) return;
+		if (this.isEnd() || !this.AllUnits) {
+			return;
+		}
+
 		const alive = this.AllUnits.map((units) => units.some((u) => !u.isDied()));
-		if (!alive[0] && !alive[1]) this.win = FightResultEnum.draw;
-		else if (!alive[0]) this.win = FightSideEnum.defend;
+		if (!alive[0] && !alive[1]) {
+			this.win = FightResultEnum.draw;
+		} else if (!alive[0]) this.win = FightSideEnum.defend;
 		else if (!alive[1]) this.win = FightSideEnum.attack;
 	}
 
@@ -169,6 +173,7 @@ export class Fight {
 		allBroken = this.isAllShieldBroken(unit.side),
 	) {
 		if (!this.xls.allShieldBreak) return;
+
 		if (allBroken) {
 			this.ultimateBreak[EnemySide(unit.side)] = true;
 			this.ultimateContext = ctx;
@@ -177,11 +182,15 @@ export class Fight {
 
 	// 反应链内先登记，最外层完成死亡、自动复活与胜负结算后统一发布事件。
 	updateUltimate(ctx: FightContex) {
-		if (!this.xls.allShieldBreak && !this.ultimateReady.some(Boolean)) return;
+		if (!this.xls.allShieldBreak && !this.ultimateReady.some(Boolean)) {
+			return;
+		}
+
 		if (this.actionDepth > 0) {
 			this.ultimateContext = ctx;
 			return;
 		}
+
 		const broken = this.ultimateBreak;
 		this.ultimateBreak = [false, false];
 		this.ultimateContext = undefined;
@@ -191,9 +200,9 @@ export class Fight {
 				!this.xls.allShieldBreak ||
 				this.isEnd() ||
 				this.ultimateUsedTurn[side] === this.turn
-			)
+			) {
 				ready = false;
-			else if (broken[side] && this.ultimateGrantTurn[side] !== this.turn) {
+			} else if (broken[side] && this.ultimateGrantTurn[side] !== this.turn) {
 				ready = true;
 				this.ultimateGrantTurn[side] = this.turn;
 			}
@@ -209,14 +218,17 @@ export class Fight {
 			unit.hintClient('当前行动尚未结束');
 			return false;
 		}
+
 		if (!this.getAllUnits().includes(unit) || !this.hasUltimateChance(unit.side)) {
 			unit.hintClient('当前没有大招机会');
 			return false;
 		}
+
 		if (!unit.getUltimateSkill()) {
 			unit.hintClient('未装备可用大招');
 			return false;
 		}
+
 		if (
 			input?.cmd !== FightCmdEnum.skill ||
 			(input.skill !== undefined && input.skill !== unit.ultimateSkill)
@@ -224,6 +236,7 @@ export class Fight {
 			unit.hintClient('大招技能不匹配');
 			return false;
 		}
+
 		return this.checkPC(unit, { ...input, skill: unit.ultimateSkill }, true);
 	}
 
@@ -234,8 +247,10 @@ export class Fight {
 
 	processUltimate(unit: FightUnit, input: FightInput): FightContex | undefined {
 		if (!this.checkUltimate(unit, input)) return undefined;
+
 		const prepared = this.preparePCInput(unit, { ...input, skill: unit.ultimateSkill });
 		if (!prepared) return undefined;
+
 		return this.resolveAction(() => {
 			const previous = this.ultimateUsedTurn[unit.side];
 			// 先占用整队机会，避免伤害回调重入施放；普通技能入口处理费用、CD 与反应链。
@@ -252,6 +267,7 @@ export class Fight {
 				this.ultimateUsedTurn[unit.side] = previous;
 				return undefined;
 			}
+
 			this.updateUltimate(ctx);
 			return ctx;
 		});
@@ -369,6 +385,7 @@ export class Fight {
 		if (sel.target == TargetSelectEnum.duiwei) {
 			return this.map.findDuiwei(attack, skill);
 		}
+
 		if (sel.target == TargetSelectEnum.self) {
 			return skill.canTarget(attack) ? attack : undefined;
 		}
@@ -378,6 +395,7 @@ export class Fight {
 		//const except = sel.includeAttack ? null : attack;
 		const units = this.getSideUnitsBySkill(side, skill);
 		if (!units.length) return null;
+
 		if (sel.sortAttr) {
 			sortByAttr(units, sel.sortAttr, sel.sortDescend);
 			return units[0]; //最小值？
@@ -405,6 +423,7 @@ export class Fight {
 		const sel = skill.getSel();
 		const units = this.getSideUnitsBySkill(main.side, skill, main);
 		if (num <= 0) return [];
+
 		if (sel.sortAttr) sortByAttr(units, sel.sortAttr, sel.sortDescend);
 		else this.shuffleArray(units);
 		return units.slice(0, num);
@@ -415,7 +434,11 @@ export class Fight {
 		assert(main);
 		const sel = skill.getSel();
 		if (!sel) return [];
-		if (sel.shape === undefined) return this.selectSpreadTargetsNum(main, skill, sel.num ?? 1);
+
+		if (sel.shape === undefined) {
+			return this.selectSpreadTargetsNum(main, skill, sel.num ?? 1);
+		}
+
 		return this.map
 			.selectTargetsShape(main, sel.shape)
 			.filter((target) => target !== main && skill.canTarget(target));
@@ -425,12 +448,14 @@ export class Fight {
 	randomEnemyAlive(side: number) {
 		const list = this.getSideUnitsBySkill(EnemySide(side), getDefaultSkill());
 		if (!list.length) return;
+
 		return this.randArray(list);
 	}
 
 	getDefaultEnemy(unit: FightUnit) {
 		const taunt = this.getTauntTarget(unit, getDefaultSkill());
 		if (taunt) return taunt;
+
 		const skill = getDefaultSkill({
 			target: this.xls.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey,
 		});
@@ -439,13 +464,20 @@ export class Fight {
 
 	// 目标资格由技能判断，阵营和对位规则由战斗判断。
 	isLegalTarget(unit: FightUnit, target: FightUnit, skill: FightSkill): boolean {
-		if (!target || !skill.canTarget(target)) return false;
+		if (!target || !skill.canTarget(target)) {
+			return false;
+		}
+
 		const sel = skill.getSel();
 		if (sel.target === TargetSelectEnum.self) return target === unit;
+
 		const side = sel.target === TargetSelectEnum.friend ? unit.side : EnemySide(unit.side);
 		if (target.side !== side) return false;
-		if (sel.target === TargetSelectEnum.duiwei)
+
+		if (sel.target === TargetSelectEnum.duiwei) {
 			return this.map?.findDuiwei(unit, skill) === target;
+		}
+
 		return true;
 	}
 
@@ -457,8 +489,11 @@ export class Fight {
 	getTauntBuff(unit: FightUnit, skill: FightSkill): FightBuff | undefined {
 		const sel = skill.getSel();
 		if ((sel.num ?? 1) > 1) return undefined;
-		if (sel.target !== TargetSelectEnum.enmey && sel.target !== TargetSelectEnum.duiwei)
+
+		if (sel.target !== TargetSelectEnum.enmey && sel.target !== TargetSelectEnum.duiwei) {
 			return undefined;
+		}
+
 		// Map 保持添加顺序，稳定排序使同优先级按 Buff 实例注册顺序处理。
 		const buffs = [...unit.buffs.values()].sort(
 			(a, b) => (a.getXls().prior ?? 0) - (b.getXls().prior ?? 0),
@@ -471,9 +506,11 @@ export class Fight {
 				target.fight === this &&
 				this.getAllUnits().includes(target) &&
 				this.isLegalTarget(unit, target, skill)
-			)
+			) {
 				return buff;
+			}
 		}
+
 		return undefined;
 	}
 
@@ -488,20 +525,29 @@ export class Fight {
 			unit.hintClient('自身已死亡，无法行动');
 			return false;
 		}
+
 		if (unit.isForbid('action')) {
 			unit.hintClient('当前无法行动');
 			return false;
 		}
+
 		if (!this.validateInput(unit, input, ultimate)) return false;
+
 		const skill = input.cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) : undefined;
 		const cost = skill?.getCost();
-		if (cost && !unit.canCost(cost)) return false;
+		if (cost && !unit.canCost(cost)) {
+			return false;
+		}
+
 		if (skill?.getFunc() === 'normal' && unit.isForbid('attack')) {
 			unit.hintClient('当前无法普通攻击');
 			return false;
 		}
-		if (input.cmd !== FightCmdEnum.attack && input.cmd !== FightCmdEnum.none && !skill)
+
+		if (input.cmd !== FightCmdEnum.attack && input.cmd !== FightCmdEnum.none && !skill) {
 			return true;
+		}
+
 		return this.getPCTargets(unit, input) !== undefined;
 	}
 
@@ -509,10 +555,17 @@ export class Fight {
 	preparePCInput(unit: FightUnit, input: FightInput): FightInput | undefined {
 		const attack = input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none;
 		const skill = input.cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) : undefined;
-		if (!attack && !skill) return { ...input };
+		if (!attack && !skill) {
+			return { ...input };
+		}
+
 		const targets = this.getPCTargets(unit, input);
 		if (!targets) return undefined;
-		if ((skill ?? (attack ? unit.getAttackSkill() : undefined))?.isMulti()) return { ...input };
+
+		if ((skill ?? (attack ? unit.getAttackSkill() : undefined))?.isMulti()) {
+			return { ...input };
+		}
+
 		const sel = skill
 			? skill.getSel()
 			: { target: this.xls.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey };
@@ -548,10 +601,12 @@ export class Fight {
 			unit.hintClient('目标不存在');
 			return undefined;
 		}
+
 		if (attack && explicit?.isDied()) {
 			unit.hintClient('目标已死亡');
 			return undefined;
 		}
+
 		const candidates = explicit && !skill.isMulti() ? [explicit] : this.getAllUnits();
 		let hint: string | undefined;
 		const targets = candidates.filter((target) => {
@@ -559,18 +614,23 @@ export class Fight {
 				hint ??= skill.getTargetHint(target);
 				return false;
 			}
+
 			return this.isLegalTarget(unit, target, skill);
 		});
 		if (!targets.length) {
 			unit.hintClient(hint ?? '没有可用目标');
 			return undefined;
 		}
+
 		return targets;
 	}
 
 	// 两种输入共用的基础合法性检查，保留原接口供本地调用及执行复验使用。
 	validateInput(unit: FightUnit, input: FightInput, ultimate = false): boolean {
-		if (!input || this.isEnd() || !this.getAllUnits().includes(unit)) return false;
+		if (!input || this.isEnd() || !this.getAllUnits().includes(unit)) {
+			return false;
+		}
+
 		if (
 			![
 				FightCmdEnum.none,
@@ -580,8 +640,10 @@ export class Fight {
 				FightCmdEnum.cancel,
 				FightCmdEnum.protect,
 			].includes(input.cmd)
-		)
+		) {
 			return false;
+		}
+
 		// 普攻可以显式指定死亡敌人守尸；自动选目标仍只选存活敌人。
 		let skill = getDefaultSkill();
 		let guardCorpse = input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none;
@@ -590,8 +652,10 @@ export class Fight {
 				input.target === undefined ||
 				input.target === unit.uid ||
 				getBuffData(this.xls.protectBuff)?.class !== 'protect'
-			)
+			) {
 				return false;
+			}
+
 			skill = getDefaultSkill({ target: TargetSelectEnum.friend });
 		} else if (input.cmd === FightCmdEnum.skill) {
 			skill = unit.findSkill(input.skill);
@@ -599,19 +663,23 @@ export class Fight {
 				unit.hintClient('未学会该技能');
 				return false;
 			}
+
 			if (input.skill === unit.ultimateSkill && !ultimate) {
 				unit.hintClient('大招需要通过独立大招输入施放');
 				return false;
 			}
+
 			if (unit.isForbid('skill')) {
 				unit.hintClient('当前无法施放技能');
 				return false;
 			}
+
 			const cd = unit.getSkillCd(input.skill);
 			if (cd > 0) {
 				unit.hintClient(`[${skill.getName()}]冷却中，还需 ${cd} 回合`);
 				return false;
 			}
+
 			if (!skill.getSel()) return false;
 		} else if (
 			(input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none) &&
@@ -620,6 +688,7 @@ export class Fight {
 			unit.hintClient('当前无法普通攻击');
 			return false;
 		}
+
 		if (
 			(input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none) &&
 			unit.getAttackSkill()?.isMulti()
@@ -633,6 +702,7 @@ export class Fight {
 				unit.hintClient('目标不存在');
 				return false;
 			}
+
 			// 普攻手动守尸只检查敌方身份，自动选择和技能仍由 canTarget 过滤。
 			if (
 				!(guardCorpse && target.isDied() && target.side === EnemySide(unit.side)) &&
@@ -642,17 +712,22 @@ export class Fight {
 				return false;
 			}
 		}
+
 		return true;
 	}
 
 	// 提交后阵营、生命状态和封印都可能变化，执行时重新校验。
 	processUnit(unit: FightUnit, input: FightInput): FightContex {
 		// 收指令时允许死亡，真正轮到行动时必须已经复活。
-		if (this.isEnd() || !this.getAllUnits().includes(unit)) return;
+		if (this.isEnd() || !this.getAllUnits().includes(unit)) {
+			return;
+		}
+
 		if (unit.isDied()) {
 			unit.hintClient('自身已死亡，无法行动');
 			return;
 		}
+
 		if (unit.isForbid('action')) {
 			const block = unit.getActionBlockBuff();
 			unit.hintClient('当前无法行动');
@@ -668,7 +743,11 @@ export class Fight {
 				],
 			};
 		}
-		if (!this.validateInput(unit, input, this.ultimateCaster === unit)) return;
+
+		if (!this.validateInput(unit, input, this.ultimateCaster === unit)) {
+			return;
+		}
+
 		return this.resolveAction(() => this.executeUnit(unit, input));
 	}
 
@@ -742,16 +821,19 @@ export class Fight {
 				unit.hintClient('目标已死亡');
 				return;
 			}
+
 			if (unit.isForbid('attack')) {
 				unit.hintClient('当前无法普通攻击');
 				return;
 			}
+
 			attackFunc(unit, des, ctx);
 			return ctx;
 		}
 
 		if (cmd == FightCmdEnum.skill) {
 			if (unit.isForbid('skill')) return;
+
 			skillFunc(unit, des, input.skill, ctx);
 			return ctx;
 		}
@@ -782,12 +864,16 @@ export class Fight {
 	}
 	randomGreat(g: number) {
 		if (g >= 1) return false;
+
 		if (g <= 0) return true;
+
 		return this.random() >= g;
 	}
 	randomLess(g: number) {
 		if (g >= 1) return true;
+
 		if (g <= 0) return false;
+
 		return this.random() <= g;
 	}
 

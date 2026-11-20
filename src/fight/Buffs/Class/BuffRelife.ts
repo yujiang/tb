@@ -30,7 +30,10 @@ export class BuffRelife extends FightBuff {
 	}
 
 	override onEvent(unit: FightUnit, ctx: FightContex) {
-		if (unit.findBuff(this.getId()) !== this || !unit.isDied()) return;
+		if (unit.findBuff(this.getId()) !== this || !unit.isDied()) {
+			return;
+		}
+
 		ctx.fight.afterAction(() => this.revive(unit, ctx));
 	}
 
@@ -41,18 +44,22 @@ export class BuffRelife extends FightBuff {
 			!ctx.fight.getAllUnits().includes(unit) ||
 			unit.findBuff(this.getId()) !== this ||
 			!unit.isDied()
-		)
+		) {
 			return;
+		}
+
 		let used = BuffRelife.used.get(ctx.fight);
 		if (used?.has(unit)) {
 			this.times = 0;
 			unit.expireBuff(this, 'used', ctx);
 			return;
 		}
+
 		if (unit.inStatus('禁复活')) {
 			ctx.msgs.push(['无法复活', unit.uid]);
 			return;
 		}
+
 		if (!used) {
 			used = new WeakSet<FightUnit>();
 			BuffRelife.used.set(ctx.fight, used);

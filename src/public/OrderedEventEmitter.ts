@@ -24,10 +24,13 @@ export class OrderedEventEmitter<Event extends string | symbol = string> {
 	off(event: Event, listener: OrderedEventListener): this {
 		const entries = this.events.get(event);
 		if (!entries) return this;
+
 		// 与 EventEmitter 一样，重复注册时只解绑最近注册的一次。
 		let found: ListenerEntry | undefined;
 		for (const entry of entries) {
-			if (entry.listener === listener && (!found || entry.order > found.order)) found = entry;
+			if (entry.listener === listener && (!found || entry.order > found.order)) {
+				found = entry;
+			}
 		}
 		if (found) {
 			found.active = false;
@@ -40,6 +43,7 @@ export class OrderedEventEmitter<Event extends string | symbol = string> {
 	emit(event: Event, ...args: any[]): boolean {
 		const entries = this.events.get(event);
 		if (!entries?.length) return false;
+
 		// 固定本次名单；新增的等下一次，移除后即使重新注册也跳过旧实例。
 		for (const entry of [...entries]) {
 			if (entry.active) entry.listener(...args);

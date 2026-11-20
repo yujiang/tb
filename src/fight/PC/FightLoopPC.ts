@@ -30,8 +30,10 @@ export class FightLoopPC extends FightLoop {
 	}
 
 	override processOneTurn(turn: number): Promise<void> {
-		if (!this.started || this.fight.isEnd() || turn !== this.fight.turn)
+		if (!this.started || this.fight.isEnd() || turn !== this.fight.turn) {
 			return Promise.resolve();
+		}
+
 		if (!this.running) this.running = this.processQueue(turn);
 		return this.running;
 	}
@@ -70,13 +72,17 @@ export class FightLoopPC extends FightLoop {
 					await this.waitDrawOver();
 					await this.processUltimate(turn);
 				}
-				if (!this.started || this.fight.isEnd() || this.fight.turn !== turn) break;
+				if (!this.started || this.fight.isEnd() || this.fight.turn !== turn) {
+					break;
+				}
 				if (unit.isDied()) continue;
 
 				let input = unit.input ?? { cmd: FightCmdEnum.none };
 				if (unit.needInput() && !unit.isForbid('action')) {
 					input = await this.waitUnitInput(unit, turn);
-					if (!this.started || this.fight.isEnd() || this.fight.turn !== turn) break;
+					if (!this.started || this.fight.isEnd() || this.fight.turn !== turn) {
+						break;
+					}
 					if (!input) continue;
 					if (!this.fight.checkPC(unit, input)) continue;
 				}
@@ -121,25 +127,32 @@ export class FightLoopPC extends FightLoop {
 			pending.turn !== this.fight.turn ||
 			!input ||
 			(input.turn !== undefined && input.turn !== pending.turn)
-		)
+		) {
 			return false;
+		}
+
 		const unit = pending.unit;
 		if (unit.isDied() || !unit.needInput()) {
 			this.closeInput();
 			return false;
 		}
+
 		if (unit.isForbid('action')) {
 			unit.hintClient('当前无法行动');
 			this.closeInput({ cmd: FightCmdEnum.none });
 			return false;
 		}
+
 		if (!this.fight.checkPC(unit, input)) return false;
+
 		if (input.cmd === FightCmdEnum.cancel) {
 			unit.input = null;
 			return true;
 		}
+
 		const prepared = this.fight.preparePCInput(unit, input);
 		if (!prepared) return false;
+
 		unit.input = prepared;
 		this.closeInput({ ...unit.input });
 		return true;

@@ -41,17 +41,24 @@ export class BuffReflect extends FightBuff {
 			pending.cancelled ||
 			pending.reflected ||
 			pending.source === 'share'
-		)
+		) {
 			return;
-		if ((this.xls.classParam?.magicOnly ?? true) && !pending.magic) return;
+		}
+
+		if ((this.xls.classParam?.magicOnly ?? true) && !pending.magic) {
+			return;
+		}
+
 		if (
 			Math.floor(pending.damage) <= 0 ||
 			attacker === unit ||
 			attacker.isDied() ||
 			attacker.fight !== ctx.fight ||
 			!ctx.fight.getAllUnits().includes(attacker)
-		)
+		) {
 			return;
+		}
+
 		const damage = pending.damage;
 		pending.damage = 0;
 		pending.cancelled = true;
@@ -79,10 +86,13 @@ export class BuffReflect extends FightBuff {
 			pending.reflected ||
 			pending.revive ||
 			Math.floor(pending.heal) <= 0
-		)
+		) {
 			return;
+		}
+
 		const target = ctx.fight.randomEnemyAlive(unit.side);
 		if (!target) return;
+
 		const heal = pending.heal;
 		pending.heal = 0;
 		pending.cancelled = true;

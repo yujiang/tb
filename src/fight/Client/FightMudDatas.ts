@@ -52,11 +52,15 @@ export function resolveMudText(
 	const skillText =
 		skill === undefined ? undefined : nonempty(tables.xlsSkillDesc?.[skill]?.[field]);
 	if (skillText) return skillText;
+
 	if (character === undefined) return undefined;
+
 	const own = nonempty(tables.xlsText?.[character]?.[field]);
 	if (own) return own;
+
 	const profile = tables.xlsCharacter?.[character];
 	if (!profile) return undefined;
+
 	const values = traits.map((key) => profile[key]).filter((value): value is string => !!value);
 	let result: string | undefined,
 		specificity = 0;
@@ -70,6 +74,7 @@ export function resolveMudText(
 		const matches = parts.every((part) => {
 			const index = remaining.indexOf(part);
 			if (index < 0) return false;
+
 			remaining.splice(index, 1);
 			return true;
 		});

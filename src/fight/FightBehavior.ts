@@ -25,6 +25,7 @@ export class FightBehavior<T extends { type: string; custom?: any }> {
 			'FightBehavior cannot be shared by different units',
 		);
 		if (this.owner) return false;
+
 		this.owner = unit;
 		try {
 			this.onAdded(unit);
@@ -36,6 +37,7 @@ export class FightBehavior<T extends { type: string; custom?: any }> {
 	}
 	unbind(unit: FightUnit) {
 		if (this.owner !== unit) return;
+
 		for (const entry of this.listeners) unit.offContex(entry.event, entry.listener);
 		this.listeners.length = 0;
 		this.owner = undefined;

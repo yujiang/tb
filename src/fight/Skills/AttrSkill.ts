@@ -29,6 +29,7 @@ export class AttrSkill extends FightSkill {
 	createSpreadSkill(id: number, attacker: FightUnit) {
 		const data = getSkillData(id);
 		if (!data) return;
+
 		const skill = new AttrSkill(data, this.level, this.attr);
 		skill.mergeAttr(attacker);
 		return skill;

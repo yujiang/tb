@@ -84,6 +84,7 @@ function calcAttackParts(f: Fight, a: BaseAttack, d: BaseAttack, ctx: FightConte
 export function mergeTable(base: Object, add: Object): any {
 	const c: any = { ...base };
 	if (!add) return c;
+
 	const a = base as Record<string, number>;
 	const b = add as Record<string, number>;
 	for (const k in b) {
@@ -97,7 +98,10 @@ export function mergeTable(base: Object, add: Object): any {
 }
 
 export function mergeTableLevel(base: Object, add: Object, mul: Object, level: number): any {
-	if (!mul || level === 0) return mergeTable(base, add);
+	if (!mul || level === 0) {
+		return mergeTable(base, add);
+	}
+
 	const a = (base ?? {}) as Record<string, number>;
 	const b = (add ?? {}) as Record<string, number>;
 	const d = mul as Record<string, number>;

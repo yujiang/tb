@@ -75,9 +75,12 @@ export function attackFunc(attacker: FightUnit, defender: FightUnit, ctx: FightC
 	const taunt = ctx.fight.getTauntBuff(attacker, equipped ?? getDefaultSkill());
 	if (equipped) {
 		const result = skillAttackFunc(attacker, defender, equipped, ctx);
-		if (taunt && taunt.getTauntTarget() === defender) attacker.emitContext('taunt', ctx, taunt);
+		if (taunt && taunt.getTauntTarget() === defender) {
+			attacker.emitContext('taunt', ctx, taunt);
+		}
 		return result;
 	}
+
 	const skill = new PhysicSkill(
 		'physic',
 		attacker,
@@ -85,6 +88,8 @@ export function attackFunc(attacker: FightUnit, defender: FightUnit, ctx: FightC
 		attacker.attr.physic.final,
 	);
 	const result = magicAttackFunc(attacker, defender, skill, ctx);
-	if (taunt && taunt.getTauntTarget() === defender) attacker.emitContext('taunt', ctx, taunt);
+	if (taunt && taunt.getTauntTarget() === defender) {
+		attacker.emitContext('taunt', ctx, taunt);
+	}
 	return result;
 }

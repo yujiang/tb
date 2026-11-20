@@ -9,6 +9,7 @@ export class FightUnitCost extends FightUnit {
 			this.hintClient('生命不足，无法支付技能消耗');
 			return false;
 		}
+
 		if (cost.mp && point.mp < cost.mp) {
 			this.hintClient('法力不足，无法支付技能消耗');
 			return false;
@@ -19,6 +20,7 @@ export class FightUnitCost extends FightUnit {
 
 	costSkill(cost: SkillCost, ctx: FightContex) {
 		if (!this.canCost(cost)) return false;
+
 		const point = this.attr.point;
 		if (cost.hp) {
 			point.hp -= cost.hp;

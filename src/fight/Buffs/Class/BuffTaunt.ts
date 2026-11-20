@@ -8,6 +8,7 @@ import type { FightUnit } from '../../Unit/FightUnit';
 export class BuffTaunt extends FightBuff {
 	override onAdded(unit: FightUnit) {
 		if (this.times <= 0) return;
+
 		this.func = this.onEvent.bind(this);
 		unit.onContex('taunt', this.func, this.xls.prior ?? 0);
 	}

@@ -93,5 +93,6 @@ export function initBuffs(datas: BuffData[]) {
 
 export function getBuffData(id: number): BuffData {
 	if (!id) return;
+
 	return buffs.get(id);
 }

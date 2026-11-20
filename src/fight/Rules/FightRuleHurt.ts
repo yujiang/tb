@@ -36,14 +36,18 @@ export class FightRuleHurt extends FightRule {
 			'hurt',
 			(owner, ctx, attacker: FightUnit, hp: number, source?: HurtOptions) => {
 				if (owner.isForbid('attack')) return;
+
 				if (
 					hp <= 0 ||
 					source?.source !== 'skill' ||
 					attacker === owner ||
 					attacker.side === owner.side
-				)
+				) {
 					return;
+				}
+
 				if (++this.hits % this.every !== 0) return;
+
 				ctx.fight.afterAction(() => {
 					if (
 						!this.isBoundTo(owner) ||
@@ -57,12 +61,16 @@ export class FightRuleHurt extends FightRule {
 						owner.side === attacker.side ||
 						owner.isForbid('action') ||
 						owner.isForbid('attack')
-					)
+					) {
 						return;
+					}
+
 					const skill =
 						this.skill === undefined ? undefined : owner.findSkill(this.skill);
-					if (this.skill !== undefined && (!skill || skill.getFunc() !== 'normal'))
+					if (this.skill !== undefined && (!skill || skill.getFunc() !== 'normal')) {
 						return;
+					}
+
 					// 新攻击沿用普通攻击属性与反应预算，不走反击属性，也不进入行动条。
 					ctx.msgs.push(['aiAttack', owner.uid, attacker.uid]);
 					if (skill) skillAttackFunc(owner, attacker, skill, ctx);

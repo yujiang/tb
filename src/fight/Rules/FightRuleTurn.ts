@@ -48,8 +48,9 @@ export class FightRuleTurn extends FightRule {
 			if (
 				ctx.fight.checkPC(unit, input) &&
 				ctx.fight.insertAction(unit, input, this.pos, ctx)
-			)
+			) {
 				this.selectedTurn = turn;
+			}
 		}
 	}
 }

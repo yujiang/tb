@@ -24,6 +24,7 @@ function getBuffSkill(buff: FightBuff, attr: string) {
 	if (xls.skill) {
 		const data = getSkillData(xls.skill);
 		if (!data) return;
+
 		return new AttrSkill(data, xls.skillLevel ?? 0, attr);
 	}
 }
@@ -31,11 +32,13 @@ function getBuffSkill(buff: FightBuff, attr: string) {
 function buffPoisonFunc(unit: FightUnit, buff: FightBuff, ctx: FightContex) {
 	const skill = getBuffSkill(buff, 'poison');
 	if (!skill) return false;
+
 	return poison(buff.attacker, unit, skill, 'buff', ctx);
 }
 
 function buffHealFunc(unit: FightUnit, buff: FightBuff, ctx: FightContex) {
 	const skill = getBuffSkill(buff, 'heal');
 	if (!skill) return false;
+
 	return heal(buff.attacker, unit, skill, 'buff', ctx);
 }

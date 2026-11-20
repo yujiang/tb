@@ -31,6 +31,7 @@ export class FightMap {
 		if (y > 0) {
 			return this.getPos(x, y - 1);
 		}
+
 		return -1;
 	}
 	// 后位，y后x不变, -1表示没有
@@ -39,6 +40,7 @@ export class FightMap {
 		if (y < this.ny - 1) {
 			return this.getPos(x, y + 1);
 		}
+
 		return -1;
 	}
 
@@ -60,7 +62,10 @@ export class FightMap {
 
 	// 行号从 1 开始：3 排时第 3 排，5 排时第 4、5 排属于后排。
 	isBackRow(pos: number): boolean {
-		if (!Number.isSafeInteger(pos) || pos < 0 || pos >= this.maxPos()) return false;
+		if (!Number.isSafeInteger(pos) || pos < 0 || pos >= this.maxPos()) {
+			return false;
+		}
+
 		const [, y] = this.getPosByIndex(pos);
 		return y + 1 > Math.ceil(this.ny / 2);
 	}
@@ -143,7 +148,9 @@ export class FightMap {
 		}
 
 		for (const x of xs) {
-			if (x < 0 || x >= this.nx) continue;
+			if (x < 0 || x >= this.nx) {
+				continue;
+			}
 			for (let y = 0; y < this.ny; y++) {
 				const des = maps[y][x];
 				if (des) {

@@ -110,5 +110,6 @@ export function initSkills(datas: SkillData[]) {
 
 export function getSkillData(id: number): SkillData {
 	if (!id) return;
+
 	return skills.get(id);
 }

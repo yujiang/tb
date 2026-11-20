@@ -5,6 +5,7 @@ import { FightInput } from '../struct';
 export abstract class FightLoopOnline extends FightLoop {
 	override onInputUltimate(id: number, input: FightInput): boolean {
 		if (input?.turn !== this.fight.turn) return false;
+
 		return super.onInputUltimate(id, input);
 	}
 }

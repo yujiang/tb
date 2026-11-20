@@ -33,6 +33,7 @@ export function skillFunc(
 		attacker.hintClient('未学会该技能');
 		return;
 	}
+
 	const cd = attacker.getSkillCd(skillId);
 	if (cd > 0) {
 		attacker.hintClient(`[${skill.getName()}]冷却中，还需 ${cd} 回合`);
@@ -62,14 +63,24 @@ export function skillFunc(
 	if (!func) return;
 
 	const cost = skill.getCost();
-	if (cost && !attacker.costSkill(cost, ctx)) return;
+	if (cost && !attacker.costSkill(cost, ctx)) {
+		return;
+	}
+
 	attacker.startSkillCd(skill, ctx);
 
-	if (skill.isMulti() && func !== skillAttackFunc) return multiFunc(attacker, skill, ctx, func);
+	if (skill.isMulti() && func !== skillAttackFunc) {
+		return multiFunc(attacker, skill, ctx, func);
+	}
+
 	const taunt = !skill.isMulti() ? f.getTauntBuff(attacker, skill) : undefined;
 	const result = func(attacker, defender, skill, ctx);
 	// 普通攻击类在整条反应链结束后处理自身效果；其余技能在本次执行完成后处理。
-	if (result && func !== skillAttackFunc) afterSelfBuff(attacker, skill, ctx);
-	if (taunt && taunt.getTauntTarget() === defender) attacker.emitContext('taunt', ctx, taunt);
+	if (result && func !== skillAttackFunc) {
+		afterSelfBuff(attacker, skill, ctx);
+	}
+	if (taunt && taunt.getTauntTarget() === defender) {
+		attacker.emitContext('taunt', ctx, taunt);
+	}
 	return result;
 }

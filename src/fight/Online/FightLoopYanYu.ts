@@ -33,12 +33,17 @@ export class FightLoopYanYu extends FightLoopOnline {
 
 	override async waitInput(turn: number, ctx: FightContex): Promise<number> {
 		this.accepting = false;
-		if (!this.started || this.fight.isEnd() || turn !== this.fight.turn) return 0;
+		if (!this.started || this.fight.isEnd() || turn !== this.fight.turn) {
+			return 0;
+		}
+
 		this.fight.resolveAction(() => {
 			for (const unit of this.fight.getAllUnits()) {
-				if (unit instanceof FightUnitMonster && unit.getExtraActions().length)
+				if (unit instanceof FightUnitMonster && unit.getExtraActions().length) {
 					unit.inputStart(turn, ctx, true);
-				else unit.inputStart(turn, ctx);
+				} else {
+					unit.inputStart(turn, ctx);
+				}
 			}
 		});
 		this.accepting = !this.fight.isEnd();
@@ -46,7 +51,10 @@ export class FightLoopYanYu extends FightLoopOnline {
 	}
 
 	override async processOneTurn(turn: number) {
-		if (!this.started || this.fight.isEnd() || turn !== this.fight.turn) return;
+		if (!this.started || this.fight.isEnd() || turn !== this.fight.turn) {
+			return;
+		}
+
 		this.automaticTurn = turn;
 		await this.drain(turn);
 	}
@@ -55,6 +63,7 @@ export class FightLoopYanYu extends FightLoopOnline {
 	override async onInput(id: number, input: FightInput): Promise<boolean> {
 		try {
 			if (!this.canCast(id, input)) return false;
+
 			this.skills.push({ id, input: { ...input } });
 			await this.drain(this.fight.turn);
 			return !this.failed;
@@ -73,19 +82,25 @@ export class FightLoopYanYu extends FightLoopOnline {
 			!Number.isSafeInteger(id) ||
 			input?.turn !== fight.turn ||
 			input.cmd !== FightCmdEnum.skill
-		)
+		) {
 			return false;
+		}
+
 		const unit = fight.getUnitById(id);
 		if (!unit?.needInput()) return false;
+
 		if (unit.isDied()) {
 			unit.hintClient('自身已死亡，无法行动');
 			return false;
 		}
+
 		if (unit.isForbid('action')) {
 			unit.hintClient('当前无法行动');
 			return false;
 		}
+
 		if (!fight.checkOnline(unit, input)) return false;
+
 		const cost = unit.findSkill(input.skill).getCost();
 		return !cost || unit.canCost(cost);
 	}
@@ -126,19 +141,25 @@ export class FightLoopYanYu extends FightLoopOnline {
 							: this.fight.processUnit(unit, input ?? { cmd: FightCmdEnum.attack });
 					if (ctx) ctx.msgs.unshift(this.actorMessage(action));
 					else this.syncActionOrder();
-				} else break;
+				} else {
+					break;
+				}
 				if (ctx) {
 					this.bcMsg(ctx.msgs);
 					await this.waitDrawOver();
 					await this.processUltimate(turn);
 				}
 			}
-			if (this.automaticTurn === turn || this.fight.isEnd()) this.accepting = false;
+			if (this.automaticTurn === turn || this.fight.isEnd()) {
+				this.accepting = false;
+			}
 		} catch (error) {
 			this.fail(error, activeUnit, activeInput);
 		} finally {
 			if (this.automaticTurn === turn) this.automaticTurn = undefined;
-			if (!this.accepting || this.fight.isEnd()) this.skills.length = 0;
+			if (!this.accepting || this.fight.isEnd()) {
+				this.skills.length = 0;
+			}
 			this.running = undefined;
 		}
 	}

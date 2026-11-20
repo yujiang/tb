@@ -32,6 +32,7 @@ export class FightClient {
 			existing.autocheck = autocheck;
 			return;
 		}
+
 		const binding = { autocheck };
 		this.boundLoops.set(fl, binding);
 		// 跳过网络，直接导入消息
@@ -47,6 +48,7 @@ export class FightClient {
 
 	private toBatch(msgs: fightMsg | fightMsg[]): fightMsg[] {
 		if (!msgs?.length) return [];
+
 		return typeof msgs[0] === 'string' ? [msgs as fightMsg] : (msgs as fightMsg[]);
 	}
 
@@ -171,17 +173,24 @@ export class FightClient {
 
 	// 检测是否跟服务器的战况完全一致，包括位置，display，point, buffs
 	checkSame(f: Fight): boolean {
-		if (this.fid !== f.fid || !f.Sides) return false;
+		if (this.fid !== f.fid || !f.Sides) {
+			return false;
+		}
+
 		if (
 			!isDeepStrictEqual(this.ultimateReady, [f.hasUltimateChance(0), f.hasUltimateChance(1)])
-		)
+		) {
 			return false;
+		}
+
 		for (const side of [FightSideEnum.attack, FightSideEnum.defend]) {
 			const units = this.sides[side];
 			const expected = f.getSide(side).units;
 			if (units.length !== expected.length) return false;
+
 			const byId = new Map(units.map((u) => [u.uid, u]));
 			if (byId.size !== units.length) return false;
+
 			for (const unit of expected) {
 				const actual = byId.get(unit.uid);
 				const snapshot = unit.getUnitMsg();
@@ -195,10 +204,12 @@ export class FightClient {
 					actual.shield !== snapshot.shield ||
 					actual.shieldMax !== snapshot.shieldMax ||
 					!isDeepStrictEqual(actual.skillCds ?? [], snapshot.skillCds ?? [])
-				)
+				) {
 					return false;
+				}
 			}
 		}
+
 		return true;
 	}
 }

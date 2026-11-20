@@ -28,6 +28,7 @@ export function createBuff(
 ): FightBuff {
 	const xls = getBuffData(buff);
 	if (!xls) return null;
+
 	const t =
 		xls.turnType === BuffTurnEnum.inputTurn
 			? inputTurn

@@ -65,14 +65,17 @@ export abstract class FightLoop {
 			unit.fight !== this.fight ||
 			!this.fight.getAllUnits().includes(unit) ||
 			!this.fight.checkPC(unit, input)
-		)
+		) {
 			return false;
+		}
+
 		this.actionQueue.insert(unit, input, pos, () => this.fight.random(), this.currentAction);
 		this.syncActionOrder(ctx);
 		return true;
 	}
 	cancelAction(id: number): boolean {
 		if (!this.actionQueue.cancel(id)) return false;
+
 		this.syncActionOrder();
 		return true;
 	}
@@ -86,16 +89,23 @@ export abstract class FightLoop {
 		return (this.currentAction = this.actionQueue.shift());
 	}
 	protected insertedContext(action: FightAction): FightContex | undefined {
-		if (action.speedRate !== undefined) return this.freshInputContext(action, true);
+		if (action.speedRate !== undefined) {
+			return this.freshInputContext(action, true);
+		}
+
 		if (!this.fight.checkPC(action.unit, action.input)) return undefined;
+
 		return this.fight.processUnit(action.unit, action.input);
 	}
 	// 模板普通行动/额外AI行动在实际出手时决策，不重复推进输入周期Buff。
 	protected freshInputContext(action: FightAction, automatic = false): FightContex | undefined {
 		const unit = action.unit;
 		if (unit.isDied()) return undefined;
-		if (unit.isForbid('action'))
+
+		if (unit.isForbid('action')) {
 			return this.fight.processUnit(unit, { cmd: FightCmdEnum.none });
+		}
+
 		const before = initFightContex(this.fight);
 		const input =
 			action.input ??
@@ -127,6 +137,7 @@ export abstract class FightLoop {
 	}
 	private reportFailure(error: unknown, unit?: FightUnit, input?: FightInput) {
 		if (this.failed) return;
+
 		this.failed = true;
 		this.fight.win = FightResultEnum.defend;
 		this.fight.resetUltimate();
@@ -149,6 +160,7 @@ export abstract class FightLoop {
 	}
 	protected fail(error: unknown, unit?: FightUnit, input?: FightInput) {
 		if (this.failed) return;
+
 		this.reportFailure(error, unit, input);
 		this.end();
 	}
@@ -208,14 +220,20 @@ export abstract class FightLoop {
 			}
 
 			if (f.xls.allShieldBreak) await this.processUltimate(turn, true);
-			if (f.isEnd() || this.stopped) break;
+			if (f.isEnd() || this.stopped) {
+				break;
+			}
 			const f2 = initFightContex(f);
 			await this.waitInput(turn, f2);
 			this.bcMsg(f2.msgs);
 			f.checkOutcome();
-			if (f.isEnd() || this.stopped) break;
+			if (f.isEnd() || this.stopped) {
+				break;
+			}
 			if (f.xls.allShieldBreak) await this.processUltimate(turn, true);
-			if (f.isEnd() || this.stopped) break;
+			if (f.isEnd() || this.stopped) {
+				break;
+			}
 
 			await this.processOneTurn(turn);
 			if (this.stopped) break;
@@ -263,6 +281,7 @@ export abstract class FightLoop {
 
 	end() {
 		if (this.stopped) return;
+
 		this.stopped = true;
 		this.fight.clearActionInserter(this.actionInserter);
 		this.actionQueue.clear();
@@ -304,6 +323,7 @@ export abstract class FightLoop {
 	private speedListener = (unit: FightUnit) => this.onChangeSpeed(unit);
 	onChangeSpeed(unit: FightUnit) {
 		if (!this.processUnits?.includes(unit)) return;
+
 		this.actionQueue.sort(
 			(a, b) => this.compareProcessUnits(a, b, false),
 			(a, b) => this.compareProcessActions(a, b, false),
@@ -356,17 +376,25 @@ export abstract class FightLoop {
 			pending.turn !== this.fight.turn ||
 			!input ||
 			(input.turn !== undefined && input.turn !== pending.turn)
-		)
+		) {
 			return false;
+		}
+
 		const unit = this.fight.getUnitById(id);
-		if (!unit || unit.side !== pending.side) return false;
+		if (!unit || unit.side !== pending.side) {
+			return false;
+		}
+
 		if (input.cmd === FightCmdEnum.cancel) {
 			this.closeUltimateInput();
 			return true;
 		}
+
 		if (!this.fight.checkUltimate(unit, input)) return false;
+
 		const prepared = this.fight.preparePCInput(unit, { ...input, skill: unit.ultimateSkill });
 		if (!prepared) return false;
+
 		this.closeUltimateInput({ unit, input: prepared });
 		return true;
 	}
@@ -387,8 +415,9 @@ export abstract class FightLoop {
 
 	private async processUltimateActions(turn: number, waitBefore: boolean) {
 		for (const side of [FightSideEnum.attack, FightSideEnum.defend]) {
-			if (!this.fight.hasUltimateChance(side) || !this.getUltimateUnits(side).length)
+			if (!this.fight.hasUltimateChance(side) || !this.getUltimateUnits(side).length) {
 				continue;
+			}
 			if (waitBefore) await this.waitDrawOver();
 			while (
 				!this.stopped &&
@@ -402,7 +431,10 @@ export abstract class FightLoop {
 				} finally {
 					this.closeUltimateInput();
 				}
-				if (this.stopped || this.fight.isEnd() || this.fight.turn !== turn) return;
+				if (this.stopped || this.fight.isEnd() || this.fight.turn !== turn) {
+					return;
+				}
+
 				if (!choice) {
 					const ctx = initFightContex(this.fight);
 					this.fight.skipUltimate(side, ctx);
@@ -436,8 +468,10 @@ export abstract class FightLoop {
 	}
 
 	protected compareProcessActions(a: FightAction, b: FightAction, withInput = true) {
-		if (a.speedRate === undefined && b.speedRate === undefined)
+		if (a.speedRate === undefined && b.speedRate === undefined) {
 			return this.compareProcessUnits(a.unit, b.unit, withInput);
+		}
+
 		const priority = (action: FightAction) =>
 			withInput &&
 			(action.speedRate !== undefined ? action.input : action.unit.input)?.cmd ===
@@ -474,6 +508,7 @@ export abstract class FightLoop {
 	bcMsg(msgs: fightMsg | fightMsg[]) {
 		// 暂时没有发消息, 直接打印
 		if (!msgs?.length) return;
+
 		if (this.msgFunc.length > 0) {
 			for (const msgFunc of this.msgFunc) {
 				msgFunc(msgs);

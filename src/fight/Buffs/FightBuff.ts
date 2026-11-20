@@ -34,6 +34,7 @@ export class FightBuff extends FightStatic {
 	// 普通次数 Buff 和特殊类共用计次、增量同步与自然移除。
 	protected consumeTimes(unit: FightUnit, ctx: FightContex) {
 		if (unit.findBuff(this.getId()) !== this) return;
+
 		if (this.times > 0) {
 			this.times--;
 			if (!this.notDisplay())
@@ -96,9 +97,13 @@ export class FightBuff extends FightStatic {
 
 	doTurn(unit: FightUnit, turn: number, ctx: FightContex) {
 		if (turn <= this.lastProcessedTurn) return false;
+
 		this.lastProcessedTurn = turn;
 		const end = this.start + this.lastTurn;
-		if (this.lastTurn > 0 && turn > end) return true;
+		if (this.lastTurn > 0 && turn > end) {
+			return true;
+		}
+
 		if (this.xls.func && !unit.isDied() && !ctx.fight.isEnd()) {
 			buffFunc(unit, this, ctx);
 		}
@@ -122,6 +127,7 @@ export class FightBuff extends FightStatic {
 	// 被动技能的无法remove
 	canRemove(power: number) {
 		if (this.xls.notRemove) return false;
+
 		return power >= this.getPower();
 	}
 
@@ -132,6 +138,7 @@ export class FightBuff extends FightStatic {
 	// 展示元组：[ID, 等级, 添加边界, 持续边界数, 当前剩余次数]；不按次数到期时为0。
 	getDisplayMsg() {
 		if (this.notDisplay()) return;
+
 		return [this.getId(), this.level, this.start, this.lastTurn, this.times];
 	}
 }

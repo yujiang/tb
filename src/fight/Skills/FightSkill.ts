@@ -114,6 +114,7 @@ export class FightSkill {
 	getRelativeSkill(id: number) {
 		const data = getSkillData(id);
 		if (!data) return;
+
 		return new FightSkill(data, this.level);
 	}
 
@@ -139,10 +140,14 @@ export class FightSkill {
 		const func = this.getFunc();
 		if (func === 'relife') {
 			if (!target.isDied()) return '目标尚未死亡';
-			if (Math.floor(this.getHealRate() * target.getHpMax()) <= 0) return '目标无法复活';
+
+			if (Math.floor(this.getHealRate() * target.getHpMax()) <= 0) {
+				return '目标无法复活';
+			}
 		} else {
 			if (target.isDied()) return '目标已死亡';
 		}
+
 		// 复活独立于普通受击；其他效果同时遵守技能类别和func的专用限制。
 		const action =
 			func === 'relife'
@@ -152,10 +157,14 @@ export class FightSkill {
 					: 'skill';
 		if (target.isForbidBeAction(action) || target.isForbidBeAction(func)) {
 			if (func === 'relife') return '目标无法复活';
+
 			if (func === 'heal') return '目标无法接受治疗';
+
 			if (func === 'poison') return '目标无法中毒';
+
 			return '目标当前无法接受该效果';
 		}
+
 		return undefined;
 	}
 	getSel() {
@@ -187,7 +196,9 @@ export class FightSkill {
 
 	physicHitTest(f: Fight, defender: FightUnit) {
 		if (this.xls.alwaysHit) return true;
+
 		if (defender.isForbid('dodge')) return true;
+
 		// 70 = 100 - 30
 		const d2 = this.getAttack().hit - defender.attr.physic.base.dodge;
 		return f.randomLess(d2 / 100);

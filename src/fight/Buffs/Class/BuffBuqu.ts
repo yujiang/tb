@@ -21,16 +21,22 @@ export class BuffBuqu extends FightBuff {
 	}
 
 	override onEvent(unit: FightUnit, ctx: FightContex, attacker: FightUnit, pending: PendingHurt) {
-		if (unit.findBuff(this.getId()) !== this || pending.cancelled) return;
+		if (unit.findBuff(this.getId()) !== this || pending.cancelled) {
+			return;
+		}
+
 		let used = BuffBuqu.used.get(ctx.fight);
 		if (used?.has(unit)) {
 			this.times = 0;
 			unit.expireBuff(this, 'used', ctx);
 			return;
 		}
+
 		// 已有锁血不会死亡，也不消耗不屈。小数伤害按最终向下取整的结果判断。
-		if (unit.minHp > 0 || unit.getHp() <= 0 || Math.floor(pending.damage) < unit.getHp())
+		if (unit.minHp > 0 || unit.getHp() <= 0 || Math.floor(pending.damage) < unit.getHp()) {
 			return;
+		}
+
 		if (!used) {
 			used = new WeakSet<FightUnit>();
 			BuffBuqu.used.set(ctx.fight, used);

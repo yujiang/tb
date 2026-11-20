@@ -23,6 +23,7 @@ export function relifeFunc(
 		ctx.msgs.push(['无法复活', defender.uid]);
 		return false;
 	}
+
 	defender.onRelife(attacker, 'relife', ctx);
 	defender.onHeal(attacker, 'relife', heal, ctx, { revive: true });
 	return true;

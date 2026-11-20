@@ -40,6 +40,7 @@ export class FightMud extends FightReport {
 		const character = this.client.getUnitById(ctx.subject)?.display.character;
 		const text = resolveMudText(this.tables, field, character, ctx.skill);
 		if (!text) return false;
+
 		const unit = this.client.getUnitById(ctx.target);
 		const values: Record<string, string> = {
 			人物: this.name(ctx.subject),
@@ -112,6 +113,7 @@ export class FightMud extends FightReport {
 				};
 				this.pending.push(ctx);
 				if (this.template('出手文本', ctx, this.reaction(msg[4]))) return true;
+
 				const move =
 					msg[4] === 'combo'
 						? '招式未收，紧接着使出'
@@ -137,8 +139,10 @@ export class FightMud extends FightReport {
 						{ actor: msg[2], target: msg[3], subject: msg[2], skill: msg[1] },
 						this.reaction(msg[4]),
 					)
-				)
+				) {
 					return true;
+				}
+
 				const prefix = `${this.reaction(msg[4])}${this.name(msg[2])}使出${this.skillName(msg[1])}，${this.name(msg[3])}闪身避开，`;
 				this.write(`${prefix}未命中。`, 'blue', { start: prefix.length, length: 3 });
 				return true;
@@ -189,12 +193,16 @@ export class FightMud extends FightReport {
 				const ctx = this.fatal.get(msg[1]) ?? { target: msg[1], subject: msg[1] };
 				this.fatal.delete(msg[1]);
 				if (this.template('死亡文本', ctx)) return true;
+
 				this.write(`${this.name(msg[1])}身形一晃，终于支撑不住，倒地不起。`, 'darkRed');
 				return true;
 			}
 			case 'relife':
 				this.fatal.delete(msg[1]);
-				if (this.template('复活文本', { target: msg[1], subject: msg[1] })) return true;
+				if (this.template('复活文本', { target: msg[1], subject: msg[1] })) {
+					return true;
+				}
+
 				this.write(
 					`一线生机重新凝聚，${this.name(msg[1])}缓缓睁开双眼，重新站起。`,
 					'brightGreen',
@@ -224,6 +232,7 @@ export class FightMud extends FightReport {
 	private injury(id: number, hp: number): string {
 		const max = this.client.getUnitById(id)?.point.hpMax;
 		if (!(max > 0)) return `（剩余生命 ${hp}）`;
+
 		const ratio = hp / max;
 		const description =
 			hp <= 0
@@ -244,7 +253,9 @@ export class FightMud extends FightReport {
 		if (msg[1] === 'skill') {
 			for (let index = this.pending.length - 1; index >= 0; index--) {
 				const action = this.pending[index];
-				if (action.actor !== msg[3] || action.target !== msg[2]) continue;
+				if (action.actor !== msg[3] || action.target !== msg[2]) {
+					continue;
+				}
 				skill = this.pending.splice(index, 1)[0].skill;
 				break;
 			}
@@ -263,6 +274,7 @@ export class FightMud extends FightReport {
 			if (msg[5] <= 0) this.fatal.set(msg[2], ctx);
 			if (this.template('受伤文本', ctx)) return;
 		}
+
 		const target = this.name(msg[2]),
 			attacker = this.name(msg[3]);
 		const amount = String(msg[4]);
@@ -274,6 +286,7 @@ export class FightMud extends FightReport {
 			});
 			return;
 		}
+
 		const critical = (msg[6] ?? []).includes('crit');
 		let prefix: string,
 			resource = '伤害';
@@ -313,8 +326,10 @@ export class FightMud extends FightReport {
 				heal: hp - msg[5],
 				hp,
 			})
-		)
+		) {
 			return;
+		}
+
 		const amount = String(hp - msg[5]);
 		const target = this.name(msg[2]),
 			healer = this.name(msg[3]);

@@ -193,6 +193,7 @@ export class FightAttr {
 			case 'hplp':
 				return (point.hpMax - point.hp) / point.hpMax;
 		}
+
 		return (this as any)[key] || 0;
 	}
 

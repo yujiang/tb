@@ -41,6 +41,7 @@ export class FightUnitMonster extends FightUnit {
 	set ai(value: FightAI | undefined) {
 		assert.ok(value === undefined || value instanceof FightAI, 'ai must be a FightAI');
 		if (this.decisionAI === value) return;
+
 		value?.bind(this); // 先确认新实例可绑定，失败时保留原 AI。
 		this.decisionAI?.unbind(this);
 		this.decisionAI = value;
@@ -89,7 +90,10 @@ export class FightUnitMonster extends FightUnit {
 			'rule must be a FightRule; assign AI through ai, not addRule',
 		);
 		assert.ok(Number.isFinite(prior), 'Rule prior must be finite');
-		if (this.ruleEntries.some((entry) => entry.rule === rule)) return false;
+		if (this.ruleEntries.some((entry) => entry.rule === rule)) {
+			return false;
+		}
+
 		rule.bind(this);
 		this.ruleEntries.push({ rule, prior, order: this.nextRuleOrder++ });
 		this.ruleEntries.sort((a, b) => a.prior - b.prior || a.order - b.order);
@@ -99,6 +103,7 @@ export class FightUnitMonster extends FightUnit {
 	removeRule(rule: FightRule): boolean {
 		const index = this.ruleEntries.findIndex((entry) => entry.rule === rule);
 		if (index < 0) return false;
+
 		this.ruleEntries.splice(index, 1);
 		rule.unbind(this);
 		this.calcAttr();
@@ -112,7 +117,9 @@ export class FightUnitMonster extends FightUnit {
 			entry.rule.bind(this);
 			entry.rule.startFight(this);
 		}
-		if (this.ai || this.ruleEntries.length) this.calcAttr();
+		if (this.ai || this.ruleEntries.length) {
+			this.calcAttr();
+		}
 	}
 	override endFight() {
 		this.ai?.unbind(this);
@@ -139,15 +146,24 @@ export class FightUnitMonster extends FightUnit {
 		if (!deferDecision) this.input = this.getActionInput(turn, ctx);
 	}
 	override getActionInput(turn: number, ctx: FightContex, automatic = false): FightInput {
-		if (automatic && !this.ai) return { cmd: FightCmdEnum.attack };
+		if (automatic && !this.ai) {
+			return { cmd: FightCmdEnum.attack };
+		}
+
 		if (this.ai || this.ruleEntries.length) {
 			const input = this.ai?.waitInput(this, turn, ctx);
 			return { ...(input ?? { cmd: FightCmdEnum.attack }) };
 		}
+
 		// 无 AI、无规则时保留原固定技能和技能首项的处理。
-		if (this.inputSkill) return { cmd: FightCmdEnum.skill, skill: this.inputSkill };
-		if (this.skills.size > 0)
+		if (this.inputSkill) {
+			return { cmd: FightCmdEnum.skill, skill: this.inputSkill };
+		}
+
+		if (this.skills.size > 0) {
 			return { cmd: FightCmdEnum.skill, skill: this.skills.keys().next().value };
+		}
+
 		return { cmd: FightCmdEnum.none };
 	}
 	// monster不消耗

@@ -29,5 +29,6 @@ export function initPassives(datas: PassiveData[]) {
 
 export function getPassiveData(id: number): PassiveData {
 	if (!id) return;
+
 	return passives.get(id);
 }

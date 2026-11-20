@@ -37,6 +37,7 @@ class MagicSkill extends FightSkill {
 	createMagicSkill(name: string, id: number, attack: BaseAttack) {
 		const data = getSkillData(id);
 		if (!data) return;
+
 		const skill = new MagicSkill(data, this.level);
 		skill.name = name;
 		skill.ft = this.ft;
@@ -66,7 +67,10 @@ export function skillAttack(
 ) {
 	// assert(skill);
 	const f = ctx.fight;
-	if (attacker.isDied() || defender.isDied() || attacker.isForbid('attack')) return false;
+	if (attacker.isDied() || defender.isDied() || attacker.isForbid('attack')) {
+		return false;
+	}
+
 	ctx.reactionSteps = (ctx.reactionSteps ?? 0) + 1;
 	if (ctx.reactionSteps > 64) throw new Error('Reaction limit exceeded (64 effects per action)');
 
@@ -110,7 +114,9 @@ export function skillAttack(
 			attacker.attr.weapon,
 		),
 	});
-	if (combo && defender === combo.target) combo.damage += damage;
+	if (combo && defender === combo.target) {
+		combo.damage += damage;
+	}
 	afterHurt(attacker, defender, skill, ctx);
 	if (damage > 1) {
 		if (skill.canBlood()) {
@@ -127,6 +133,7 @@ export function skillAttack(
 function skillKill(attacker: FightUnit, sk: FightSkill, ctx: FightContex) {
 	const skill = sk.getKillSkill();
 	if (!skill) return false;
+
 	const f = ctx.fight;
 	if (skill.getRand() <= 0) return false;
 
@@ -135,13 +142,18 @@ function skillKill(attacker: FightUnit, sk: FightSkill, ctx: FightContex) {
 		ctx.killNum = (ctx.killNum || 0) + 1;
 		return magicAttackFunc(attacker, null, skill, ctx, 'kill');
 	}
+
 	const des =
 		configured && skill.getSel()
 			? f.selectMainTarget(attacker, skill)
 			: f.randomEnemyAlive(attacker.side);
 	if (!des) return false;
+
 	ctx.killNum = (ctx.killNum || 0) + 1;
-	if (configured) return magicAttackFunc(attacker, des, skill, ctx, 'kill');
+	if (configured) {
+		return magicAttackFunc(attacker, des, skill, ctx, 'kill');
+	}
+
 	// 普攻的内置追击保留单次触发，不因通用技能链扩展而递归追击。
 	skillAttack(attacker, des, skill, ctx, 'kill');
 	return true;
@@ -156,6 +168,7 @@ function skillNext(
 ) {
 	const skill = sk.getNextSkill();
 	if (!skill) return false;
+
 	const f = ctx.fight;
 	if (skill.getRand() <= 0) return false;
 
@@ -165,6 +178,7 @@ function skillNext(
 		ctx.nextNum = (ctx.nextNum || 0) + 1;
 		return magicAttackFunc(attacker, null, skill, ctx, 'next');
 	}
+
 	let des: FightUnit;
 	if (combo) {
 		// 连招固定沿用上一段实际主目标，失效时停止，不再排序、抽样或被新嘲讽重定向。
@@ -175,8 +189,10 @@ function skillNext(
 			previous.fight !== f ||
 			!f.getAllUnits().includes(previous) ||
 			(skill.getSel() && !f.isLegalTarget(attacker, previous, skill))
-		)
+		) {
 			return false;
+		}
+
 		des = previous;
 	} else {
 		des =
@@ -184,9 +200,11 @@ function skillNext(
 				? f.selectMainTarget(attacker, skill)
 				: f.randomEnemyAlive(attacker.side);
 	}
+
 	if (!des) return false;
+
 	ctx.nextNum = (ctx.nextNum || 0) + 1;
-	if (configured)
+	if (configured) {
 		return magicAttackFunc(
 			attacker,
 			des,
@@ -195,6 +213,8 @@ function skillNext(
 			combo ? 'combo' : 'next',
 			combo ? comboDamage : undefined,
 		);
+	}
+
 	// 普攻的内置概率连击仍只执行一次。
 	skillAttack(attacker, des, skill, ctx, 'next');
 	return true;
@@ -220,10 +240,12 @@ export function magicAttackFunc(
 	reaction?: AttackReaction,
 	combo?: ComboDamage,
 ): boolean {
-	if (magic.isMulti() && reaction !== 'combo' && reaction !== 'support')
+	if (magic.isMulti() && reaction !== 'combo' && reaction !== 'support') {
 		return multiFunc(attacker, magic, ctx, (actor, target, single, context) =>
 			magicAttackFunc(actor, target, single, context, reaction),
 		);
+	}
+
 	return ctx.fight.resolveAction(() => {
 		const chain = combo ?? (usesCombo(magic) ? { target: defender, damage: 0 } : undefined);
 		const ownsChain = !combo && !!chain;
@@ -237,6 +259,7 @@ export function magicAttackFunc(
 		try {
 			const rt = skillAttack(attacker, defender, magic, ctx, reaction, chain);
 			if (!rt) return false;
+
 			if (!attacker.isDied()) {
 				if (!usesCombo(magic) && !chain?.interrupted && magic.canSupport()) {
 					trySupport(attacker, defender, ctx);
@@ -303,11 +326,13 @@ export function afterSkillAttack(
 	combo?: ComboDamage,
 ) {
 	if (attacker.isDied()) return;
+
 	if (defender.isDied()) {
 		//追击
 		skillKill(attacker, skill, ctx);
 	} else {
 		if (combo?.interrupted) return;
+
 		//反击
 		// const f = ctx.fight;
 		let back = false;

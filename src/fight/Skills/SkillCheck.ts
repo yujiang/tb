@@ -92,8 +92,9 @@ export function warnSkillConfigs(datas: SkillData[], skills: ReadonlyMap<number,
 		) {
 			messages.push('主攻击技能建议填写 rand: 1，避免行动时未发动');
 		}
-		if (data.next != null && data.combo != null)
+		if (data.next != null && data.combo != null) {
 			messages.push('同时填写了 next 和 combo，当前实际优先使用 next，请确认配置意图');
+		}
 		if (messages.length) console.warn(`${prefix}：${messages.join('；')}。`);
 	}
 }

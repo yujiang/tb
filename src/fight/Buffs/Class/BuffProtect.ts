@@ -22,8 +22,10 @@ export class BuffProtect extends FightBuff {
 			pending.shared ||
 			pending.source !== 'skill' ||
 			pending.noprotect
-		)
+		) {
 			return;
+		}
+
 		const protector = this.attacker;
 		if (
 			!protector ||
@@ -32,11 +34,14 @@ export class BuffProtect extends FightBuff {
 			protector.side !== unit.side ||
 			protector.fight !== ctx.fight ||
 			!ctx.fight.getAllUnits().includes(protector)
-		)
+		) {
 			return;
+		}
+
 		const damage = Math.max(0, Math.floor(pending.damage));
 		const share = Math.floor(damage * 0.5);
 		if (share <= 0) return;
+
 		pending.damage = damage - share;
 		pending.shared = true;
 		pending.share = { unit: protector, damage: share, buffId: this.getId() };

@@ -16,9 +16,15 @@ export class FightAILowHpHeal extends FightAI {
 	}
 
 	override waitInput(unit: FightUnit, turn: number, ctx: FightContex): FightInput | undefined {
-		if (unit.isDied() || unit.getHp() >= unit.getHpMax() * 0.5) return undefined;
+		if (unit.isDied() || unit.getHp() >= unit.getHpMax() * 0.5) {
+			return undefined;
+		}
+
 		const skill = unit.findSkill(this.xls.skill);
-		if (!skill || skill.getFunc() !== 'heal' || skill.isMulti()) return undefined;
+		if (!skill || skill.getFunc() !== 'heal' || skill.isMulti()) {
+			return undefined;
+		}
+
 		const input = { cmd: FightCmdEnum.skill, skill: this.xls.skill, target: unit.uid };
 		return ctx.fight.checkPC(unit, input) ? input : undefined;
 	}

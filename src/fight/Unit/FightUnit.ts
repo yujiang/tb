@@ -112,6 +112,7 @@ export abstract class FightUnit {
 	enemyHurt: Map<number, number> = new Map();
 	addEnemy(attacker: FightUnit, hp: number) {
 		if (attacker == this) return;
+
 		this.enemyHurt.set(attacker.uid, (this.enemyHurt.get(attacker.uid) ?? 0) + hp);
 	}
 	clearEnemy() {
@@ -148,16 +149,22 @@ export abstract class FightUnit {
 		results: (() => void)[],
 	): number {
 		if (this.isDied()) return 0;
+
 		if (this.isDefend()) {
 			hp *= 0.5;
 		}
 		// 扣掉最后一格的这一击已按破盾处理；先算半伤，让保护、不屈等看到正确的伤害。
 		const shield = this.hasShield() ? this.attr.shield : undefined;
 		const breaksShield = options.weakPoint && shield === 1;
-		if (shield > 0 && !breaksShield) hp *= 0.5;
+		if (shield > 0 && !breaksShield) {
+			hp *= 0.5;
+		}
 		const pending: PendingHurt = { ...options, source: options.source ?? 'skill', damage: hp };
 		this.emitContext('beforeHurt', ctx, attacker, pending);
-		if (pending.cancelled || this.isDied()) return 0;
+		if (pending.cancelled || this.isDied()) {
+			return 0;
+		}
+
 		if (shield > 0 && pending.weakPoint && pending.damage >= 1) {
 			this.attr.shield = Math.max(0, this.attr.shield - 1);
 			if (this.attr.shield === 0) {
@@ -212,6 +219,7 @@ export abstract class FightUnit {
 	friendHeal: Map<number, number> = new Map();
 	addFriend(attacker: FightUnit, hp: number) {
 		if (hp <= 0) return;
+
 		this.friendHeal.set(attacker.uid, (this.friendHeal.get(attacker.uid) ?? 0) + hp);
 	}
 	clearFriend() {
@@ -234,6 +242,7 @@ export abstract class FightUnit {
 		const pending: PendingHeal = { ...options, heal: hp };
 		this.emitContext('beforeHeal', ctx, attacker, pending);
 		if (pending.cancelled) return;
+
 		hp = Math.floor(pending.heal);
 
 		const point = this.attr.point;
@@ -346,6 +355,7 @@ export abstract class FightUnit {
 	}
 	isWeakPoint(property: PropEnum, weapon: WeaponEnum = WeaponEnum.none): boolean {
 		if (!this.isMonster()) return false;
+
 		const propMatch =
 			property !== undefined &&
 			property !== PropEnum.none &&
@@ -359,6 +369,7 @@ export abstract class FightUnit {
 		if (this.isMonster() && (weakProp !== undefined || weakWeapon !== undefined)) {
 			return this.isWeakPoint(property, weapon) ? 1.5 : 1;
 		}
+
 		return getAttackMul(property, this.attr.charProp);
 	}
 	// 死亡单位也要收指令：本轮轮到它之前可能被其他单位复活。
@@ -383,6 +394,7 @@ export abstract class FightUnit {
 	// 回合后处理, dead...
 	processAfterTurn(turn: number, ctx: FightContex) {
 		if (turn <= this.lastAfterTurn) return;
+
 		this.lastAfterTurn = turn;
 		this.fight.afterTurnStarted = Math.max(this.fight.afterTurnStarted, turn);
 		this.onBuffTurn(turn, BuffTurnEnum.afterTurn, ctx);
@@ -390,6 +402,7 @@ export abstract class FightUnit {
 	}
 	processOneTurn(turn: number) {
 		if (this.isDied()) return;
+
 		const input = this.input || { cmd: FightCmdEnum.none };
 		return this.fight.processUnit(this, input);
 	}
@@ -397,7 +410,9 @@ export abstract class FightUnit {
 	private lastAfterTurn = 0;
 	private onBuffTurn(turn: number, turnType: BuffTurnEnum, ctx: FightContex) {
 		for (const buff of [...this.buffs.values()]) {
-			if (this.isDied() && turnType !== BuffTurnEnum.afterTurn) break;
+			if (this.isDied() && turnType !== BuffTurnEnum.afterTurn) {
+				break;
+			}
 			if (this.findBuff(buff.getId()) !== buff) continue;
 			if (buff.getTurnType() === turnType) {
 				if (buff.doTurn(this, turn, ctx)) {
@@ -429,6 +444,7 @@ export abstract class FightUnit {
 
 	onInput(input: FightInput) {
 		if (!this.fight?.checkOnline(this, input)) return false;
+
 		this.input = { ...input };
 		if (input.cmd == FightCmdEnum.cancel) {
 			this.input = null;
@@ -451,12 +467,14 @@ export abstract class FightUnit {
 	startSkillCd(skill: FightSkill, ctx: FightContex) {
 		const cd = skill.getXls().cd ?? 0;
 		if (!cd) return;
+
 		const readyTurn = ctx.fight.turn + cd;
 		this.skillCds.set(skill.getId(), readyTurn);
 		ctx.msgs.push(['skillCd', this.uid, skill.getId(), readyTurn]);
 	}
 	findSkill(id: number): FightSkill {
 		if (!id) return;
+
 		return this.skills.get(id);
 	}
 
@@ -499,6 +517,7 @@ export abstract class FightUnit {
 	addSkill(id: number, level: number) {
 		const data = getSkillData(id);
 		if (!data) return;
+
 		const skill = new FightSkill(data, level);
 		this.skills.set(id, skill);
 		return skill;
@@ -539,9 +558,11 @@ export abstract class FightUnit {
 	isForbid(action: string) {
 		const status = findForbidStatusByAction(action);
 		if (!status) return false;
+
 		for (const s of status) {
 			if (this.inStatus(s)) return true;
 		}
+
 		return false;
 	}
 
@@ -556,13 +577,18 @@ export abstract class FightUnit {
 	}
 
 	inStatus(status: string) {
-		if (status === '眩晕' && this.hasShield() && this.attr.shield === 0) return true;
+		if (status === '眩晕' && this.hasShield() && this.attr.shield === 0) {
+			return true;
+		}
+
 		for (const p of this.passiveSkills) {
 			if (p.inStatus(status)) return true;
 		}
+
 		for (const buff of this.buffs.values()) {
 			if (buff.inStatus(status)) return true;
 		}
+
 		return false;
 	}
 
@@ -614,7 +640,9 @@ export abstract class FightUnit {
 		const point = this.attr?.point;
 		const shield = this.attr?.shield;
 		this.attr = calcAttr(this.attrOri, attrs);
-		if (shield !== undefined && this.attr.shield !== undefined) this.attr.shield = shield;
+		if (shield !== undefined && this.attr.shield !== undefined) {
+			this.attr.shield = shield;
+		}
 		if (point) {
 			this.attr.point.hp = point.hp;
 			this.attr.point.mp = point.mp;
@@ -661,7 +689,9 @@ export abstract class FightUnit {
 		const rts = [];
 		for (const buff of addbuff) {
 			const [id, lv, rand] = buff;
-			if (rand < 1 && f.randomGreat(rand)) continue;
+			if (rand < 1 && f.randomGreat(rand)) {
+				continue;
+			}
 			const buf = this._addBuff(attacker, why, id, lv, ctx);
 			if (buf) rts.push(buf);
 		}
@@ -681,13 +711,19 @@ export abstract class FightUnit {
 		if (buf) {
 			const lap = buf.getOverlap();
 			if (lap === OverlapEnum.NOT) return;
-			if (lap === OverlapEnum.RELPACE_BYPOWER && buf.greatPower(xls.power ?? 0, lv)) return;
+
+			if (lap === OverlapEnum.RELPACE_BYPOWER && buf.greatPower(xls.power ?? 0, lv)) {
+				return;
+			}
+
 			this.deleteBuff(buf);
 		}
+
 		const turn = this.fight?.turn ?? 0;
 		const afterTurn = Math.max(0, turn - 1, this.fight?.afterTurnStarted ?? 0);
 		const b = createBuff(attacker, buff, lv, turn, this.myInputTurn, afterTurn);
 		if (!b) return;
+
 		this.buffs.set(b.getId(), b);
 		b.onAdded(this);
 		if (ctx) {
@@ -730,7 +766,9 @@ export abstract class FightUnit {
 		const rts = [];
 		for (const buff of buffs) {
 			const [id, rand] = buff;
-			if (rand < 1 && f.randomGreat(rand)) continue;
+			if (rand < 1 && f.randomGreat(rand)) {
+				continue;
+			}
 			const buf = this._removeBuff(attacker, why, id, power, ctx);
 			if (buf) rts.push(buf);
 		}
@@ -746,13 +784,17 @@ export abstract class FightUnit {
 		ctx: FightContex,
 	): FightBuff {
 		const buf = this.findBuff(buff);
-		if (!buf || !buf.canRemove(power)) return;
+		if (!buf || !buf.canRemove(power)) {
+			return;
+		}
+
 		return this.finishRemoveBuff(attacker, why, buf, ctx);
 	}
 
 	// 自然结束不受驱散标签或强度限制；实例检查避免误删同编号的新 Buff。
 	expireBuff(buff: FightBuff, why: string, ctx: FightContex) {
 		if (this.findBuff(buff.getId()) !== buff) return;
+
 		this.finishRemoveBuff(this, why, buff, ctx);
 		this.onBuffChanged(why, buff);
 	}
@@ -818,5 +860,6 @@ export function sortByAttr(a: FightUnit[], key: string, descend = false) {
 	if (descend) {
 		return a.sort((a, b) => b.getAttr(key) - a.getAttr(key));
 	}
+
 	return a.sort((a, b) => a.getAttr(key) - b.getAttr(key));
 }
