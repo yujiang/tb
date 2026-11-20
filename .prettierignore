@@ -1,0 +1,9 @@
+node_modules/
+.npm-cache/
+.pnpm-store/
+.test-build/
+.example-build/
+bin-debug/
+lib/
+package-lock.json
+pnpm-lock.yaml

@@ -336,6 +336,8 @@ npm run example
 
 `npm run example` 编译并运行手写示例 `tests/simple/test_loop.ts`，输出多单位战斗日志和最终结果。该示例不提供录像校验。`tests/simple/` 保留手写流程示例；自动回归测试位于 `tests/core/` 和 `tests/report/`。
 
+代码格式统一使用 Prettier：Tab 缩进（显示宽度 4）、单引号、保留分号，行宽 100。运行 `npm run format` 格式化源码、测试及项目 JSON 配置，运行 `npm run format:check` 检查格式；构建产物、锁文件和 Markdown 不参与格式化。JSON 按标准语法保留双引号。编辑器安装 Prettier 扩展后可读取根目录 `.prettierrc.json`，VS Code 工作区已设置为使用 Tab。
+
 # 接入约定
 
 ## 烟雨式自动普攻与即时技能

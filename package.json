@@ -1,29 +1,32 @@
 {
-  "name": "@mosnpm/tb",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Deterministic turn-based battle logic without rendering or transport",
-  "engines": {
-    "node": ">=22"
-  },
-  "main": "bin-debug/index.js",
-  "types": "bin-debug/index.d.ts",
-  "files": [
-    "bin-debug",
-    "README.MD"
-  ],
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "test": "npm run build && npm run test:build && node --test tests/*.test.cjs .test-build/tests/core/*.js .test-build/tests/core/buff/*.js .test-build/tests/core/skill/*.js .test-build/tests/core/ai/*.js .test-build/tests/report/*.js",
-    "test:build": "node -e \"require('node:fs').rmSync('.test-build', { recursive: true, force: true })\" && tsc -p tsconfig.test.json",
-    "example": "npm run test:build && node .test-build/tests/simple/test_loop.js"
-  },
-  "devDependencies": {
-    "@types/node": "^26.6.5",
-    "esbuild": "^0.28.2",
-    "typescript": "~7.0.2"
-  },
-  "dependencies": {
-    "tslib": "^2.9.1"
-  }
+	"name": "@mosnpm/tb",
+	"version": "0.1.0",
+	"private": true,
+	"description": "Deterministic turn-based battle logic without rendering or transport",
+	"engines": {
+		"node": ">=22"
+	},
+	"main": "bin-debug/index.js",
+	"types": "bin-debug/index.d.ts",
+	"files": [
+		"bin-debug",
+		"README.MD"
+	],
+	"scripts": {
+		"format": "prettier --write \"src/**/*.ts\" \"tests/**/*.{ts,cjs}\" \"*.json\" \".vscode/*.json\"",
+		"format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.{ts,cjs}\" \"*.json\" \".vscode/*.json\"",
+		"build": "tsc -p tsconfig.json",
+		"test": "npm run build && npm run test:build && node --test tests/*.test.cjs .test-build/tests/core/*.js .test-build/tests/core/buff/*.js .test-build/tests/core/skill/*.js .test-build/tests/core/ai/*.js .test-build/tests/report/*.js",
+		"test:build": "node -e \"require('node:fs').rmSync('.test-build', { recursive: true, force: true })\" && tsc -p tsconfig.test.json",
+		"example": "npm run test:build && node .test-build/tests/simple/test_loop.js"
+	},
+	"devDependencies": {
+		"@types/node": "^26.6.5",
+		"esbuild": "^0.28.2",
+		"prettier": "3.10.1",
+		"typescript": "~7.0.2"
+	},
+	"dependencies": {
+		"tslib": "^2.9.1"
+	}
 }
