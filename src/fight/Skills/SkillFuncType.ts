@@ -33,14 +33,16 @@ export function skillFunc(attacker: FightUnit, defender: FightUnit, skillId: num
     const f = ctx.fight;
 
     // defender 可能不合适了，因为可能被前面的人打飞了~
-    const sel = skill.getSel();
     if (skill.isMulti()) {
-        if (!f.getAllUnits().some(target => f.isLegalTarget(attacker, target, sel) && !skill.getTargetHint(target))) {
+        if (!f.getAllUnits().some(target => f.isLegalTarget(attacker, target, skill))) {
             attacker.hintClient("没有可用目标");
             return false;
         }
-    } else if (!defender || !defender.isFillterDie(sel.die)) {
-        defender = f.selectMainTarget(attacker, sel);
+    } else if (defender && !skill.canTarget(defender)) {
+        attacker.hintClient(skill.getTargetHint(defender) ?? "目标不符合要求");
+        return false;
+    } else if (!defender) {
+        defender = f.selectMainTarget(attacker, skill);
         if (!defender) {
             attacker.hintClient("没有可用目标");
             return;
@@ -55,8 +57,10 @@ export function skillFunc(attacker: FightUnit, defender: FightUnit, skillId: num
     attacker.startSkillCd(skill, ctx);
 
     if (skill.isMulti() && func !== skillAttackFunc) return multiFunc(attacker, skill, ctx, func);
+    const taunt = !skill.isMulti() ? f.getTauntBuff(attacker, skill) : undefined;
     const result = func(attacker, defender, skill, ctx);
     // 普通攻击类在整条反应链结束后处理自身效果；其余技能在本次执行完成后处理。
     if (result && func !== skillAttackFunc) afterSelfBuff(attacker, skill, ctx);
+    if (taunt && taunt.getTauntTarget() === defender) attacker.emitContext("taunt", ctx, taunt);
     return result;
 }

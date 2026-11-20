@@ -54,9 +54,8 @@ export class BuffRelife extends FightBuff {
         }
         // 先消耗并解绑，防止移除/复活回调再次触发同一次机会。
         used.add(unit);
-        this.times = 0;
         ctx.msgs.push(["buffTrigger", unit.uid, this.getId(), "relife"]);
-        unit.expireBuff(this, "times", ctx);
+        this.consumeTimes(unit, ctx);
         const hp = Math.max(1, Math.floor(unit.getHpMax() * this.ratio));
         unit.onRelife(unit, "relife", ctx);
         unit.onHeal(unit, "relife", hp, ctx, { revive: true });

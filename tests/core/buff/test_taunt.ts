@@ -1,9 +1,10 @@
+import { FightSkill, getDefaultSkill } from "../../../src/fight/Skills/FightSkill";
 import { BuffTurnEnum } from "../../../src/fight/Buffs/BuffDatas";
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight, FightAttr, BaseAttack, FightSide, FightUnitUser, FightUnitMonster,
     FightLoopWest, FightClient, initFightContex, BuffData, initBuffs, OverlapEnum,
-    initSkills, FightCmdEnum, TargetSelectEnum, DiedSelectEnum } from "../../../src";
+    initSkills, FightCmdEnum, TargetSelectEnum } from "../../../src";
 
 const tauntId = 97801, secondTauntId = 97802;
 const attackId = 97810, healId = 97811, selfId = 97812, positionId = 97813, areaId = 97814, spreadId = 97815;
@@ -32,8 +33,8 @@ function setup(extra: Partial<BuffData> = {}) {
         { ...common, id: healId, func: "heal", sel: { target: TargetSelectEnum.friend, sortAttr: "hp" } },
         { ...common, id: selfId, func: "heal", sel: { target: TargetSelectEnum.self } },
         { ...common, id: positionId, sel: { target: TargetSelectEnum.duiwei } },
-        { ...common, id: areaId, spread: spreadId, sel: { target: TargetSelectEnum.enmey, numSpread: 2, sortAttr: "hp" } },
-        { ...common, id: spreadId, sel: { target: TargetSelectEnum.enmey } },
+        { ...common, id: areaId, spread: spreadId, sel: { target: TargetSelectEnum.enmey, sortAttr: "hp" } },
+        { ...common, id: spreadId, sel: { target: TargetSelectEnum.enmey, num: 2, sortAttr: "hp" } },
     ]);
     const fight = new Fight(97800, { maxTurn: 10, waitInputSec: 1, duiwei: false }, 0);
     fight.createMap(3, 2);
@@ -57,7 +58,7 @@ test("taunt: bearer attacks source ID zero instead of random or lowest-HP enemy"
     add();
     assert.ok(actor.findBuff(tauntId));
     assert.equal(source.findBuff(tauntId), undefined);
-    assert.equal(fight.selectMainTarget(actor, { target: TargetSelectEnum.enmey, sortAttr: "hp" }), source);
+    assert.equal(fight.selectMainTarget(actor, getDefaultSkill({ target: TargetSelectEnum.enmey, sortAttr: "hp" })), source);
     let samples = 0;
     fight.random = () => { samples++; return 0.99; };
     assert.equal(fight.getDefaultEnemy(actor), source);
@@ -125,17 +126,17 @@ test("taunt: priorities and registration order select the first valid source", (
     const { fight, actor, source, second, ctx, add } = setup();
     add(); add(second, secondTauntId);
     const sel = { target: TargetSelectEnum.enmey, sortAttr: "hp" };
-    assert.equal(fight.selectMainTarget(actor, sel), source);
+    assert.equal(fight.selectMainTarget(actor, getDefaultSkill(sel)), source);
     actor.removeBuff(source, "test", tauntId, 99, ctx);
-    assert.equal(fight.selectMainTarget(actor, sel), second);
+    assert.equal(fight.selectMainTarget(actor, getDefaultSkill(sel)), second);
     // 同优先级替换后的实例按新的注册顺序排在后面。
     add();
-    assert.equal(fight.selectMainTarget(actor, sel), second);
+    assert.equal(fight.selectMainTarget(actor, getDefaultSkill(sel)), second);
     initBuffs([{ ...actor.findBuff(tauntId).getXls(), prior: -10 }]);
     add();
-    assert.equal(fight.selectMainTarget(actor, sel), source);
+    assert.equal(fight.selectMainTarget(actor, getDefaultSkill(sel)), source);
     source.die();
-    assert.equal(fight.selectMainTarget(actor, sel), second);
+    assert.equal(fight.selectMainTarget(actor, getDefaultSkill(sel)), second);
 });
 
 // 测试：死亡、离场、变为友方或不符合死亡过滤条件的嘲讽来源被忽略。
@@ -152,7 +153,7 @@ test("taunt: dead, departed, friendly and death-filter-ineligible sources are ig
     assert.equal(fight.validateInput(actor, { cmd: FightCmdEnum.attack, target: other.uid }), true);
     add(second);
     other.die();
-    assert.equal(fight.selectMainTarget(actor, { target: TargetSelectEnum.enmey, die: DiedSelectEnum.die }), other);
+    assert.equal(fight.selectMainTarget(actor, new FightSkill({ ...getDefaultSkill().getXls(), func: "relife" }, 1)), other);
 });
 
 // 测试：非正方形地图上的对位技能仍保留自身目标资格限制。
@@ -203,7 +204,7 @@ test("taunt: network input preserves selected enemy and execution redirects to t
 test("taunt: ordinary classification tags do not impose targeting behavior", () => {
     const { fight, actor, other, add } = setup({ class: undefined, tags: ["taunt"] });
     add();
-    assert.equal(fight.selectMainTarget(actor, { target: TargetSelectEnum.enmey, sortAttr: "hp" })?.uid, other.uid);
+    assert.equal(fight.selectMainTarget(actor, getDefaultSkill({ target: TargetSelectEnum.enmey, sortAttr: "hp" }))?.uid, other.uid);
     assert.equal(actor.onInput({ cmd: FightCmdEnum.attack, target: other.uid }), true);
 });
 
@@ -282,4 +283,152 @@ test("taunt: a dead controlled unit can submit and execute after revival", () =>
     actor.onRelife(friend, "test", ctx);
     actor.onHeal(friend, "test", 100, ctx);
     assert.equal(fight.processUnit(actor, actor.input)?.defend.uid, source.uid);
+});
+
+// 测试：次数嘲讽的查询和输入预检不计次，两次实际诱导后移除，最后一次仍攻击来源。
+test("taunt count: previews are free and the final charge still redirects", () => {
+    const { fight, actor, source, other, add } = setup({ lastTurn: 0, times: 2 });
+    const buff = add();
+    const input = { cmd: FightCmdEnum.attack, target: other.uid };
+    for (let i = 0; i < 3; i++) {
+        assert.equal(fight.getDefaultEnemy(actor)?.uid, source.uid);
+        assert.equal(fight.checkPC(actor, input), true);
+        assert.equal(fight.preparePCInput(actor, input)?.target, source.uid);
+    }
+    assert.equal(buff.times, 2);
+    assert.equal(actor.contextEmitter.listenerCount("taunt"), 1);
+    assert.equal(actor.contextEmitter.listenerCount("hurt"), 0);
+    const first = fight.processUnit(actor, input);
+    assert.equal(first?.defend.uid, source.uid);
+    assert.equal(buff.times, 1);
+    const last = fight.processUnit(actor, input);
+    assert.equal(last?.defend.uid, source.uid);
+    assert.equal(source.getHp(), 980);
+    assert.equal(actor.contextEmitter.listenerCount("taunt"), 0);
+    assert.equal(actor.findBuff(tauntId), undefined);
+    assert.equal(last.msgs.filter(msg => msg[0] === "removeBuff" && msg[4] === tauntId).length, 1);
+    assert.equal(fight.processUnit(actor, input)?.defend.uid, other.uid);
+});
+
+for (const duration of [true, false]) {
+    // 测试：来源石化时两种嘲讽均不诱导；回合型照常到期，次数型保留次数并在解封后生效。
+    test(`taunt count: petrification preserves charges while duration=${duration} expires normally`, () => {
+        const s = setup({ lastTurn: duration ? 1 : 0, times: duration ? 0 : 2 });
+        const buff = s.add();
+        initBuffs([{ ...buff.getXls(), id: 97820, class: undefined, status: ["石化"], times: 0, lastTurn: 0 }]);
+        s.source.addBuff(s.source, "test", 97820, 1, s.ctx);
+        const input = { cmd: FightCmdEnum.attack, target: s.other.uid };
+        assert.equal(s.fight.processUnit(s.actor, input)?.defend.uid, s.other.uid);
+        assert.equal(buff.times, duration ? 0 : 2);
+        s.actor.processBeforeTurn(1, s.ctx);
+        assert.equal(!!s.actor.findBuff(tauntId), !duration);
+        s.source.removeBuff(s.source, "test", 97820, 99, s.ctx);
+        assert.equal(s.fight.processUnit(s.actor, input)?.defend.uid, duration ? s.other.uid : s.source.uid);
+        if (!duration) assert.equal(buff.times, 1);
+    });
+}
+
+// 测试：次数嘲讽不因受伤、友方技能、防御或无法行动消耗，即使配置旧hurt事件也一样。
+test("taunt count: unrelated effects and blocked actions do not consume charges", () => {
+    const s = setup({ lastTurn: 0, times: 2, event: "hurt" });
+    const buff = s.add();
+    s.actor.onHurt(s.other, "test", 1, s.ctx);
+    s.fight.processUnit(s.actor, { cmd: FightCmdEnum.skill, skill: healId, target: s.friend.uid });
+    s.fight.processUnit(s.actor, { cmd: FightCmdEnum.defend });
+    initBuffs([{ ...buff.getXls(), id: 97821, class: undefined, status: ["眩晕"], times: 0, lastTurn: 0 }]);
+    s.actor.addBuff(s.source, "test", 97821, 1, s.ctx);
+    s.fight.processUnit(s.actor, { cmd: FightCmdEnum.attack, target: s.other.uid });
+    assert.equal(buff.times, 2);
+    assert.equal(s.source.getHp(), 1000);
+});
+
+// 测试：已经向来源发动的攻击即使未命中也消耗一次，并在次数耗尽后解除嘲讽。
+test("taunt count: a redirected miss consumes the final charge", () => {
+    const s = setup({ lastTurn: 0, times: 1 });
+    s.add(); s.source.attr.physic.base.dodge = 100;
+    s.fight.random = () => 0.5;
+    const ctx = s.fight.processUnit(s.actor, { cmd: FightCmdEnum.attack, target: s.other.uid });
+    assert.equal(ctx?.defend.uid, s.source.uid);
+    assert.equal(ctx.msgs.some(msg => msg[0] === "miss"), true);
+    assert.equal(s.source.getHp(), 1000);
+    assert.equal(s.actor.findBuff(tauntId), undefined);
+});
+
+// 测试：施法费用不足不消耗次数，实际发动失败则仍算一次已诱导的行动。
+test("taunt count: insufficient resources are free but a failed activation counts", () => {
+    const s = setup({ lastTurn: 0, times: 2 });
+    const buff = s.add();
+    initSkills([{ ...s.actor.findSkill(attackId).getXls(), id: 97822, cost: { mp: 101 } },
+        { ...s.actor.findSkill(attackId).getXls(), id: 97823, rand: 0 }]);
+    s.actor.addSkill(97822, 1); s.actor.addSkill(97823, 1);
+    s.fight.processUnit(s.actor, { cmd: FightCmdEnum.skill, skill: 97822, target: s.other.uid });
+    assert.equal(buff.times, 2);
+    const ctx = s.fight.processUnit(s.actor, { cmd: FightCmdEnum.skill, skill: 97823, target: s.other.uid });
+    assert.equal(ctx.msgs.some(msg => msg[0] === "skillFailed"), true);
+    assert.equal(buff.times, 1);
+});
+
+// 测试：一条包含连击和溅射的完整技能只消耗所选嘲讽的一次，最后一次结束后再清除属性和监听。
+test("taunt count: reaction chains consume only the selected buff once and retain its last effect", () => {
+    const s = setup({ lastTurn: 0, times: 1, notRemove: true, magic: true, attack: { attack: 20 } });
+    s.add(); const second = s.add(s.second, secondTauntId);
+    initSkills([{ ...s.actor.findSkill(areaId).getXls(), id: 97824, next: attackId }]);
+    s.actor.addSkill(97824, 1);
+    const ctx = s.fight.processUnit(s.actor, { cmd: FightCmdEnum.skill, skill: 97824, target: s.other.uid });
+    assert.equal(ctx?.defend.uid, s.source.uid);
+    assert.equal(s.actor.findBuff(tauntId), undefined);
+    assert.equal(second.times, 1);
+    assert.equal(s.actor.contextEmitter.listenerCount("taunt"), 1);
+    assert.deepEqual(ctx.msgs.filter(msg => msg[0] === "skill").map(msg => msg[3]), [s.source.uid, s.other.uid, s.second.uid, s.source.uid]);
+    assert.equal(s.actor.attr.magic.base.attack, 30); // 第二个嘲讽仍保留自己的+20攻击。
+    assert.equal(ctx.msgs.filter(msg => msg[0] === "removeBuff" && msg[4] === tauntId).length, 1);
+});
+
+for (const hidden of [false, true]) {
+    // 测试：客户端从初始化和增量消息获得剩余次数，归零后移除；隐藏嘲讽不泄露次数展示。
+    test(`taunt count: client mirrors charges and expiration with hidden=${hidden}`, () => {
+        const s = setup({ lastTurn: 0, times: 2, notDisplay: hidden });
+        const client = new FightClient(), loop = new FightLoopWest(s.fight);
+        loop.onMsg(msgs => client.onMsg(JSON.parse(JSON.stringify(msgs))));
+        loop.start(); s.add(); loop.bcMsg(s.ctx.msgs);
+        assert.equal(client.checkSame(s.fight), true);
+        assert.equal(client.getUnitById(s.actor.uid).buffs.find(buff => buff[0] === tauntId)?.[4], hidden ? undefined : 2);
+        for (const left of [1, 0]) {
+            const ctx = s.fight.processUnit(s.actor, { cmd: FightCmdEnum.attack, target: s.other.uid });
+            assert.deepEqual(ctx.msgs.filter(msg => msg[0] === "buffTimes"), hidden ? [] : [["buffTimes", s.actor.uid, tauntId, left]]);
+            loop.bcMsg(ctx.msgs);
+            assert.equal(client.checkSame(s.fight), true);
+            if (left > 0 && !hidden) assert.equal(client.getUnitById(s.actor.uid).buffs.find(buff => buff[0] === tauntId)[4], left);
+        }
+        assert.equal(client.getUnitById(s.actor.uid).buffs.some(buff => buff[0] === tauntId), false);
+        assert.equal(s.actor.findBuff(tauntId), undefined);
+    });
+}
+
+// 测试：普通事件次数 Buff 也同步扣次，并在最后一次消息后移除，初始化快照携带当前剩余次数。
+test("buff count: ordinary event consumption sends incremental client updates", () => {
+    const s = setup({ class: undefined, lastTurn: 0, times: 2, event: "hurt" });
+    s.add();
+    const client = new FightClient();
+    client.onMsg([["start", s.fight.fid], ...[0, 1].map(side => ["side", side, s.fight.getSide(side).units.map(unit => unit.getUnitMsg())] as [string, ...any[]])]);
+    assert.equal(client.getUnitById(s.actor.uid).buffs[0][4], 2);
+    for (const left of [1, 0]) {
+        const ctx = initFightContex(s.fight);
+        s.actor.onHurt(s.other, "test", 1, ctx);
+        assert.deepEqual(ctx.msgs.filter(msg => msg[0] === "buffTimes"), [["buffTimes", s.actor.uid, tauntId, left]]);
+        client.onMsg(JSON.parse(JSON.stringify(ctx.msgs)));
+        assert.equal(client.checkSame(s.fight), true);
+    }
+});
+
+// 测试：同时配置回合和次数时到期立即解绑，即使仍有次数且禁止驱散也不继续诱导。
+test("taunt count: duration expiration removes remaining charges and its listener", () => {
+    const s = setup({ lastTurn: 1, times: 3, notRemove: true });
+    const buff = s.add();
+    assert.equal(s.actor.contextEmitter.listenerCount("taunt"), 1);
+    s.actor.processBeforeTurn(1, s.ctx);
+    assert.equal(buff.times, 3);
+    assert.equal(s.actor.findBuff(tauntId), undefined);
+    assert.equal(s.actor.contextEmitter.listenerCount("taunt"), 0);
+    assert.equal(s.fight.processUnit(s.actor, { cmd: FightCmdEnum.attack, target: s.other.uid })?.defend.uid, s.other.uid);
 });

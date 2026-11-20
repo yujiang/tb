@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { SkillData, FightSkill, initSkills, initBuffs, getBuffData, initFightContex } from "../../../src";
+import { TargetSelectEnum, SkillData, FightSkill, initSkills, initBuffs, getBuffData, initFightContex } from "../../../src";
 import { magicAttackFunc } from "../../../src/fight/Skills/Funcs/NomalSkill";
 import { setupChain, chainIds as ids } from "../../fixtures/skill_chain";
 
@@ -126,9 +126,9 @@ test("combo: reflection uses actual damage after modifiers rather than nominal s
 // 测试：溅射伤害不计入主目标的连招反伤累计，也不提前触发普通反伤。
 test("combo: splash damage is not added to the main target's reflection total", () => {
     const { actor, other, skills, cast } = setupChain({ change: data => {
-        useCombo(data); data[0].spread = 98423; data[0].sel.numSpread = 2;
+        useCombo(data); data[0].spread = 98423;
     } });
-    initSkills([{ ...skills[3], id: 98423, name: "连招溅射", nodback: false }]);
+    initSkills([{ ...skills[3], id: 98423, name: "连招溅射", nodback: false, sel: { target: TargetSelectEnum.enmey, num: 2 } }]);
     other.attrOri.magic.final.dbackP = 0.2; other.calcAttr();
     const ctx = cast();
     assert.equal(other.getHp(), 900);

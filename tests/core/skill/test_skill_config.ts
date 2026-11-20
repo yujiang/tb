@@ -11,6 +11,33 @@ function warnings(t: TestContext) {
     return () => spy.mock.calls.map(call => call.arguments.join(" ")).join("\n");
 }
 
+for (const [index, target] of [TargetSelectEnum.self, TargetSelectEnum.duiwei].entries()) {
+    // 测试：群体人数配自身或对位时给出中文目标类型告警，但不修改配置或阻止注册。
+    test(`skill config: group target ${TargetSelectEnum[target]} warns without rewriting`, t => {
+        const output = warnings(t);
+        const data = skill(10011240 + index, { sel: { target, num: 2 }, nosupport: true, noprotect: true });
+        const original = structuredClone(data);
+        initSkills([data]);
+        assert.match(output(), new RegExp(`${data.name}.*${data.id}.*sel.target.*friend.*enmey`));
+        assert.match(output(), new RegExp(TargetSelectEnum[target]));
+        assert.deepEqual(data, original);
+        assert.equal(getSkillData(data.id), data);
+    });
+}
+
+// 测试：友方和敌方群体、自身和对位单体均属于合法组合，不产生目标类型告警。
+test("skill config: supported group targets and single self or position targets are quiet", t => {
+    const output = warnings(t);
+    const selections = [
+        { target: TargetSelectEnum.friend, num: 2 },
+        { target: TargetSelectEnum.enmey, num: 99 },
+        { target: TargetSelectEnum.self, num: 1 },
+        { target: TargetSelectEnum.duiwei },
+    ];
+    initSkills(selections.map((sel, index) => skill(10011242 + index, { sel, nosupport: true, noprotect: true })));
+    assert.equal(output(), "");
+});
+
 // 群攻漏填禁止协战、保护时用中文告警，但仍原样注册。
 test("skill config: group warnings are Chinese and never modify data", t => {
     const output = warnings(t);

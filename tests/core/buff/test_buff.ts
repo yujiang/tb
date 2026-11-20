@@ -1,3 +1,5 @@
+import { healFunc } from "../../../src/fight/Skills/Funcs/Heal";
+import { poisonFunc } from "../../../src/fight/Skills/Funcs/Poison";
 import { BuffTurnEnum } from "../../../src/fight/Buffs/BuffDatas";
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
@@ -313,8 +315,10 @@ test("buff statuses block healing and poison effects", () => {
     attacker.addSkill(917, 1);
     defender.addBuff(attacker, "test", 915, 1, ctx);
 
-    skillFunc(attacker, defender, 916, ctx);
-    skillFunc(attacker, defender, 917, ctx);
+    assert.equal(attacker.findSkill(916).canTarget(defender), false);
+    healFunc(attacker, defender, attacker.findSkill(916), ctx);
+    assert.equal(attacker.findSkill(917).canTarget(defender), false);
+    poisonFunc(attacker, defender, attacker.findSkill(917), ctx);
 
     assert.equal(defender.attr.point.hp, 50);
     assert.deepEqual(ctx.msgs.map(msg => msg[0]), ["addBuff", "禁疗", "百毒不侵"]);

@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { DiedSelectEnum, FightAttr, FightCmdEnum, FightUnitUser, FightUnitMonster, TargetSelectEnum,
+import { FightAttr, FightCmdEnum, FightUnitUser, FightUnitMonster, TargetSelectEnum,
     initFightContex, initBuffs, getBuffData } from "../../../src";
 import { skillFunc } from "../../../src/fight/Skills/SkillFuncType";
 import { setupChain, chainIds as ids } from "../../fixtures/skill_chain";
@@ -68,7 +68,6 @@ test("multi: revival applies to all dead units of the selected side", () => {
     const { fight, actor, target, other } = setup(99, skills => {
         skills[0].func = "relife";
         skills[0].healRate = 0.3;
-        skills[0].sel.die = DiedSelectEnum.die;
     });
     target.attr.point.hp = 0; other.attr.point.hp = 0;
     target.die(); other.die();
@@ -145,10 +144,10 @@ test("multi: next skills select a group directly", () => {
     assert.deepEqual([target.getHp(), other.getHp()], [800, 900]);
 });
 
-// 数量溅射独立读取 numSpread，num 不再表示副目标人数。
-test("multi: numSpread preserves primary and secondary attack stages", () => {
+// 数量溅射读取子技能 num，主技能 num 只决定直接目标人数。
+test("multi: child num preserves primary and secondary attack stages", () => {
     const { fight, actor, target, other } = setup(1, skills => {
-        skills[0].spread = ids.second; skills[0].sel.numSpread = 1;
+        skills[0].spread = ids.second; skills[1].sel = { ...skills[1].sel, num: 1 };
         skills[1].combo = undefined; skills[1].damageRate = 0.7;
     });
     const ctx = fight.processUnit(actor, { cmd: FightCmdEnum.skill, skill: ids.first, target: target.uid });
@@ -268,7 +267,7 @@ for (const func of ["normal", "poison"]) {
     test(`multi: ${func} spread protection follows noprotect=${prohibited}`, () => {
         const { fight, actor, target, other, flush } = setup(1, skills => {
             skills[0].func = func; skills[0].spread = ids.second;
-            skills[0].sel.numSpread = 1; skills[0].noprotect = false;
+            skills[1].sel = { ...skills[1].sel, num: 1 }; skills[0].noprotect = false;
             skills[1].func = func; skills[1].combo = undefined;
             skills[1].noprotect = prohibited; skills[1].poisonRate = 0.7;
         });
@@ -291,7 +290,7 @@ for (const func of ["normal", "poison"]) {
 // 主目标只召唤一次协战，溅射目标不额外召唤另一位有协战机会的队友。
 test("multi: only the main target triggers support before spread", () => {
     const { fight, actor, target, other } = setup(1, skills => {
-        skills[0].nosupport = false; skills[0].spread = ids.second; skills[0].sel.numSpread = 1;
+        skills[0].nosupport = false; skills[0].spread = ids.second; skills[1].sel = { ...skills[1].sel, num: 1 };
         skills[1].combo = undefined; skills[1].nosupport = false;
     });
     const supporters = [3, 4].map(uid => {

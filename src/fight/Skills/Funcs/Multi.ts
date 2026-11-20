@@ -8,7 +8,7 @@ import { afterSelfBuff } from "./Buff";
 export function multiFunc(attacker: FightUnit, skill: FightSkill, ctx: FightContex,
     func: (attacker: FightUnit, target: FightUnit, skill: FightSkill, ctx: FightContex) => boolean) {
     return ctx.fight.resolveAction(() => {
-        const targets = ctx.fight.selectGroupTargets(attacker, skill.getSel(), target => !skill.getTargetHint(target));
+        const targets = ctx.fight.selectGroupTargets(attacker, skill);
         if (!targets.length) { attacker.hintClient("没有可用目标"); return false; }
         if (ctx.fight.randomGreat(skill.getRand())) {
             ctx.msgs.push(["skillFailed", attacker.uid, targets[0].uid, skill.getId()]);
@@ -19,7 +19,7 @@ export function multiFunc(attacker: FightUnit, skill: FightSkill, ctx: FightCont
         try {
             for (const target of targets) {
                 if (attacker.isDied()) break;
-                if (!ctx.fight.isLegalTarget(attacker, target, skill.getSel()) || skill.getTargetHint(target)) continue;
+                if (!ctx.fight.isLegalTarget(attacker, target, skill)) continue;
                 ctx.defend = target;
                 func(attacker, target, single, ctx);
             }

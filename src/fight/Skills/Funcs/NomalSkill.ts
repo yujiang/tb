@@ -118,7 +118,7 @@ function skillKill(attacker: FightUnit, sk:FightSkill, ctx: FightContex) {
         ctx.killNum = (ctx.killNum || 0) + 1;
         return magicAttackFunc(attacker, null, skill, ctx, "kill");
     }
-    const des = configured && skill.getSel() ? f.selectMainTarget(attacker, skill.getSel()) :
+    const des = configured && skill.getSel() ? f.selectMainTarget(attacker, skill) :
         f.randomEnemyAlive(attacker.side);
     if (!des) return false;
     ctx.killNum = (ctx.killNum || 0) + 1;
@@ -144,10 +144,10 @@ function skillNext(attacker: FightUnit, previous: FightUnit, sk:FightSkill, ctx:
     if (combo) {
         // 连招固定沿用上一段实际主目标，失效时停止，不再排序、抽样或被新嘲讽重定向。
         if (comboDamage?.interrupted || !previous || previous.isDied() || previous.fight !== f || !f.getAllUnits().includes(previous) ||
-            (skill.getSel() && !f.isLegalTarget(attacker, previous, skill.getSel()))) return false;
+            (skill.getSel() && !f.isLegalTarget(attacker, previous, skill))) return false;
         des = previous;
     } else {
-        des = configured && skill.getSel() ? f.selectMainTarget(attacker, skill.getSel()) :
+        des = configured && skill.getSel() ? f.selectMainTarget(attacker, skill) :
             f.randomEnemyAlive(attacker.side);
     }
     if (!des) return false;
@@ -209,9 +209,7 @@ function spread(attacker: FightUnit, defender: FightUnit, skill:FightSkill, ctx:
 
     const f = ctx.fight;
     //const xls = skill.xls;
-    const sel = skill.getSel();
-    if (!sel) return;
-    const targets = f.selectTargets(defender, sel);
+    const targets = f.selectSpreadTargets(defender, spreadSkill);
     if (!targets?.length) return
 
     const ids = targets.map((target) => {

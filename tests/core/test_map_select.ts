@@ -1,9 +1,10 @@
+import { FightSkill, getDefaultSkill } from "../../src/fight/Skills/FightSkill";
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { Fight } from "../../src/fight/Fight";
 import { FightSide } from "../../src/fight/FightSide";
 import { FightUnit } from "../../src/fight/Unit/FightUnit";
-import { DiedSelectEnum, MapShapeEnum, SelectMainParam, SelectParam, TargetSelectEnum } from "../../src/fight/struct";
+import { MapShapeEnum, SelectParam, TargetSelectEnum } from "../../src/fight/struct";
 
 const fight = new Fight(100, {
         maxTurn: 100,
@@ -57,23 +58,21 @@ function names(units: FightUnit[] | undefined): string[] | undefined {
     return units?.map(unit => unit.getName());
 }
 
-function secondaryTargets(main: FightUnit, shape: MapShapeEnum, die = DiedSelectEnum.alive): string[] | undefined {
+function secondaryTargets(main: FightUnit, shape: MapShapeEnum, func = "normal"): string[] | undefined {
     const param: SelectParam = {
         target: TargetSelectEnum.enmey,
-        die,
-        numSpread: 1,
+        num: 1,
         shape,
     };
-    return names(fight.selectTargets(main, param));
+    return names(fight.selectSpreadTargets(main, new FightSkill({ ...getDefaultSkill(param).getXls(), func }, 1)));
 }
 
 // 测试：主目标选择和副目标形状查询分成两个阶段执行。
 test("main target selection and secondary shape selection are separate stages", () => {
-    const mainParam: SelectMainParam = {
+    const mainParam: SelectParam = {
         target: TargetSelectEnum.duiwei,
-        die: DiedSelectEnum.alive,
     };
-    const main = fight.selectMainTarget(a00, mainParam);
+    const main = fight.selectMainTarget(a00, getDefaultSkill(mainParam));
 
     assert.equal(main, b40);
     assert.deepEqual(secondaryTargets(main, MapShapeEnum.x_line), ["b41"]);
@@ -82,7 +81,7 @@ test("main target selection and secondary shape selection are separate stages", 
 // 测试：选择自身时以行动者作为主目标。
 test("self selects the attacker as the main target", () => {
     assert.equal(
-        fight.selectMainTarget(a00, { target: TargetSelectEnum.self }),
+        fight.selectMainTarget(a00, getDefaultSkill({ target: TargetSelectEnum.self })),
         a00,
     );
 });
@@ -90,20 +89,20 @@ test("self selects the attacker as the main target", () => {
 // 测试：选出的主目标保持为预期的敌方单位。
 test("an explicit main target is preserved", () => {
     assert.equal(
-        fight.selectMainTarget(a00, { target: TargetSelectEnum.enmey }),
+        fight.selectMainTarget(a00, getDefaultSkill({ target: TargetSelectEnum.enmey })),
         b40,
     );
 });
 
-// 测试：对位选择根据死亡过滤决定包含尸体或跳过尸体。
-test("duiwei can select dead units or skip them according to the die filter", () => {
+// 测试：对位选择根据技能资格决定包含尸体或跳过尸体。
+test("duiwei can select dead units or skip them according to skill qualification", () => {
     b40.die();
     assert.equal(
-        fight.selectMainTarget(a00, { target: TargetSelectEnum.duiwei, die: DiedSelectEnum.all }),
+        fight.selectMainTarget(a00, new FightSkill({ ...getDefaultSkill({ target: TargetSelectEnum.duiwei }).getXls(), func: "relife" }, 1)),
         b40,
     );
     assert.equal(
-        fight.selectMainTarget(a00, { target: TargetSelectEnum.duiwei, die: DiedSelectEnum.alive }),
+        fight.selectMainTarget(a00, getDefaultSkill({ target: TargetSelectEnum.duiwei })),
         b41,
     );
     b40.relife();
@@ -115,11 +114,10 @@ test("main-target selection filters dead units and honors sorting", () => {
     b41.attr.point.hp = 50;
 
     assert.equal(
-        fight.selectMainTarget(a00, {
+        fight.selectMainTarget(a00, getDefaultSkill({
             target: TargetSelectEnum.enmey,
-            die: DiedSelectEnum.alive,
             sortAttr: "hp",
-        }),
+        })),
         b41,
     );
 });
@@ -132,7 +130,7 @@ test("secondary x-line targets exclude the main target", () => {
 // 测试：竖线副目标选择按配置过滤死亡状态。
 test("secondary y-line targets filter dead units", () => {
     assert.deepEqual(secondaryTargets(a00, MapShapeEnum.y_line), ["a02"]);
-    assert.deepEqual(secondaryTargets(a00, MapShapeEnum.y_line, DiedSelectEnum.die), ["a10"]);
+    assert.deepEqual(secondaryTargets(a00, MapShapeEnum.y_line, "relife"), ["a10"]);
 });
 
 // 测试：十字副目标选择包含相邻单位并排除主目标。
@@ -149,12 +147,11 @@ test("numeric secondary selection chooses sorted allies and excludes the main ta
     a11.attr.point.hp = 40;
     a02.attr.point.hp = 60;
 
-    const selected = fight.selectTargets(a00, {
+    const selected = fight.selectSpreadTargets(a00, getDefaultSkill({
         target: TargetSelectEnum.enmey,
-        die: DiedSelectEnum.alive,
-        numSpread: 2,
+        num: 2,
         sortAttr: "hp",
-    });
+    }));
 
     assert.deepEqual(names(selected), ["a11", "a02"]);
 });

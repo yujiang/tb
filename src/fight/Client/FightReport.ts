@@ -234,6 +234,9 @@ export class FightReport{
                 case "addBuff":
                     if (msg[6]) this.write(`${name(msg[3])} 为 ${name(msg[2])} 添加 ${this.buffName(msg[4])}（等级 ${msg[5]}）`);
                     break;
+                case "buffTimes":
+                    this.write(`${name(msg[1])} 的 ${this.buffName(msg[2])} 剩余 ${msg[3]} 次`);
+                    break;
                 case "removeBuff":
                     this.write(`${name(msg[2])} 移除 ${this.buffName(msg[4])}${msg[1] === "die" ? "（死亡清除）" : msg[1] === "turn" ? "（持续时间结束）" : msg[1] === "times" ? "（次数耗尽）" : ""}`);
                     break;

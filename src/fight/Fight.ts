@@ -1,16 +1,17 @@
 // 核心的战斗对象
-import { removeArray } from "../public/Array";
 import { FightMap } from "./FightMap";
 import { FightSide } from "./FightSide";
 import { FightUnit, UnitEventFunc, sortByAttr } from "./Unit/FightUnit";
 import { FightUnitEvent } from "./Buffs/BuffDatas";
-import { EnemySide, DiedSelectEnum, FightCmdEnum, FightInput, FightSideEnum, FightResultEnum, SelectMainParam, SelectParam, TargetSelectEnum, fightMsg } from "./struct";
+import { EnemySide, FightCmdEnum, FightInput, FightSideEnum, FightResultEnum, TargetSelectEnum, fightMsg } from "./struct";
 import { strict as assert } from "node:assert";
 import EventEmitter from "node:events";
 import { skillFunc } from "./Skills/SkillFuncType";
 import { attackFunc } from "./Skills/Funcs/NormalAttack";
 import { getBuffData } from "./Buffs/BuffDatas";
 import { InsertActionPos } from "./struct";
+import type { FightBuff } from "./Buffs/FightBuff";
+import { FightSkill, getDefaultSkill } from "./Skills/FightSkill";
 
 export type AllUnitType = [FightUnit[], FightUnit[]];
 
@@ -264,6 +265,9 @@ export class Fight{
     getSideUnits(side: FightSideEnum) : FightUnit[] {
         return this.AllUnits[side];
     }
+    getSideUnitsCopy(side: FightSideEnum) : FightUnit[] {
+        return [...this.AllUnits[side]];
+    }
     getAllUnits() : FightUnit[] {
         return this.AllUnits.flat();
     }
@@ -271,12 +275,12 @@ export class Fight{
         return this.getAllUnits().filter(u => u.isUser());
     }
 
-    getSideUnitsDie(side: FightSideEnum, die: DiedSelectEnum, except:FightUnit=null) : FightUnit[] {
-        return this.AllUnits[side].filter(u => u.isFillterDie(die) && u!==except);
+    getSideUnitsBySkill(side: FightSideEnum, skill:FightSkill, except:FightUnit=null) : FightUnit[] {
+        return this.AllUnits[side].filter(u => skill.canTarget(u) && u!==except);
     }
 
-    getSideUnitsByPos(side:FightSideEnum, poses: number[], die: DiedSelectEnum) : FightUnit[] {
-        return this.getSideUnits(side).filter(u => u.isFillterDie(die) && poses.includes(u.pos));
+    getSideUnitsByPos(side:FightSideEnum, poses: number[]) : FightUnit[] {
+        return this.getSideUnits(side).filter(u => poses.includes(u.pos));
     }
     getSideUnitByPos(side:FightSideEnum, pos: number) : FightUnit {
         return this.getSideUnits(side).find(u => u.pos == pos)!;
@@ -290,24 +294,26 @@ export class Fight{
         this.map = new FightMap(this, nx, ny);
     }
 
+    // 选择主目标 当num=1
     // 主目标只有一个，通常的做法是先打主目标，命中之后，才产生后续的子目标！
-    selectMainTarget(attack: FightUnit, sel:SelectParam) : FightUnit {
+    selectMainTarget(attack: FightUnit, skill:FightSkill) : FightUnit {
         assert(!attack?.isDied());
 
-        const taunt = this.getTauntTarget(attack, sel);
+        const sel = skill.getSel();
+        const taunt = this.getTauntTarget(attack, skill);
         if (taunt) return taunt;
 
         if (sel.target == TargetSelectEnum.duiwei) {
-            return this.map.findDuiwei(attack, sel.die);    
+            return this.map.findDuiwei(attack, skill);
         }
         if (sel.target == TargetSelectEnum.self) {
-            return attack;
+            return skill.canTarget(attack) ? attack : undefined;
         }
         
         // des_or_random
         const side = sel.target == TargetSelectEnum.friend ? attack.side : EnemySide(attack.side);
         //const except = sel.includeAttack ? null : attack;
-        const units = this.getSideUnitsDie(side, sel.die);
+        const units = this.getSideUnitsBySkill(side, skill);
         if (!units.length) return null;
         if (sel.sortAttr){
             sortByAttr(units, sel.sortAttr, sel.sortDescend);
@@ -318,74 +324,72 @@ export class Fight{
         }
     }
     
-    // 群体选择不经过主目标，也不受嘲讽重定向；人数足够时保持阵营顺序，不额外抽样。
-    selectGroupTargets(attack: FightUnit, sel: SelectMainParam, canTarget?: (target: FightUnit) => boolean): FightUnit[] {
-        const units = this.getAllUnits().filter(target => this.isLegalTarget(attack, target, sel) && (!canTarget || canTarget(target)));
+    // 群体选择不经过主目标，也不受嘲讽重定向；人数足够时保持阵营顺序。
+    // 群攻只有TargetSelectEnum.friend,emeny两种
+    selectGroupTargets(attack: FightUnit, skill: FightSkill): FightUnit[] {
+        const sel = skill.getSel();
+        const side = sel.target == TargetSelectEnum.friend ? attack.side : EnemySide(attack.side);
+        const units = this.getSideUnitsBySkill(side, skill);
+        // const units = this.getAllUnits().filter(target => this.isLegalTarget(attack, target, skill));
         const num = sel.num ?? 1;
+
         if (sel.sortAttr) sortByAttr(units, sel.sortAttr, sel.sortDescend);
         else if (num < units.length) this.shuffleArray(units);
         return units.slice(0, num);
     }
 
-    selectTargetsNum(main: FightUnit, sel:SelectParam, num: number) : FightUnit[]|undefined {
-        const side = main.side;
-        const units = this.getSideUnitsDie(side,sel.die, main);
-        if (!units.length) return;        
-        if (sel.sortAttr){
-            sortByAttr(units, sel.sortAttr, sel.sortDescend);
-        }
-        else {
-            this.shuffleArray(units);
-        }
+    // spread的特点是，他是基于main来选的，并且结果剔除main
+    selectSpreadTargetsNum(main: FightUnit, skill: FightSkill, num: number): FightUnit[] {
+        const sel = skill.getSel();
+        const units = this.getSideUnitsBySkill(main.side, skill, main);
+        if (num <= 0) return [];
+        if (sel.sortAttr) sortByAttr(units, sel.sortAttr, sel.sortDescend);
+        else this.shuffleArray(units);
         return units.slice(0, num);
     }
 
-    // 加血一个主单位多个副单位，
-    // 1. 数量溅射 没有shape, numSpread = 3
-    // 2. 溅射等有多个副目标, shape = line or cross 没有num
-    selectTargets(main: FightUnit, sel:SelectParam) : FightUnit[]|undefined {
+    // 副目标与当前主目标同阵营；人数、形状和效果资格统一读取溅射子技能。
+    selectSpreadTargets(main: FightUnit, skill: FightSkill): FightUnit[] {
         assert(main);
-        // 
-        if (sel.shape === undefined){
-            const num = sel.numSpread ?? 1;
-            return this.selectTargetsNum(main, sel, num);
-        }
-        const units = this.map.selectTargetsShape(main, sel);
-        if (units){
-            // 去掉主目标
-            removeArray(units, main);
-        }
-        return units;
+        const sel = skill.getSel();
+        if (!sel) return [];
+        if (sel.shape === undefined) return this.selectSpreadTargetsNum(main, skill, sel.num ?? 1);
+        return this.map.selectTargetsShape(main, sel.shape)
+            .filter(target => target !== main && skill.canTarget(target));
     }
     // ***map end
 
-    randomEnemyAlive(side: number){
-        const list = this.getSideUnitsDie(EnemySide(side), DiedSelectEnum.alive);
+    randomEnemyAlive(side: number) {
+        const list = this.getSideUnitsBySkill(EnemySide(side), getDefaultSkill());
         if (!list.length) return;
         return this.randArray(list);
     }
 
-
-    getDefaultEnemy(unit: FightUnit){
-        const taunt = this.getTauntTarget(unit, { target: TargetSelectEnum.enmey });
+    getDefaultEnemy(unit: FightUnit) {
+        const taunt = this.getTauntTarget(unit, getDefaultSkill());
         if (taunt) return taunt;
-        if (this.xls.duiwei){
-            return this.map.findDuiwei(unit, DiedSelectEnum.alive);
-        }
-        return this.randomEnemyAlive(unit.side);
+        const skill = getDefaultSkill({ target: this.xls.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey });
+        return this.selectMainTarget(unit, skill);
     }
 
-    // 校验原指令的基础目标资格，嘲讽只在执行时重定向主目标，不拒绝合法指令。
-    isLegalTarget(unit: FightUnit, target: FightUnit, sel: SelectMainParam): boolean {
-        if (!target || !target.isFillterDie(sel.die)) return false;
+    // 目标资格由技能判断，阵营和对位规则由战斗判断。
+    isLegalTarget(unit: FightUnit, target: FightUnit, skill: FightSkill): boolean {
+        if (!target || !skill.canTarget(target)) return false;
+        const sel = skill.getSel();
         if (sel.target === TargetSelectEnum.self) return target === unit;
         const side = sel.target === TargetSelectEnum.friend ? unit.side : EnemySide(unit.side);
         if (target.side !== side) return false;
-        if (sel.target === TargetSelectEnum.duiwei) return this.map?.findDuiwei(unit, sel.die) === target;
+        if (sel.target === TargetSelectEnum.duiwei) return this.map?.findDuiwei(unit, skill) === target;
         return true;
     }
 
-    getTauntTarget(unit: FightUnit, sel: SelectMainParam): FightUnit | undefined {
+    getTauntTarget(unit: FightUnit, skill: FightSkill): FightUnit | undefined {
+        return this.getTauntBuff(unit, skill)?.getTauntTarget();
+    }
+
+    // 返回实际生效的实例，计次时不会同时消耗其他嘲讽。查询本身没有副作用。
+    getTauntBuff(unit: FightUnit, skill: FightSkill): FightBuff | undefined {
+        const sel = skill.getSel();
         if ((sel.num ?? 1) > 1) return undefined;
         if (sel.target !== TargetSelectEnum.enmey && sel.target !== TargetSelectEnum.duiwei) return undefined;
         // Map 保持添加顺序，稳定排序使同优先级按 Buff 实例注册顺序处理。
@@ -393,7 +397,7 @@ export class Fight{
         for (const buff of buffs) {
             const target = buff.getTauntTarget();
             if (target && !target.isDied() && target.fight === this && this.getAllUnits().includes(target) &&
-                this.isLegalTarget(unit, target, sel)) return target;
+                this.isLegalTarget(unit, target, skill)) return buff;
         }
         return undefined;
     }
@@ -428,7 +432,7 @@ export class Fight{
         if (!targets) return undefined;
         if ((skill ?? (attack ? unit.getAttackSkill() : undefined))?.isMulti()) return { ...input };
         const sel = skill ? skill.getSel() : { target: this.xls.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey };
-        const taunt = this.getTauntTarget(unit, sel);
+        const taunt = this.getTauntTarget(unit, skill ?? getDefaultSkill(sel));
         if (sel.sortAttr) sortByAttr(targets, sel.sortAttr, sel.sortDescend);
         const fixed = input.target !== undefined || !!taunt || sel.target === TargetSelectEnum.self ||
             sel.target === TargetSelectEnum.duiwei || !!sel.sortAttr;
@@ -439,26 +443,21 @@ export class Fight{
     private getPCTargets(unit: FightUnit, input: FightInput): FightUnit[] | undefined {
         const attack = input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none;
         const equipped = attack ? unit.getAttackSkill() : undefined;
-        const skill = input.cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) : equipped?.isMulti() ? equipped : undefined;
-        const sel = skill ? skill.getSel() : { target: this.xls.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey };
+        const skill = (input.cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) : equipped?.isMulti() ? equipped : undefined)
+            ?? getDefaultSkill({ target: this.xls.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey });
         const explicit = input.target !== undefined ? this.getUnitById(input.target) : undefined;
         if (input.target !== undefined && !explicit) { unit.hintClient("目标不存在"); return undefined; }
         if (attack && explicit?.isDied()) { unit.hintClient("目标已死亡"); return undefined; }
-        let targets = explicit && !skill?.isMulti() ? [explicit] : this.getAllUnits().filter(target => this.isLegalTarget(unit, target, sel));
+        const candidates = explicit && !skill.isMulti() ? [explicit] : this.getAllUnits();
         let hint: string | undefined;
-        if (skill) {
-            targets = targets.filter(target => {
-                const reason = skill.getTargetHint(target);
-                if (reason) hint ??= reason;
-                return !reason;
-            });
-        }
+        const targets = candidates.filter(target => {
+            if (!skill.canTarget(target)) {
+                hint ??= skill.getTargetHint(target);
+                return false;
+            }
+            return this.isLegalTarget(unit, target, skill);
+        });
         if (!targets.length) { unit.hintClient(hint ?? "没有可用目标"); return undefined; }
-        const taunt = this.getTauntTarget(unit, sel);
-        if (taunt && skill) {
-            const reason = skill.getTargetHint(taunt);
-            if (reason) { unit.hintClient(reason); return undefined; }
-        }
         return targets;
     }
 
@@ -467,12 +466,13 @@ export class Fight{
         if (!input || this.isEnd() || !this.getAllUnits().includes(unit)) return false;
         if (![FightCmdEnum.none, FightCmdEnum.attack, FightCmdEnum.defend, FightCmdEnum.skill, FightCmdEnum.cancel, FightCmdEnum.protect].includes(input.cmd)) return false;
         // 普攻可以显式指定死亡敌人守尸；自动选目标仍只选存活敌人。
-        let sel: SelectMainParam = {target: TargetSelectEnum.enmey, die: DiedSelectEnum.all};
+        let skill = getDefaultSkill();
+        let guardCorpse = input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none;
         if (input.cmd === FightCmdEnum.protect) {
             if (input.target === undefined || input.target === unit.uid || getBuffData(this.xls.protectBuff)?.class !== "protect") return false;
-            sel = { target: TargetSelectEnum.friend };
+            skill = getDefaultSkill({ target: TargetSelectEnum.friend });
         } else if (input.cmd === FightCmdEnum.skill) {
-            const skill = unit.findSkill(input.skill);
+            skill = unit.findSkill(input.skill);
             if (!skill) {
                 unit.hintClient("未学会该技能");
                 return false;
@@ -490,14 +490,14 @@ export class Fight{
                 unit.hintClient(`[${skill.getName()}]冷却中，还需 ${cd} 回合`);
                 return false;
             }
-            sel = skill.getSel();
-            if (!sel) return false;
+            if (!skill.getSel()) return false;
         } else if ((input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none) && unit.isForbid("attack")) {
             unit.hintClient("当前无法普通攻击");
             return false;
         }
         if ((input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none) && unit.getAttackSkill()?.isMulti()) {
-            sel = unit.getAttackSkill().getSel();
+            skill = unit.getAttackSkill();
+            guardCorpse = false;
         }
         if (input.target !== undefined) {
             const target = this.getUnitById(input.target);
@@ -505,12 +505,10 @@ export class Fight{
                 unit.hintClient("目标不存在");
                 return false;
             }
-            if (!target.isFillterDie(sel.die)) {
-                unit.hintClient(target.isDied() ? "目标已死亡" : "目标尚未死亡");
-                return false;
-            }
-            if (!this.isLegalTarget(unit, target, sel)) {
-                unit.hintClient("目标不符合要求");
+            // 普攻手动守尸只检查敌方身份，自动选择和技能仍由 canTarget 过滤。
+            if (!(guardCorpse && target.isDied() && target.side === EnemySide(unit.side)) &&
+                !this.isLegalTarget(unit, target, skill)) {
+                unit.hintClient(skill.getTargetHint(target) ?? "目标不符合要求");
                 return false;
             }
         }
@@ -562,9 +560,8 @@ export class Fight{
 
         // 不改写提交的 input，只在实际执行时按当前有效嘲讽覆盖主目标。
         if (cmd === FightCmdEnum.attack || cmd === FightCmdEnum.skill) {
-            const sel = cmd === FightCmdEnum.skill ? unit.findSkill(input.skill).getSel() :
-                { target: TargetSelectEnum.enmey };
-            des = this.getTauntTarget(unit, sel) ?? des;
+            const skill = cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) : getDefaultSkill();
+            des = this.getTauntTarget(unit, skill) ?? des;
         }
 
         if (!des) {
@@ -574,7 +571,7 @@ export class Fight{
             else if (cmd == FightCmdEnum.skill){
                 const skill = unit.findSkill(input.skill);
                 if (skill){
-                    des = this.selectMainTarget(unit, skill.getSel());
+                    des = this.selectMainTarget(unit, skill);
                 }
             }
         }

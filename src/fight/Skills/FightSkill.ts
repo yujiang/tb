@@ -2,6 +2,7 @@
 
 import { Fight, FightContex } from "../Fight";
 import { BaseAttack, FinalAttack } from "../FightAttr";
+import { SelectParam, TargetSelectEnum } from "../struct";
 import { FightUnit } from "../Unit/FightUnit";
 import { calcAttack, calcHurt, mergeTableLevel } from "./Calc";
 import { getSkillData, SkillData } from "./SkillDatas";
@@ -111,16 +112,26 @@ export class FightSkill {
         return this.xls.func || "normal";
     }
 
+    canTarget(target: FightUnit): boolean {
+        return !this.getTargetHint(target);
+    }
+
     // 即时输入的目标资格预检，不计算伤害、不抽样；执行函数仍保留自己的状态检查。
     getTargetHint(target: FightUnit): string | undefined {
         const func = this.getFunc();
         if (func === "relife") {
             if (!target.isDied()) return "目标尚未死亡";
-            if (target.inStatus("禁复活") || Math.floor(this.getHealRate() * target.getHpMax()) <= 0) return "目标无法复活";
-        } else if (func === "normal" || func === "heal" || func === "poison") {
+            if (Math.floor(this.getHealRate() * target.getHpMax()) <= 0) return "目标无法复活";
+        } else {
             if (target.isDied()) return "目标已死亡";
-            if (func === "heal" && target.inStatus("禁疗")) return "目标无法接受治疗";
-            if (func === "poison" && target.inStatus("禁毒")) return "目标无法中毒";
+        }
+        // 复活独立于普通受击；其他效果同时遵守技能类别和func的专用限制。
+        const action = func === "relife" ? "relife" : func === "normal" && this.isPhysic() ? "attack" : "skill";
+        if (target.isForbidBeAction(action) || target.isForbidBeAction(func)) {
+            if (func === "relife") return "目标无法复活";
+            if (func === "heal") return "目标无法接受治疗";
+            if (func === "poison") return "目标无法中毒";
+            return "目标当前无法接受该效果";
         }
         return undefined;
     }
@@ -200,3 +211,9 @@ export class FightSkill {
     }
 }
 
+
+/** 默认普通攻击的选目标规则；每次创建独立实例，未注册进技能表，不携带单位属性。 */
+export function getDefaultSkill(sel: SelectParam = { target: TargetSelectEnum.enmey }): FightSkill {
+    return new FightSkill({ id: 0, name: "默认普攻", magic: false, rand: 1,
+        sel: { ...sel }, attack: {}, final: {} }, 0);
+}

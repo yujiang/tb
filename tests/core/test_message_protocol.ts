@@ -14,7 +14,7 @@ test("messages: initial state, skill actions and Buff additions omit static name
         ["skill", chainIds.third, 0, 1, "combo"],
     ]);
     assert.deepEqual(ctx.msgs.find(msg => msg[0] === "addBuff"),
-        ["addBuff", "skill", 0, 0, chainIds.rest, 1, [0, 2]]);
+        ["addBuff", "skill", 0, 0, chainIds.rest, 1, [0, 2, 0]]);
     assert.match(report.toString(), /\[三连斩·一式\]/);
     assert.match(report.toString(), /添加 \[休息\]/);
 });

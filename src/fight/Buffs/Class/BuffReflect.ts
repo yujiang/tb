@@ -21,7 +21,7 @@ export class BuffReflect extends FightBuff {
     }
 
     private consume(unit: FightUnit, ctx: FightContex) {
-        if (this.times > 0 && --this.times === 0) unit.expireBuff(this, "times", ctx);
+        this.consumeTimes(unit, ctx);
     }
 
     private onReflectHurt(unit: FightUnit, ctx: FightContex, attacker: FightUnit, pending: PendingHurt) {

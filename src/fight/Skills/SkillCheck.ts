@@ -1,4 +1,5 @@
 import type { SkillData } from "./SkillDatas";
+import { TargetSelectEnum } from "../struct";
 
 const childFields = ["next", "combo", "kill", "spread"] as const;
 
@@ -60,7 +61,12 @@ export function warnSkillConfigs(datas: SkillData[], skills: ReadonlyMap<number,
             const missing = fields.filter(field => data[field] !== true);
             if (missing.length) messages.push(`${role}建议填写 ${missing.map(field => `${field}: true`).join("、")}`);
         };
-        if ((data.sel?.num ?? 1) > 1) recommend("群攻技能", ["nosupport", "noprotect"]);
+        if ((data.sel?.num ?? 1) > 1) {
+            if (data.sel.target !== TargetSelectEnum.friend && data.sel.target !== TargetSelectEnum.enmey) {
+                messages.push(`群攻技能 sel.num > 1 时，sel.target 只能为 friend 或 enmey，当前为 ${TargetSelectEnum[data.sel.target] ?? data.sel.target}`);
+            }
+            recommend("群攻技能", ["nosupport", "noprotect"]);
+        }
         if (spreads.has(id)) recommend("溅射子技能", ["nosupport", "noprotect"]);
         if (supports.has(id)) recommend("协战及其后续技能", ["nofback", "nodback"]);
         if (supportRoots.has(id) && (data.func ?? "normal") !== "normal") {

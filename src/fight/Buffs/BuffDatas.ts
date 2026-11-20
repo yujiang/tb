@@ -21,7 +21,8 @@ export enum BuffTurnEnum {
 // 但是1~5并不互斥，可以同时存在，所以没有type字段
 
 export type FightUnitEvent = 
-    'beforeHurt' | 'beforeHeal' | 'afterTurn' | 'die' | 'relife' | 'hurt' | 'heal' | 'hp' | 'break' | 'addBuff' | "removeBuff" | "attr" | "speed";
+    'taunt' | 'beforeHurt' | 'beforeHeal' | 'afterTurn' | 'die' | 'relife' | 'hurt' | 'heal' | 'hp' | 'break' | 'addBuff' | "removeBuff" | "attr" | "speed";
+// taunt(unit, ctx, buff)：本次普通行动实际受所选嘲讽约束，完整技能/反应链执行后发出；未命中或发动失败仍计次，预检/费用不足/跳过不发。
 // break(unit, ctx, attacker, allBroken)：盾正数变 0 时；allBroken 为该瞬间本阵营全体存活单位破盾的快照。
 // hp(unit, ctx, attacker, previous, current)：真实生命值变化，包含分担扣血与截断后的治疗。
 // hurt(unit, ctx, attacker, damage, pending)：最后一项提供 HurtOptions/source；分担伤害仍不发 hurt。
@@ -44,9 +45,9 @@ export interface BuffData extends StaticData{
     /** 持续的对应边界次数，必填；正数最后一次生效后移除，0 不按回合到期；不是秒数。 */
     lastTurn: number;
     
-    /** 事件使用次数，类型必填，0 不按次数到期；普通 Buff 在 event 后扣减；不屈/自动复活固定一次。 */
+    /** 事件使用次数，类型必填，0 不按次数到期；普通 Buff 在 event 后扣减；嘲讽按实际诱导的普通行动扣减；不屈/自动复活固定一次。 */
     times: number;
-    /** 普通次数 Buff 的计次事件；必须使用带 ctx 的事件，attr/speed 不是该签名；特殊类可固定监听别的事件。 */
+    /** 普通次数 Buff 的计次事件；必须使用带 ctx 的事件，attr/speed 不是该签名；嘲讽固定监听taunt并仅消耗被选中的实例，忽略本字段；其他特殊类也可固定监听。 */
     event: FightUnitEvent;
     /** 监听优先级，小的先执行，同级按注册顺序；普通/反射默认0，保护500，不屈/自动复活1000。 */
     prior?: number;

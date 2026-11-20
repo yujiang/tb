@@ -1,3 +1,4 @@
+//自己行动
 const statusForbidActions : Record<string, string[]> = {
     "封印": ['attack', 'skill'],
     "沉默": ['skill'],
@@ -5,6 +6,17 @@ const statusForbidActions : Record<string, string[]> = {
 }
 
 let actionForbidByStatus : Record<string, string[]>;
+
+// 受作用限制：attack为普通物理攻击，skill为其他技能；复活使用独立relife入口。
+const statusForbidBeActions : Record<string, string[]> = {
+    "石化": ['attack', 'skill'],
+    "死亡": ['attack', 'skill'],
+    "禁疗": ['heal'],
+    "禁毒": ['poison'],
+    "禁复活": ['relife'],
+}
+
+let beActionForbidByStatus : Record<string, string[]>;
 
 function initActionForbidByStatus(){
     actionForbidByStatus = {};
@@ -24,4 +36,24 @@ export function findForbidStatusByAction(action: string): string[] {
         initActionForbidByStatus();
     }
     return actionForbidByStatus[action];
+}
+
+function initBeActionForbidByStatus(){
+    beActionForbidByStatus = {};
+    for (const [status, actions] of Object.entries(statusForbidBeActions)) {
+        for (const action of actions) {
+            if (!beActionForbidByStatus[action]) {
+                beActionForbidByStatus[action] = [];
+            }
+            beActionForbidByStatus[action].push(status);
+        }
+    }
+}
+
+
+export function findForbidStatusByBeaction(action: string): string[] {
+    if (!beActionForbidByStatus) {
+        initBeActionForbidByStatus();
+    }
+    return beActionForbidByStatus[action];
 }

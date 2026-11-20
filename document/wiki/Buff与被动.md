@@ -24,6 +24,10 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 
 状态和属性、周期、特殊类并不互斥，不需要另设一个互斥的 Buff type。
 
+`FightStatus` 将自身行动限制与受作用限制分开：`isForbid(action)` 判断自身能否行动，`isForbidBeAction(action)` 判断能否接受对应作用。受作用表中，石化和死亡禁止 `attack/skill`；禁疗禁止 `heal`，禁毒禁止 `poison`，禁复活禁止 `relife`。死亡同时识别单位真实死亡和配置的“死亡”状态，状态可以来自 Buff 或被动。
+
+技能选目标经 `FightSkill.canTarget` 使用这张表：普通物理攻击检查 `attack`，其他非复活技能检查 `skill`，并叠加各自 `func` 的限制。复活只检查独立 `relife` 入口，还要求真实死亡且复活量大于零，因此不会被普通受击的死亡限制拦住。
+
 ## BuffData 自身字段
 
 | 字段 | 含义 | 缺省与边界 |
@@ -34,7 +38,7 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 | `turnType` | 持续时间/周期边界 | 缺省 thisTurn=0，inputTurn=1，afterTurn=2 |
 | `lastTurn` | 对应边界持续次数 | 必填；正数最后一次生效后移除，0 不按回合到期，不是秒数 |
 | `times` | 事件次数 | 类型必填；普通 Buff 运行时缺省按 0；正数用完移除，0 不限次数；特殊类可能覆盖 |
-| `event` | 普通次数 Buff 的计次事件 | 类型必填；需带 ctx；特殊类可能固定监听其他事件 |
+| `event` | 普通次数 Buff 的计次事件（嘲讽固定 taunt，忽略此字段） | 类型必填；需带 ctx；特殊类可能固定监听其他事件 |
 | `prior` | 事件监听优先级 | 小的先执行，同级按注册顺序；普通/反射缺省 0，保护 500，不屈/自动复活 1000 |
 | `func` | 周期效果 | heal/poison；省略不执行周期数值效果 |
 | `skill` | 周期效果引用的技能 ID | func 已配置时需要有效技能；读取技能原始配置，不再与施放者单位属性合并 |
@@ -100,3 +104,11 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 为了场面清楚，建议群攻/溅射填 nosupport/noprotect，协战链填 nofback/nodback；这是数据建议，不是新增加的硬规则。
 
 验证目录：[Buff测试](../../tests/core/buff/)、[不屈](../../src/fight/Buffs/Class/BuffBuqu.ts)、[自动复活](../../src/fight/Buffs/Class/BuffRelife.ts)、[保护](../../tests/core/buff/test_protect.ts)。
+
+## 嘲讽的回合与次数
+
+`class: "taunt"` 挂在被嘲讽者身上。`lastTurn: 2, times: 0` 为回合型；`lastTurn: 0, times: 2` 为两次型；两者同时为正则任一先耗尽即移除。
+
+次数型固定监听 `taunt(unit, ctx, selectedBuff)`，忽略 `event`。只在实际受该实例约束的主动单体行动及其技能/反应链执行完后扣一次；最后一次完整保留目标约束和属性效果。未命中或发动失败仍消耗，预检、查询、费用不足、跳过行动、群体/友方/自身技能不消耗。石化等使来源不符合 canTarget 时不诱导也不扣次，回合型时长继续流逝。多个嘲讽只扣当次实际选中的实例。
+
+可见 Buff 展示为 `[id, level, start, lastTurn, times]`，次数通过 `["buffTimes", unitId, buffId, remaining]` 增量更新，最后一次先通知0再移除；`notDisplay` 不展示也不发送次数消息。普通事件次数 Buff、反射、不屈与自动复活使用同一计次同步方法。

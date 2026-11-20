@@ -8,13 +8,13 @@ import { FightLoopWest } from "../../src/fight/Online/FightLoopWest";
 import { FightUnitMonster } from "../../src/fight/Unit/FightUnitMonster";
 import { FightUnitSummon, FightUnitUser } from "../../src/fight/Unit/FightUnitUser";
 import { BuffData, initBuffs, OverlapEnum } from "../../src/fight/Buffs/BuffDatas";
-import { FightSkill } from "../../src/fight/Skills/FightSkill";
+import { FightSkill, getDefaultSkill } from "../../src/fight/Skills/FightSkill";
 import { FightContex, initFightContex } from "../../src/fight/Fight";
 import { attackFunc } from "../../src/fight/Skills/Funcs/NormalAttack";
 import { tryBlood, tryDBack } from "../../src/fight/Skills/FightBack";
 import { initSkills, SkillData } from "../../src/fight/Skills/SkillDatas";
 import { relifeFunc } from "../../src/fight/Skills/Funcs/Relife";
-import { DiedSelectEnum, FightCmdEnum, FightSideEnum, TargetSelectEnum } from "../../src/fight/struct";
+import { FightCmdEnum, FightSideEnum, TargetSelectEnum } from "../../src/fight/struct";
 import { FightReport } from "../../src/fight/Client/FightReport";
 
 // 测试：主技能概率判定失败时发出未发动消息，简报说明行动者没有攻击的原因。
@@ -76,7 +76,7 @@ function pair(user = false, extraEnemy = false) {
 
 function skill(id: number, extra: Partial<SkillData> = {}): SkillData {
     return {id, name: String(id), magic: true, rand: 1,
-        sel: {target: TargetSelectEnum.enmey, die: DiedSelectEnum.alive},
+        sel: {target: TargetSelectEnum.enmey},
         attack: base({attack: 0, hit: 0}),
         final: {bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0}, ...extra};
 }
@@ -187,19 +187,19 @@ test("regression: a zero chance skill never executes", () => {
     assert.equal(v.getHp(), 100);
 });
 
-// 测试：省略死亡过滤时只选存活单位，显式 all 时包含尸体。
-test("regression: omitted death filter means alive, explicit all includes corpses", () => {
+// 测试：普通攻击只选存活单位，复活技能自动选择尸体。
+test("regression: skill qualification selects living attack targets and dead revival targets", () => {
     const {f, u, v} = pair(false, true);
     v.die(); f.random = () => 0;
-    assert.equal(f.selectMainTarget(u, {target: TargetSelectEnum.enmey}).uid, 3);
-    assert.equal(f.selectMainTarget(u, {target: TargetSelectEnum.enmey, die: DiedSelectEnum.all}), v);
+    assert.equal(f.selectMainTarget(u, getDefaultSkill()).uid, 3);
+    assert.equal(f.selectMainTarget(u, new FightSkill(skill(8031, {func: "relife"}), 1)), v);
 });
 
 // 测试：非正方形地图的对位查找覆盖完整宽度。
 test("regression: rectangular maps find enemies across the full width", () => {
     const {f, u, v} = pair();
     f.createMap(5, 2); u.setPos(4); v.setPos(4);
-    assert.equal(f.map.findDuiwei(u, DiedSelectEnum.alive), v);
+    assert.equal(f.map.findDuiwei(u, getDefaultSkill()), v);
 });
 
 // 测试：网游驱动初始化乱敏，速度变化后安全重排行动队列。
@@ -427,7 +427,7 @@ test("regression: a dead player acts on the submitted command after an earlier a
     const {f, u, v, loop} = pair(true);
     const healer = addAlly(f);
     initSkills([skill(8050, {func: "relife", healRate: 0.5,
-        sel: {target: TargetSelectEnum.friend, die: DiedSelectEnum.die}})]);
+        sel: {target: TargetSelectEnum.friend}})]);
     healer.addSkill(8050, 1);
     u.attr.point.hp = 0; u.die();
     const waiting = loop.waitInput(loop.fight.turn, initFightContex(loop.fight));
@@ -463,7 +463,7 @@ test("regression: corpse guarding locks a dead enemy and attacks it if revived b
     assert.equal(u.input?.target, v.uid);
     const healer = f.getUnitById(3);
     initSkills([skill(8051, {func: "relife", healRate: 0.5,
-        sel: {target: TargetSelectEnum.friend, die: DiedSelectEnum.die}})]);
+        sel: {target: TargetSelectEnum.friend}})]);
     healer.addSkill(8051, 1);
     healer.input = {cmd: FightCmdEnum.skill, skill: 8051, target: v.uid};
     loop.processUnits = [healer, u];

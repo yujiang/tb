@@ -36,8 +36,7 @@ export class BuffBuqu extends FightBuff {
         }
         used.add(unit);
         pending.damage = Math.max(0, unit.getHp() - 1);
-        this.times = 0;
         ctx.msgs.push(["buffTrigger", unit.uid, this.getId(), "buqu"]);
-        unit.expireBuff(this, "times", ctx);
+        this.consumeTimes(unit, ctx);
     }
 }

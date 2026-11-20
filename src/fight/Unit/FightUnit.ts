@@ -1,10 +1,10 @@
 import { Fight, FightContex} from "../Fight";
 import { FightAttr, getAttackMul, PropEnum, WeaponEnum } from "../FightAttr";
-import { DiedSelectEnum, FightCmdEnum, FightDisplay, FightInput, FightSideEnum, IdLevelArray, IdRand, SkillCost } from "../struct";
+import { FightCmdEnum, FightDisplay, FightInput, FightSideEnum, IdLevelArray, IdRand, SkillCost } from "../struct";
 import { FightSkill } from "../Skills/FightSkill";
 import { getSkillData } from "../Skills/SkillDatas";
 import { createBuff, FightBuff} from "../Buffs/FightBuff";
-import { findForbidStatusByAction } from "../Buffs/FightStatus";
+import { findForbidStatusByAction, findForbidStatusByBeaction } from "../Buffs/FightStatus";
 import { BuffTurnEnum, FightUnitEvent, getBuffData, OverlapEnum } from "../Buffs/BuffDatas";
 import { createPassiveSkills, PassiveSkill } from "../Passives/PassiveSkill";
 import { calcAttr } from "../Skills/Calc";
@@ -289,15 +289,6 @@ export abstract class FightUnit {
         }
     }
 
-    isFillterDie(die: DiedSelectEnum = DiedSelectEnum.alive){
-        if (!die) { // DiedSelectEnum.all
-            return true;
-        } else if (die == DiedSelectEnum.alive) {
-            return !this.dead;
-        } else if (die == DiedSelectEnum.die) {
-            return this.dead;
-        }
-    }
 
     type: UnitType;
     isUser() {return UnitType.user == this.type;}
@@ -475,6 +466,12 @@ export abstract class FightUnit {
             if (this.inStatus(s)) return true;
         }
         return false;
+    }
+
+    // 受作用限制与自身行动限制分开；死亡同时识别真实生命状态和配置状态。
+    isForbidBeAction(action: string): boolean {
+        const statuses = findForbidStatusByBeaction(action);
+        return statuses?.some(status => (status === "死亡" && this.isDied()) || this.inStatus(status)) ?? false;
     }
 
     inStatus(status: string) {

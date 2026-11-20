@@ -14,12 +14,6 @@ export function EnemySide(side: FightSideEnum) : FightSideEnum{
     return 1 - side;
 }
 
-export enum DiedSelectEnum {
-    all,
-    alive,
-    die,
-}
-
 export enum TargetSelectEnum {
     self,
     duiwei,     // 对位  
@@ -32,15 +26,16 @@ export enum MapShapeEnum {
     x_line,  // 横线
     y_line,  // 竖线
     cross,   // 十字
+    cross_line,
 }
 
-export interface SelectMainParam{
-    /** 目标类型，必填：self自身、duiwei对位、friend己方、enmey敌方；保留现有 enmey 拼写。 */
+export interface SelectParam{
+    /** 目标类型，必填：self自身、duiwei对位、friend己方、enmey敌方；直接群体施放仅支持friend/enmey，其他组合注册时warn；保留现有 enmey 拼写。 */
     target: TargetSelectEnum;
-    /** 死亡过滤，缺省alive；all同时含存活和死亡，die仅死亡；复活技能通常填die。 */
-    die?: DiedSelectEnum;
-    /** 直接施放的总人数，缺省1；使用正整数，>1为群体，99可覆盖该阵营全体；与副目标人数分开。 */
+    /** 直接施放时为总人数，缺省1，>1为群体，99可覆盖全体；作为溅射子技能时为副目标人数，不含主目标，0不选。 */
     num?: number;
+    /** 溅射子技能的形状，配置后优先于num；省略按人数，none不是有效形状；直接群体施放不使用。 */
+    shape?: MapShapeEnum;
    
     /** 候选排序键，来自 FightAttr.getAttr，如hp/hpp/hplp/speed；缺省随机，不能使用嵌套属性路径。 */
     sortAttr?: string;
@@ -48,13 +43,6 @@ export interface SelectMainParam{
     sortDescend?: boolean;
 }
 
-export interface SelectParam extends SelectMainParam { 
-    /** 数量溅射的副目标上限，不含当前主目标，缺省1；仅用于溅射流程，0可不取副目标。 */
-    numSpread?: number;
-    /** 溅射形状x_line/y_line/cross，已填时优先于numSpread；缺省按数量；none当前不是有效形状查询。 */
-    shape?: MapShapeEnum;
-    //custom?: any;
-}
 
 
 // 显示属性, 需要注入

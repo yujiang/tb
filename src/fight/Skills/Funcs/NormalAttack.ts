@@ -3,7 +3,7 @@
 import { FightContex } from "../../Fight";
 import { FightTypeAttr, BaseAttack, FinalAttack } from "../../FightAttr";
 import { FightUnit } from "../../Unit/FightUnit";
-import { FightSkill } from "../FightSkill";
+import { FightSkill, getDefaultSkill } from "../FightSkill";
 import { SkillData } from "../SkillDatas";
 import { magicAttackFunc, skillAttackFunc } from "./NomalSkill";
 
@@ -72,10 +72,17 @@ class PhysicSkill extends FightSkill {
 
 export function attackFunc(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {  
     const equipped = attacker.getAttackSkill();
-    if (equipped) return skillAttackFunc(attacker, defender, equipped, ctx);
+    const taunt = ctx.fight.getTauntBuff(attacker, equipped ?? getDefaultSkill());
+    if (equipped) {
+        const result = skillAttackFunc(attacker, defender, equipped, ctx);
+        if (taunt && taunt.getTauntTarget() === defender) attacker.emitContext("taunt", ctx, taunt);
+        return result;
+    }
     const skill = new PhysicSkill(
         "physic",attacker, attacker.attr.physic.base, attacker.attr.physic.final);
-    return magicAttackFunc(attacker, defender, skill, ctx);
+    const result = magicAttackFunc(attacker, defender, skill, ctx);
+    if (taunt && taunt.getTauntTarget() === defender) attacker.emitContext("taunt", ctx, taunt);
+    return result;
 }
 
 

@@ -1,8 +1,10 @@
 // 战斗地图,负责占位
 
+import { removeArray } from "../public/Array";
 import { Fight } from "./Fight";
+import { FightSkill } from "./Skills/FightSkill";
 import { FightUnit } from "./Unit/FightUnit";
-import { EnemySide, DiedSelectEnum, MapShapeEnum, SelectParam, TargetSelectEnum } from "./struct";
+import { EnemySide, MapShapeEnum } from "./struct";
 import { strict as assert } from "node:assert";
 
 export class FightMap {
@@ -64,17 +66,23 @@ export class FightMap {
     }
 
     // 以unit为中心来计算
-    selectTargetsShape(unit: FightUnit, sel:SelectParam) {        
+    selectTargetsShape(unit: FightUnit, shape:MapShapeEnum) {
         const side = unit.side;
         const pos = unit.pos;
         const [x,y] = this.getPosByIndex(pos);
         let poses : number[];
-        switch(sel.shape) {
+        switch(shape) {
             case MapShapeEnum.x_line:
                 poses = this.xLine(x);
                 break;
             case MapShapeEnum.y_line:
                 poses = this.yLine(y);
+                break;
+            case MapShapeEnum.cross_line: {
+                const xl = this.xLine(x);
+                const yl = this.yLine(y);
+                poses = xl.concat(removeArray(yl,pos));
+                }
                 break;
             case MapShapeEnum.cross: {
                 poses = [
@@ -91,7 +99,7 @@ export class FightMap {
             default:
                 assert(false);
         }
-        return this.fight.getSideUnitsByPos(side, poses, sel.die);
+        return this.fight.getSideUnitsByPos(side, poses);
     }
 
     private genMap() {
@@ -107,11 +115,11 @@ export class FightMap {
         return maps;
     }
 
-    findDuiwei(attack: FightUnit, die: DiedSelectEnum) {
+    findDuiwei(attack: FightUnit, skill:FightSkill) {
         const maps = this.genMap();
 
         // 先铺满地图.
-        const deses = this.fight.getSideUnitsDie(EnemySide(attack.side), die);
+        const deses = this.fight.getSideUnitsBySkill(EnemySide(attack.side),skill);
         if (deses.length === 0) return;
 
         for (const des of deses) {

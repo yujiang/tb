@@ -19,7 +19,7 @@ export interface SkillData {
     /** 发动概率，0～1，主攻击通常填 1；类型必填，运行时缺省取 1；不是命中率。 */
     rand: number;
 
-    /** 阵营、死亡过滤、目标人数及溅射规则；主动技能需要有效配置，详见 SelectParam。 */
+    /** 阵营、目标人数及溅射规则；主动技能需要有效配置，详见 SelectParam；目标资格由技能canTarget判断。 */
     sel: SelectParam;
     /** 根主动技能的 HP/MP 费用，缺省不收费；子技能和装配普攻不重复收费，怪物沿用不耗资源规则。 */
     cost?: SkillCost;
@@ -49,7 +49,7 @@ export interface SkillData {
     /** 非负有限数，缺省 1；毒伤公式倍率，与相克加成相加；毒伤不判暴击。 */
     poisonRate?: number;
 
-    /** 溅射子技能 ID，缺省无配置溅射；副目标由 sel.numSpread/shape 选择，使用溅射阶段属性。 */
+    /** 溅射子技能 ID，缺省无配置溅射；副目标由该子技能的 sel.num/shape 和 canTarget 选择，使用溅射阶段属性。 */
     spread?: number;
     /** 连击子技能 ID，按子技能 sel 重新选目标，使用 next 阶段属性；缺省无配置连击。 */
     next?: number;

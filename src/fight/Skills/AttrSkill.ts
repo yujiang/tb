@@ -72,7 +72,7 @@ export function attrFunc(attr: string, func: AttrFunc, attacker: FightUnit, defe
 function spreadAttr(func: AttrFunc, attacker: FightUnit, defender: FightUnit, skill:AttrSkill, ctx: FightContex) {
     const f = ctx.fight;
     //const xls = skill.xls;
-    const targets = f.selectTargets(defender, skill.getSel());
+    const targets = f.selectSpreadTargets(defender, skill);
     if (!targets?.length) return
 
     const ids = targets.map((target) => {

@@ -145,6 +145,11 @@ export class FightClient{
                     }
                     break;
                 }
+                case "buffTimes": {
+                    const buff = this.getUnitById(msg[1])?.buffs.find(buff => buff[0] === msg[2]);
+                    if (buff) buff[4] = msg[3];
+                    break;
+                }
                 case "removeBuff": {
                     const unit = this.getUnitById(msg[2]);
                     if (unit) {

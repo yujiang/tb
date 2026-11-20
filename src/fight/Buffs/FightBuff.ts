@@ -27,9 +27,15 @@ export class FightBuff extends FightStatic{
 
     func: UnitContextEventFunc;
     onEvent(unit: FightUnit, ctx:FightContex, ...args: any[]){
+        this.consumeTimes(unit, ctx);
+    }
+
+    // 普通次数 Buff 和特殊类共用计次、增量同步与自然移除。
+    protected consumeTimes(unit: FightUnit, ctx: FightContex) {
         if (unit.findBuff(this.getId()) !== this) return;
         if (this.times > 0){
             this.times --;
+            if (!this.notDisplay()) ctx.msgs.push(["buffTimes", unit.uid, this.getId(), this.times]);
             if (this.times <= 0 ){
                 unit.expireBuff(this, "times", ctx);
             }
@@ -120,9 +126,10 @@ export class FightBuff extends FightStatic{
         return this.xls.notDisplay;
     }
 
+    // 展示元组：[ID, 等级, 添加边界, 持续边界数, 当前剩余次数]；不按次数到期时为0。
     getDisplayMsg(){
         if (this.notDisplay()) return;
-        return [this.getId(), this.level, this.start, this.lastTurn];
+        return [this.getId(), this.level, this.start, this.lastTurn, this.times];
     }
 }
 

@@ -2,7 +2,7 @@ import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { BaseAttack, Fight, FightAttr, FightClient, FightCmdEnum, FightLoopPC, FightResultEnum,
     FightSide, FightUnitUser, FightUnitMonster, FightUnitSummon, FightInput, TargetSelectEnum, initSkills,
-    initFightContex, fightMsg, FightLoop, BuffTurnEnum, OverlapEnum, initBuffs, DiedSelectEnum } from "../../src";
+    initFightContex, fightMsg, FightLoop, BuffTurnEnum, OverlapEnum, initBuffs } from "../../src";
 
 const skillId = 1001050;
 function attributes(speed: number): FightAttr {
@@ -166,7 +166,7 @@ test("pc: a dead ally revived before its slot receives its normal input opportun
     const s = setup(), initial = initFightContex(s.fight);
     s.b.onHurt(s.c, "test", 1000, initial);
     initSkills([{ id: 1001051, name: "单机复活", magic: true, rand: 1, attack: {}, final: {}, func: "relife",
-        healRate: 0.5, sel: { target: TargetSelectEnum.friend, die: DiedSelectEnum.die } }]);
+        healRate: 0.5, sel: { target: TargetSelectEnum.friend } }]);
     s.a.addSkill(1001051, 1); s.prepare(); const requested: number[] = [];
     s.loop.on("input", unit => {
         requested.push(unit.uid);
@@ -302,7 +302,7 @@ test("pc: reject dead attack targets immediately without changing online corpse 
 test("pc: missing automatic skill targets keep the actor waiting without random draws", async () => {
     const s = setup();
     initSkills([{ id: 1001060, name: "严格复活", magic: true, rand: 1, func: "relife", attack: {}, final: {},
-        cost: { mp: 10 }, cd: 2, sel: { target: TargetSelectEnum.friend, die: DiedSelectEnum.die } }]);
+        cost: { mp: 10 }, cd: 2, sel: { target: TargetSelectEnum.friend } }]);
     s.a.addSkill(1001060, 1); s.prepare(); let samples = 0;
     s.fight.random = () => { samples++; return 0.5; };
     s.loop.on("input", unit => {
@@ -324,8 +324,7 @@ for (const [func, status, hint] of [
     test(`pc: target ${status} rejects ${func} before accepting input`, async () => {
         const s = setup(), target = func === "poison" ? s.c : s.b;
         initSkills([{ id: 1001061, name: "严格效果", magic: true, rand: 1, func, attack: {}, final: {},
-            cost: { mp: 10 }, cd: 2, sel: { target: func === "poison" ? TargetSelectEnum.enmey : TargetSelectEnum.friend,
-                die: func === "relife" ? DiedSelectEnum.die : undefined } }]);
+            cost: { mp: 10 }, cd: 2, sel: { target: func === "poison" ? TargetSelectEnum.enmey : TargetSelectEnum.friend } }]);
         initBuffs([{ id: 1001062, name: status, desc: "", magic: false, attackType: "base", attack: {}, final: {},
             status: [status], tags: [], overlap: OverlapEnum.REPLACE, lastTurn: 0, times: 0,
             event: "hurt", turnType: BuffTurnEnum.thisTurn, dieNotRemove: true }]);

@@ -115,6 +115,9 @@ export class FightMud extends FightReport{
             case "addBuff":
                 if (msg[6]) this.write(`${this.name(msg[3])}将${this.buffName(msg[4])}施于${this.name(msg[2])}身上。`);
                 return true;
+            case "buffTimes":
+                this.write(`${this.name(msg[1])}身上的${this.buffName(msg[2])}还剩${msg[3]}次。`);
+                return true;
             case "removeBuff": {
                 const reason = msg[1] === "die" ? "（死亡清除）" : msg[1] === "turn" ? "（持续时间结束）" :
                     msg[1] === "times" ? "（次数耗尽）" : "";

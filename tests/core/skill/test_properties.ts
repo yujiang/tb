@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { PropEnum as P, getAttackMul, getHealMul, initSkills, initFightContex, FightCmdEnum,
-    TargetSelectEnum, initBuffs, getBuffData, DiedSelectEnum, WeaponEnum as W } from "../../../src";
+    TargetSelectEnum, initBuffs, getBuffData, WeaponEnum as W } from "../../../src";
 import { buffFunc } from "../../../src/fight/Buffs/BuffFuncType";
 import { AttrSkill } from "../../../src/fight/Skills/AttrSkill";
 import { heal } from "../../../src/fight/Skills/Funcs/Heal";
@@ -197,7 +197,7 @@ test("properties: periodic healing uses its caster while revival keeps its fixed
     fight.resolveAction(() => target.onHurt(actor, "test", 1000, dead)); flush(dead);
     initSkills([{ id: 99913, name: "复活", magic: true, rand: 1, attack: {}, final: {},
         func: "relife", skillProp: P.水, healRate: 0.3,
-        sel: { target: TargetSelectEnum.enmey, die: DiedSelectEnum.die } }]);
+        sel: { target: TargetSelectEnum.enmey } }]);
     actor.addSkill(99913, 1);
     const revived = fight.processUnit(actor, { cmd: FightCmdEnum.skill, skill: 99913, target: target.uid });
     assert.ok(revived); flush(revived);

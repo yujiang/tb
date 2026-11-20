@@ -11,7 +11,7 @@ import { initBuffs, BuffData, OverlapEnum } from "../../src/fight/Buffs/BuffData
 import { initPassives } from "../../src/fight/Passives/PassiveDatas";
 import { initSkills } from "../../src/fight/Skills/SkillDatas";
 import { FightUnitMonster } from "../../src/fight/Unit/FightUnitMonster";
-import { DiedSelectEnum, FightCmdEnum, FightResultEnum, FightSideEnum, TargetSelectEnum } from "../../src/fight/struct";
+import { FightCmdEnum, FightResultEnum, FightSideEnum, TargetSelectEnum } from "../../src/fight/struct";
 
 function setup() {
     const fight = new Fight(0, { maxTurn: 2, waitInputSec: 0.01, duiwei: false }, 0);
@@ -112,7 +112,7 @@ test("client: passive-granted dieNotRemove buff stays synchronized through death
     }]);
     initSkills([{
         id: reviveId, name: "复活", magic: true, rand: 1, func: "relife",
-        sel: { target: TargetSelectEnum.friend, die: DiedSelectEnum.die },
+        sel: { target: TargetSelectEnum.friend },
         attack: {}, final: {}, healRate: 0.5,
     }]);
     const { fight, loop, client, unit: healer, enemy } = setup();
@@ -132,8 +132,8 @@ test("client: passive-granted dieNotRemove buff stays synchronized through death
     assert.equal(clearedBuff.getLevel(), 2);
     const check = (dead: boolean, hp: number, hasOrdinaryBuff: boolean) => {
         const expectedBuffs = hasOrdinaryBuff
-            ? [[buffId, 3, 0, 0], [clearedBuffId, 2, 0, 0]]
-            : [[buffId, 3, 0, 0]];
+            ? [[buffId, 3, 0, 0, 0], [clearedBuffId, 2, 0, 0, 0]]
+            : [[buffId, 3, 0, 0, 0]];
         assert.equal(victim.isDied(), dead);
         assert.equal(victim.getHp(), hp);
         assert.equal(victim.findBuff(buffId), retainedBuff);

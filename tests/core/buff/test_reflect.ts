@@ -142,6 +142,19 @@ test("reflect: limited charges count actual transfers and unregister both listen
     assert.equal(holder.getHp(), 90);
 });
 
+// 测试：反射次数由公共流程同步给客户端，剩余一次仍保留展示，归零后移除并输出次数简报。
+test("reflect: remaining charges mirror to the client before expiration", () => {
+    const { holder, client, report, cast } = setup({ times: 2 });
+    assert.equal(client.getUnitById(holder.uid).buffs[0][4], 2);
+    const first = cast();
+    assert.deepEqual(first.msgs.filter(msg => msg[0] === "buffTimes"), [["buffTimes", holder.uid, reflectId, 1]]);
+    assert.equal(client.getUnitById(holder.uid).buffs[0][4], 1);
+    assert.match(report.toString(), /剩余 1 次/);
+    const last = cast();
+    assert.deepEqual(last.msgs.filter(msg => msg[0] === "buffTimes"), [["buffTimes", holder.uid, reflectId, 0]]);
+    assert.equal(client.getUnitById(holder.uid).buffs.length, 0);
+});
+
 // 测试：持有者满血时仍先转移治疗，不会先被自身生命上限截断。
 test("reflect: receiving a heal at full HP still transfers the heal before capping", () => {
     const { fight, holder, caster, heal } = setup({}, u => { u.attr.point.hp = 200; });
