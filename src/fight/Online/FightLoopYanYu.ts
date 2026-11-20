@@ -35,7 +35,10 @@ export class FightLoopYanYu extends FightLoopOnline {
         this.accepting = false;
         if (!this.started || this.fight.isEnd() || turn !== this.fight.turn) return 0;
         this.fight.resolveAction(() => {
-            for (const unit of this.fight.getAllUnits()) unit.inputStart(turn, ctx);
+            for (const unit of this.fight.getAllUnits()) {
+                if (unit instanceof FightUnitMonster && unit.getExtraActions().length) unit.inputStart(turn, ctx, true);
+                else unit.inputStart(turn, ctx);
+            }
         });
         this.accepting = !this.fight.isEnd();
         return 1; // 自动普攻不等待玩家收齐指令。
@@ -67,7 +70,7 @@ export class FightLoopYanYu extends FightLoopOnline {
             unit.hintClient("自身已死亡，无法行动");
             return false;
         }
-        if (unit.getActionBlockBuff()) {
+        if (unit.isForbid("action")) {
             unit.hintClient("当前无法行动");
             return false;
         }
@@ -101,7 +104,8 @@ export class FightLoopYanYu extends FightLoopOnline {
                     const action = this.takeAction(), unit = action.unit;
                     // 显式 FightAI 可以选择主动技能；未配置 AI 的单位保留原自动普攻行为。
                     const input = unit instanceof FightUnitMonster && unit.ai ? unit.input : undefined;
-                    ctx = action.inserted ? this.insertedContext(action) : this.fight.processUnit(unit, input ?? { cmd: FightCmdEnum.attack });
+                    ctx = action.inserted ? this.insertedContext(action) : unit.getExtraActions().length ?
+                        this.freshInputContext(action, true) : this.fight.processUnit(unit, input ?? { cmd: FightCmdEnum.attack });
                     if (ctx) ctx.msgs.unshift(this.actorMessage(action));
                     else this.syncActionOrder();
                 } else break;

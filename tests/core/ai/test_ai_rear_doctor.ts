@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { BaseAttack, CarerrEnum, Fight, FightAIRearDoctor, FightAttr, FightSide, FightUnitMonster, FightUnitUser,
+import { BaseAttack, CarerrEnum, Fight, FightAITarget, FightAttr, FightSide, FightUnitMonster, FightUnitUser,
     FightCmdEnum, FightLoopPC, FightClient, initFightContex, initBuffs, OverlapEnum } from "../../../src";
 
 function attr(career = CarerrEnum.战士) {
@@ -26,7 +26,7 @@ function setup(nx = 3, ny = 3) {
     warrior.setPos(fight.map.getPos(1, ny - 1)); monster.setPos(0);
     const a = new FightSide(), b = new FightSide(); a.units.push(doctor, frontDoctor, warrior); b.units.push(monster);
     fight.createSide(a, b);
-    monster.ai = new FightAIRearDoctor();
+    monster.ai = new FightAITarget({ type: "rearDoctor" });
     const loop = new FightLoopPC(fight), client = new FightClient();
     loop.onMsg(msgs => client.onMsg(structuredClone(msgs)));
     loop.start(); loop.nextTurn();

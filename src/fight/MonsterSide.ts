@@ -48,6 +48,7 @@ export class MonsterSide extends FightSide {
         if (data.supportSkill !== undefined) unit.setSupportSkill(data.supportSkill);
         if (data.ultimateSkill !== undefined) unit.setUltimateSkill(data.ultimateSkill);
         if (data.inputSkill !== undefined) unit.inputSkill = data.inputSkill;
+        if (data.extraAction) unit.setExtraActions(data.extraAction);
         if (data.rules) unit.setRules(data.rules);
         if (data.ai) unit.setAI(data.ai);
         if (unit.getHp() <= 0) unit.die();

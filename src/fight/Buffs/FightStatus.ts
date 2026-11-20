@@ -1,6 +1,7 @@
 //自己行动
 const statusForbidActions : Record<string, string[]> = {
     "封印": ['attack', 'skill'],
+    "休息": ['action'], // 跳过主动行动（含防御），不在提交阶段禁止普攻/技能输入。
     "沉默": ['skill'],
     "眩晕": ['attack', 'skill', 'item', 'escapse', 'dodge', 'fback'], 
 }

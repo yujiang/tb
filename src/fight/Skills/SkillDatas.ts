@@ -13,6 +13,8 @@ export interface SkillData {
 
     /** true 使用魔法攻击/防御分组且不做物理命中检查；false 使用物理分组。 */
     magic: boolean;
+    /** true跳过物理命中检查，不受目标闪避影响；缺省false，魔法技能原本就不做物理命中检查；不改变发动概率。 */
+    alwaysHit?: boolean;
     /** 技能五行；缺省时攻击/毒伤取施放者 weaponProp，治疗取 charProp；显式 none 不回退。 */
     skillProp?: PropEnum;
 

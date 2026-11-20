@@ -161,7 +161,7 @@ test("support: unavailable allies and a killed target are skipped", () => {
         const s = setup(undefined, false, ({ a }) => {
             if (unavailable === "dead") a.dead = true;
             if (unavailable === "forbid") a.isForbid = () => true;
-            if (unavailable === "rest") a.getActionBlockBuff = () => ({}) as ReturnType<typeof a.getActionBlockBuff>;
+            if (unavailable === "rest") a.inStatus = status => status === "休息";
         });
         assert.equal(s.cast().msgs.filter(m => m[4] === "support").length, 0);
     }

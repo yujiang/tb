@@ -49,3 +49,7 @@
 2. 把crit,damageRate,相生相克放在一起相加计算
 3. FightAI
 4. MonsterData and zhen
+
+# 0.1.4
+1. selectTarget refactor(remove spread, die check move to skill)
+

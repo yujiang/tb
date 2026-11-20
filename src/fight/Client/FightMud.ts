@@ -107,7 +107,7 @@ export class FightMud extends FightReport{
                 this.write(`${this.name(msg[1])}欲使出${this.skillName(msg[3])}，却气机一滞，这一式未能发动。`);
                 return true;
             case "skipAction":
-                this.write(`${this.name(msg[1])}受${this.buffName(msg[2])}影响，只能按兵不动，这一回合未能行动。`);
+                this.write(`${this.name(msg[1])}受${msg[2] != null ? this.buffName(msg[2]) : msg[3]}影响，只能按兵不动，这一回合未能行动。`);
                 return true;
             case "protect":
                 this.write(`${this.name(msg[1])}挺身护在${this.name(msg[2])}身前，准备替其挡下攻势。`);

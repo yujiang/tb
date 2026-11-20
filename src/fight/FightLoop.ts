@@ -48,11 +48,25 @@ export abstract class FightLoop {
     }
     protected takeAction() { return this.currentAction = this.actionQueue.shift(); }
     protected insertedContext(action: FightAction): FightContex | undefined {
+        if (action.speedRate !== undefined) return this.freshInputContext(action, true);
         if (!this.fight.checkPC(action.unit, action.input)) return undefined;
         return this.fight.processUnit(action.unit, action.input);
     }
+    // 模板普通行动/额外AI行动在实际出手时决策，不重复推进输入周期Buff。
+    protected freshInputContext(action: FightAction, automatic = false): FightContex | undefined {
+        const unit = action.unit;
+        if (unit.isDied()) return undefined;
+        if (unit.isForbid("action")) return this.fight.processUnit(unit, { cmd: FightCmdEnum.none });
+        const before = initFightContex(this.fight);
+        const input = action.input ?? this.fight.resolveAction(() => unit.getActionInput(this.fight.turn, before, automatic));
+        action.input = { ...input };
+        const ctx = this.fight.checkPC(unit, input) ? this.fight.processUnit(unit, input) : undefined;
+        if (ctx) ctx.msgs.unshift(...before.msgs);
+        else this.bcMsg(before.msgs);
+        return ctx;
+    }
     protected actorMessage(action: FightAction): fightMsg {
-        return action.inserted ? ["actor", action.unit.uid, action.unit.getSpeed(), "insert", action.id] :
+        return action.inserted ? ["actor", action.unit.uid, action.unit.getSpeed() * (action.speedRate ?? 1), "insert", action.id] :
             ["actor", action.unit.uid, action.unit.getSpeed()];
     }
     protected stopped = false;
@@ -207,7 +221,7 @@ export abstract class FightLoop {
     private speedListener = (unit: FightUnit) => this.onChangeSpeed(unit);
     onChangeSpeed(unit: FightUnit) {
         if (!this.processUnits?.includes(unit)) return;
-        this.actionQueue.sort((a, b) => this.compareProcessUnits(a, b, false));
+        this.actionQueue.sort((a, b) => this.compareProcessUnits(a, b, false), (a, b) => this.compareProcessActions(a, b, false));
         this.syncActionOrder();
     }
 
@@ -226,7 +240,7 @@ export abstract class FightLoop {
     }
 
     private getUltimateUnits(side: FightSideEnum): FightUnit[] {
-        return this.fight.getSideUnits(side).filter(unit => !unit.isDied() && !unit.getActionBlockBuff() &&
+        return this.fight.getSideUnits(side).filter(unit => !unit.isDied() && !unit.isForbid("action") &&
             !unit.isForbid("skill") && unit.getUltimateSkill() && unit.getSkillCd(unit.ultimateSkill) === 0);
     }
 
@@ -296,6 +310,14 @@ export abstract class FightLoop {
         return priority(b) - priority(a) || b.getSpeedOrder() - a.getSpeedOrder();
     }
 
+    protected compareProcessActions(a: FightAction, b: FightAction, withInput = true) {
+        if (a.speedRate === undefined && b.speedRate === undefined) return this.compareProcessUnits(a.unit, b.unit, withInput);
+        const priority = (action: FightAction) => withInput &&
+            (action.speedRate !== undefined ? action.input : action.unit.input)?.cmd === FightCmdEnum.protect ? 1 : 0;
+        return priority(b) - priority(a) ||
+            b.unit.getSpeedOrder() * (b.speedRate ?? 1) - a.unit.getSpeedOrder() * (a.speedRate ?? 1);
+    }
+
     sortUnitsByProcess(withInput = true){
         const all = this.fight.getAllUnits();
         // all包括死亡单位，如果他中途被复活了，还在列表中，就可以行动；否则下个回合才能行动！
@@ -304,6 +326,8 @@ export abstract class FightLoop {
         all.sort((a, b) => this.compareProcessUnits(a, b, withInput));
 
         this.processUnits = all; //但是如果有插队,降速会扰乱出手表?
+        this.actionQueue.sort((a, b) => this.compareProcessUnits(a, b, withInput),
+            (a, b) => this.compareProcessActions(a, b, withInput));
     
         return all;
     }

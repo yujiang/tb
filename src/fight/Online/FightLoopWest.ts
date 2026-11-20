@@ -3,6 +3,7 @@ import { FightContex } from "../Fight";
 import { FightInput } from "../struct";
 import { FightUnit } from "../Unit/FightUnit";
 import { FightLoopOnline } from "./FightLoopOnline";
+import { FightUnitMonster } from "../Unit/FightUnitMonster";
 
 // 梦幻西游
 // 网游的常规流程, 指令全部下完,统一处理
@@ -26,11 +27,12 @@ export class FightLoopWest extends FightLoopOnline {
         let index = 0;
         this.inputOrderReady = true;
         // 指令收齐后按优先级、速度统一排序，先同步行动条，再逐个执行。
-        this.actionQueue.sort((a, b) => this.compareProcessUnits(a, b));
+        this.actionQueue.sort((a, b) => this.compareProcessUnits(a, b), (a, b) => this.compareProcessActions(a, b));
         this.syncActionOrder();
         while (this.actionQueue.length && !this.fight.isEnd() && !this.stopped) {
             const action = this.takeAction(), u = action.unit;
-            let ctx = action.inserted ? this.insertedContext(action) : u.processOneTurn(turn);
+            let ctx = action.inserted ? this.insertedContext(action) :
+                u.getExtraActions().length ? this.freshInputContext(action) : u.processOneTurn(turn);
             if (ctx) {
                 ctx.msgs.unshift(this.actorMessage(action));
                 this.bcMsg(ctx.msgs);
@@ -44,7 +46,8 @@ export class FightLoopWest extends FightLoopOnline {
         const all = this.processUnits;
         if (all?.includes(u)) {
             // this.processUnits 重新排序？
-            this.actionQueue.sort((a, b) => this.compareProcessUnits(a, b, this.inputOrderReady));
+            this.actionQueue.sort((a, b) => this.compareProcessUnits(a, b, this.inputOrderReady),
+                (a, b) => this.compareProcessActions(a, b, this.inputOrderReady));
             this.syncActionOrder();
         }
     }
@@ -58,7 +61,8 @@ export class FightLoopWest extends FightLoopOnline {
         let input = 0;
         this.fight.resolveAction(() => {
             for (const u of all) {
-                u.inputStart(turn, ctx);
+                if (u instanceof FightUnitMonster && u.getExtraActions().length) u.inputStart(turn, ctx, true);
+                else u.inputStart(turn, ctx);
                 if (u.needInput()) input++;
             }
         });

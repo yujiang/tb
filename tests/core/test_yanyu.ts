@@ -360,9 +360,9 @@ test("yanyu: input is closed before preparation and rejects dead or resting cast
     const input: FightInput = { turn: 1, cmd: FightCmdEnum.skill, skill: skillId, target: s.c.uid };
     assert.equal(await fresh.onInput(s.a.uid, input), false);
     fresh.start(); assert.equal(await fresh.onInput(s.a.uid, input), false); fresh.end();
-    const block = s.a.getActionBlockBuff.bind(s.a);
-    s.a.getActionBlockBuff = () => ({}) as ReturnType<typeof s.a.getActionBlockBuff>;
-    assert.equal(await s.input(), false); s.a.getActionBlockBuff = block;
+    const status = s.a.inStatus.bind(s.a);
+    s.a.inStatus = name => name === "休息";
+    assert.equal(await s.input(), false); s.a.inStatus = status;
     assert.deepEqual(hints, ["当前无法行动"]);
     const ctx = initFightContex(s.fight);
     s.fight.resolveAction(() => s.a.onHurt(s.c, "test", 1000, ctx)); s.loop.bcMsg(ctx.msgs);

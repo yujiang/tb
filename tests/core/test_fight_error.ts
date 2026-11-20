@@ -15,7 +15,7 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
         s.actor.attrOri.speed = 500; s.target.attrOri.speed = 100; s.other.attrOri.speed = 50;
         s.actor.setAttackSkill(chainIds.first);
         s.fight.getDefaultEnemy = () => s.target;
-        s.target.addRule(new FightRuleHp([{ hp: 0.7, attackRate: 0.2 }]));
+        s.target.addRule(new FightRuleHp({ type: "hp", lines: [{ hp: 0.7, attackRate: 0.2 }] }));
         for (const unit of s.fight.getAllUnits()) unit.calcAttr();
         const failure = new Error("skill execution failed");
         s.target.onContex("beforeHurt", () => { throw failure; });

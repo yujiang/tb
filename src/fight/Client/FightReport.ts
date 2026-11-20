@@ -190,7 +190,7 @@ export class FightReport{
                     this.write(`${name(msg[1])} 的${this.skillName(msg[3])}未发动（发动概率判定失败）`);
                     break;
                 case "skipAction":
-                    this.write(`${name(msg[1])} 因${this.buffName(msg[2])}跳过行动`);
+                    this.write(`${name(msg[1])} 因${msg[2] != null ? this.buffName(msg[2]) : msg[3]}跳过行动`);
                     break;
                 case "protect":
                     this.write(`${name(msg[1])} 保护 ${name(msg[2])}`);

@@ -24,7 +24,7 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 
 状态和属性、周期、特殊类并不互斥，不需要另设一个互斥的 Buff type。
 
-`FightStatus` 将自身行动限制与受作用限制分开：`isForbid(action)` 判断自身能否行动，`isForbidBeAction(action)` 判断能否接受对应作用。受作用表中，石化和死亡禁止 `attack/skill`；禁疗禁止 `heal`，禁毒禁止 `poison`，禁复活禁止 `relife`。死亡同时识别单位真实死亡和配置的“死亡”状态，状态可以来自 Buff 或被动。
+`FightStatus` 将自身行动限制与受作用限制分开；休息映射为独立 `action`，统一通过 `isForbid("action")` 跳过主动行动（含防御），但仍允许 West 提交指令，支持 Buff 和被动：`isForbid(action)` 判断自身能否行动，`isForbidBeAction(action)` 判断能否接受对应作用。受作用表中，石化和死亡禁止 `attack/skill`；禁疗禁止 `heal`，禁毒禁止 `poison`，禁复活禁止 `relife`。死亡同时识别单位真实死亡和配置的“死亡”状态，状态可以来自 Buff 或被动。
 
 技能选目标经 `FightSkill.canTarget` 使用这张表：普通物理攻击检查 `attack`，其他非复活技能检查 `skill`，并叠加各自 `func` 的限制。复活只检查独立 `relife` 入口，还要求真实死亡且复活量大于零，因此不会被普通受击的死亡限制拦住。
 
@@ -56,7 +56,7 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 | `relife` | 数值 `(0,1]`，缺省 0.2 | 真实死亡后等完整 action 结束自动复活，每场一次；dieNotRemove 必须 true |
 | `taunt` | 不读取 | 挂在被嘲讽者身上，施加者成为强制主目标；不是禁止对方行动 |
 | `reflect` | `{ magicOnly?: boolean }`，magicOnly 缺省 true | 默认转移魔法伤害给攻击者，治疗转给随机存活敌人；false 也转移物理伤害 |
-| `rest` | 不读取 | 存在时跳过主动行动；持续时间由 turnType/lastTurn 配置 |
+| `rest` | 不读取 | 兼容提供休息状态；新配置直接用 status:["休息"] 即可，持续时间由 turnType/lastTurn 配置 |
 | `protect` | 不读取 | 挂在被保护者身上，施加者承担一半合格直接攻击伤害；比例固定，不用参数调节 |
 
 不屈/自动复活固定使用一次，不是填 times=10 就能变成十次。反射在成功转移时扣 times；保护当前按持续时间移除，不使用普通次数消耗流程。特殊类的 event/prior 行为应按类说明配置，不能只套普通 Buff 的计次规则。

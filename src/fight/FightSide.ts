@@ -42,6 +42,26 @@ function defaultBaseAttack(): BaseAttack {
 
 export class FightSide {
     units: FightUnit[] = [];
+    /** 本阵营成员造成的实际扣血，按来源运行UID累计；0号有效，死亡或离场不删除，单位为生命点。 */
+    readonly hurt = new Map<number, number>();
+    /** 本阵营成员造成的实际回血，按来源运行UID累计；含自疗，不含溢出，死亡或离场不删除，单位为生命点。 */
+    readonly heal = new Map<number, number>();
+
+    recordHurt(uid: number, amount: number) {
+        if (amount > 0) this.hurt.set(uid, (this.hurt.get(uid) ?? 0) + amount);
+    }
+    recordHeal(uid: number, amount: number) {
+        if (amount > 0) this.heal.set(uid, (this.heal.get(uid) ?? 0) + amount);
+    }
+    clearContributions() {
+        this.hurt.clear(); this.heal.clear();
+    }
+    /** 返回独立的个人贡献列表，含当前零贡献成员和有贡献的离场成员；便于宿主战后展示，不重排阵营。 */
+    getContributions(): { uid: number; hurt: number; heal: number }[] {
+        const ids = new Set([...this.units.map(unit => unit.uid), ...this.hurt.keys(), ...this.heal.keys()]);
+        return [...ids].map(uid => ({ uid, hurt: this.hurt.get(uid) ?? 0, heal: this.heal.get(uid) ?? 0 }));
+    }
+
     createSimpleMonster(f:Fight, datas: simpleData[]): void {
         for (const data of datas){
             const attr = new FightAttr()

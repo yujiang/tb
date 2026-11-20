@@ -16,10 +16,23 @@ test('package entry exports the current Fight implementation and has declaration
     assert.equal(typeof api.FightLoop.prototype.onError, 'function');
     assert.equal(typeof api.FightUnit.prototype.getUltimateSkill, 'function');
     assert.equal(typeof api.FightUnitMonster.prototype.setAI, 'function');
+    assert.equal(typeof api.FightUnitMonster.prototype.setExtraActions, 'function');
     assert.equal(typeof api.FightUnitMonster.prototype.setRules, 'function');
     assert.equal(typeof api.FightUnitMonster.prototype.clearRules, 'function');
     assert.equal(typeof api.FightAI, 'function');
-    assert.ok(api.FightAIRearDoctor.prototype instanceof api.FightAI);
+    assert.equal(typeof api.FightBehavior, 'function');
+    assert.ok(api.FightAI.prototype instanceof api.FightBehavior);
+    assert.ok(api.FightRule.prototype instanceof api.FightBehavior);
+    assert.equal(api.FightAI.prototype instanceof api.FightRule, false);
+    assert.equal(typeof api.FightAI.prototype.getXls, 'function');
+    assert.equal(typeof api.FightAI.prototype.getCustom, 'function');
+    assert.ok(api.FightAITarget.prototype instanceof api.FightAI);
+    assert.ok(api.FightAILowHpHeal.prototype instanceof api.FightAI);
+    assert.ok(api.createAI({ type: 'lowHpHeal', skill: 10012101 }) instanceof api.FightAILowHpHeal);
+    assert.equal(typeof api.createLethalSkillData, 'function');
+    assert.equal(api.createLethalSkillData(10011701).alwaysHit, true);
+    assert.equal(api.createLethalSkillData(10011702, true).magic, true);
+    assert.equal(typeof api.FightSide.prototype.getContributions, 'function');
     assert.equal(typeof api.createAI, 'function');
     assert.ok(api.MonsterSide.prototype instanceof api.FightSide);
     for (const name of ['CreateMonsterSide', 'initMonsters', 'getMonsterData', 'initZhens', 'getZhenPos', 'createRule']) {

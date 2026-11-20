@@ -1,6 +1,7 @@
 import { FightContex } from "../Fight";
 import { FightUnit, UnitContextEventFunc, UnitEventFunc } from "../Unit/FightUnit";
 import { BuffData, BuffTurnEnum } from "./BuffDatas";
+import { findForbidStatusByAction } from "./FightStatus";
 import { buffFunc } from "./BuffFuncType";
 import { FightStatic } from "./StaticData";
 
@@ -79,7 +80,7 @@ export class FightBuff extends FightStatic{
     }
 
     blocksAction(): boolean {
-        return false;
+        return findForbidStatusByAction("action")?.some(status => this.inStatus(status)) ?? false;
     }
 
     // onTurn(turn: number){
@@ -107,6 +108,7 @@ export class FightBuff extends FightStatic{
         return this.xls.power ?? 0;
     }
 
+    // 用于buff替换
     greatPower(power: number, lv: number){
         return this.getPower() > power || (power == this.getPower() && this.level >= lv);
     }

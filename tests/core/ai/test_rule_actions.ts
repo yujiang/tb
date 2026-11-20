@@ -12,7 +12,7 @@ test("rules: two turn axes both insert actions without replacing normal input", 
     } });
     const ids = [1001401, 1001402];
     initSkills(ids.map(id => ({ ...s.skills[0], id, name: `周期${id}`, cost: { mp: 0 } })));
-    ids.forEach(id => { s.target.addSkill(id, 1); s.target.addRule(new FightRuleTurn(1, id)); });
+    ids.forEach(id => { s.target.addSkill(id, 1); s.target.addRule(new FightRuleTurn({ type: "turn", every: 1, skill: id })); });
     s.target.setAttackSkill(chainIds.first); s.target.addSkill(chainIds.first, 1);
     const loop = new FightLoopPC(s.fight), messages: fightMsg[] = [];
     loop.onMsg(msgs => { messages.push(...(typeof msgs[0] === "string" ? [msgs as fightMsg] : msgs as fightMsg[])); });
@@ -115,8 +115,8 @@ test("actions: cancelling the insertion tail preserves FIFO for later requests",
 test("rules: a single AI coexists with independent rules", () => {
     const s = setup();
     class DefendAI extends FightAI { override waitInput() { return { cmd: FightCmdEnum.defend }; } }
-    s.target.ai = new DefendAI(); s.target.addRule(new FightRuleHp([{ hp: 0.5, attackRate: 0.2 }]));
-    s.target.addRule(new FightRuleTurn(1, chainIds.first));
+    s.target.ai = new DefendAI(); s.target.addRule(new FightRuleHp({ type: "hp", lines: [{ hp: 0.5, attackRate: 0.2 }] }));
+    s.target.addRule(new FightRuleTurn({ type: "turn", every: 1, skill: chainIds.first }));
     const before = initFightContex(s.fight); s.loop.processBeforeTurn(1, before); s.flush(before);
     s.target.inputStart(1, initFightContex(s.fight));
     assert.equal(s.target.input.cmd, FightCmdEnum.defend);
@@ -130,7 +130,7 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
     test(`rules: ${Loop.name} executes an inserted action and one ordinary action`, async () => {
         const s = setup(), loop = new Loop(s.fight), messages: fightMsg[] = [];
         s.target.setAttackSkill(chainIds.first);
-        s.target.addRule(new FightRuleTurn(1, chainIds.first, InsertActionPos.afterSelf));
+        s.target.addRule(new FightRuleTurn({ type: "turn", every: 1, skill: chainIds.first, pos: InsertActionPos.afterSelf }));
         loop.onMsg(msgs => { messages.push(...(typeof msgs[0] === "string" ? [msgs as fightMsg] : msgs as fightMsg[])); s.loop.bcMsg(msgs); });
         loop.on("input", unit => loop.onInput(unit.uid, { cmd: FightCmdEnum.defend }));
         loop.start(); s.fight.turn = 0; loop.nextTurn();

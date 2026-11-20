@@ -1,15 +1,26 @@
 import { Fight, FightContex } from "../Fight";
-import { FightCmdEnum, SkillCost } from "../struct";
+import { FightCmdEnum, FightInput, SkillCost, SpeedSkill } from "../struct";
 import { FightUnit } from "./FightUnit";
-import { FightAI } from "../AI/FightAI";
-import { FightRule } from "../Rules/FightRule";
+import { FightAI, createAI } from "../AI/FightAI";
+import { FightRule, createRule } from "../Rules/FightRule";
 import { FightAttr } from "../FightAttr";
 import { strict as assert } from "node:assert";
-import { AIData, createAI } from "../AI/AIDatas";
-import { RuleData, createRule } from "../Rules/RuleDatas";
+import type { AIData } from "../AI/AIDatas";
+import type { RuleData } from "../Rules/RuleDatas";
 
 export class FightUnitMonster extends FightUnit {
     monsterId?: number;
+    extraAction: SpeedSkill[] = [];
+    override getExtraActions(): readonly SpeedSkill[] { return this.extraAction; }
+    setExtraActions(actions: readonly SpeedSkill[]) {
+        assert.ok(actions.length <= 64, "extraAction must contain at most 64 entries");
+        this.extraAction = actions.map(([rate, skill]) => {
+            assert.ok(Number.isFinite(rate) && rate >= 0, "extraAction speed rate must be finite and nonnegative");
+            assert.ok(Number.isSafeInteger(skill) && skill >= 0, "extraAction skill must be a nonnegative safe integer");
+            assert.ok(skill === 0 || (this.findSkill(skill) && skill !== this.ultimateSkill), "extraAction skill must be learned and must not use the ultimate slot");
+            return [rate, skill];
+        });
+    }
     private decisionAI: FightAI | undefined;
     private ruleEntries: { rule: FightRule; prior: number; order: number }[] = [];
     private nextRuleOrder = 0;
@@ -28,13 +39,15 @@ export class FightUnitMonster extends FightUnit {
     get rules(): readonly FightRule[] { return this.ruleEntries.map(entry => entry.rule); }
     // 可直接使用表里的规则配置；传入已有实例时保留其计数、阶段和监听。
     setRules(values: readonly (FightRule | RuleData)[]) {
-        const entries = values.map((value, index) => ({
-            rule: value instanceof FightRule ? value : createRule(value),
-            prior: value instanceof FightRule ? 0 : value.prior ?? 0,
-            order: this.nextRuleOrder + index,
-        }));
+        const entries = values.map((value, index) => {
+            assert.ok(!(value instanceof FightAI), "Assign decision AI through ai, not setRules");
+            return {
+                rule: value instanceof FightRule ? value : createRule(value),
+                prior: value instanceof FightRule ? 0 : value.prior ?? 0,
+                order: this.nextRuleOrder + index,
+            };
+        });
         for (const entry of entries) {
-            assert.ok(!(entry.rule instanceof FightAI), "Assign decision AI through ai, not setRules");
             assert.ok(Number.isFinite(entry.prior), "Rule prior must be finite");
         }
         const next = new Set(entries.map(entry => entry.rule));
@@ -53,7 +66,7 @@ export class FightUnitMonster extends FightUnit {
     }
     clearRules() { this.setRules([]); }
     addRule(rule: FightRule, prior = 0): boolean {
-        assert.ok(!(rule instanceof FightAI), "Assign decision AI through ai, not addRule");
+        assert.ok(rule instanceof FightRule, "rule must be a FightRule; assign AI through ai, not addRule");
         assert.ok(Number.isFinite(prior), "Rule prior must be finite");
         if (this.ruleEntries.some(entry => entry.rule === rule)) return false;
         rule.bind(this);
@@ -90,17 +103,20 @@ export class FightUnitMonster extends FightUnit {
     }
     override isMonster() { return true; }
     inputSkill = 0;
-    override inputStart(turn: number, ctx: FightContex) {
+    override inputStart(turn: number, ctx: FightContex, deferDecision = false) {
         super.inputStart(turn, ctx);
+        if (!deferDecision) this.input = this.getActionInput(turn, ctx);
+    }
+    override getActionInput(turn: number, ctx: FightContex, automatic = false): FightInput {
+        if (automatic && !this.ai) return { cmd: FightCmdEnum.attack };
         if (this.ai || this.ruleEntries.length) {
             const input = this.ai?.waitInput(this, turn, ctx);
-            this.input = { ...(input ?? { cmd: FightCmdEnum.attack }) };
-            return;
+            return { ...(input ?? { cmd: FightCmdEnum.attack }) };
         }
         // 无 AI、无规则时保留原固定技能和技能首项的处理。
-        if (this.inputSkill) this.input = { cmd: FightCmdEnum.skill, skill: this.inputSkill };
-        else if (this.skills.size > 0) this.input = { cmd: FightCmdEnum.skill, skill: this.skills.keys().next().value };
-        else this.input = { cmd: FightCmdEnum.none };
+        if (this.inputSkill) return { cmd: FightCmdEnum.skill, skill: this.inputSkill };
+        if (this.skills.size > 0) return { cmd: FightCmdEnum.skill, skill: this.skills.keys().next().value };
+        return { cmd: FightCmdEnum.none };
     }
     // monster不消耗
     costSkill(cost: SkillCost) { return true; }

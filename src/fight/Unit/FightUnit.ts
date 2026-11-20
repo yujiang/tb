@@ -1,6 +1,6 @@
 import { Fight, FightContex} from "../Fight";
 import { FightAttr, getAttackMul, PropEnum, WeaponEnum } from "../FightAttr";
-import { FightCmdEnum, FightDisplay, FightInput, FightSideEnum, IdLevelArray, IdRand, SkillCost } from "../struct";
+import { FightCmdEnum, FightDisplay, FightInput, FightSideEnum, IdLevelArray, IdRand, SkillCost, SpeedSkill } from "../struct";
 import { FightSkill } from "../Skills/FightSkill";
 import { getSkillData } from "../Skills/SkillDatas";
 import { createBuff, FightBuff} from "../Buffs/FightBuff";
@@ -160,6 +160,7 @@ export abstract class FightUnit {
 
         ctx.msgs.push(["hurt", why, this.uid, attacker.uid, hp, point.hp, ctx.effects])
         this.addEnemy(attacker, hp);
+        if (attacker.fight === ctx.fight) ctx.fight.Sides?.[attacker.side]?.recordHurt(attacker.uid, previousHp - point.hp);
         results.push(() => {
             if (point.hp !== previousHp) this.emitContext("hp", ctx, attacker, previousHp, point.hp);
             // 分担只承担伤害，不展开保护者自己的受伤反应链；死亡流程仍正常执行。
@@ -177,7 +178,7 @@ export abstract class FightUnit {
     // 加入仇恨列表
     friendHeal : Map<number, number> = new Map();
     addFriend(attacker: FightUnit, hp: number){
-        if (attacker == this) return;
+        if (hp <= 0) return;
         this.friendHeal.set(attacker.uid, (this.friendHeal.get(attacker.uid) ?? 0) + hp)
     }
     clearFriend(){
@@ -198,9 +199,10 @@ export abstract class FightUnit {
 
         const point = this.attr.point;
         ctx.msgs.push(["heal", why, this.uid, attacker.uid, hp, point.hp, effects])
-        this.addFriend(attacker, hp);
         const previousHp = point.hp;
         point.hp = Math.min(point.hp + hp, point.hpMax);
+        this.addFriend(attacker, point.hp - previousHp);
+        if (attacker.fight === ctx.fight) ctx.fight.Sides?.[attacker.side]?.recordHeal(attacker.uid, point.hp - previousHp);
         if (point.hp !== previousHp) this.emitContext("hp", ctx, attacker, previousHp, point.hp);
         this.emitContext("heal", ctx, attacker, why, hp);
     }
@@ -361,6 +363,12 @@ export abstract class FightUnit {
         this.onBuffTurn(this.myInputTurn, BuffTurnEnum.inputTurn, ctx);
     }
 
+    getExtraActions(): readonly SpeedSkill[] { return []; }
+    // 仅决策普通行动，不推进输入次数或触发输入周期Buff。
+    getActionInput(turn: number, ctx: FightContex, automatic = false): FightInput {
+        return { ...(this.input ?? { cmd: FightCmdEnum.none }) };
+    }
+
     onInput(input: FightInput){
         if (!this.fight?.checkOnline(this, input)) return false;
         this.input = {...input};
@@ -444,6 +452,11 @@ export abstract class FightUnit {
 
     //buff status and forbid
     buffs = new Map<number,FightBuff>();
+    getActionBlockStatus(): string | undefined {
+        return findForbidStatusByAction("action")?.find(status => this.inStatus(status));
+    }
+
+    // 只查询展示原因；是否跳过统一用isForbid("action")，也支持被动状态。
     getActionBlockBuff(): FightBuff | undefined {
         return [...this.buffs.values()].find(buff => buff.blocksAction());
     }

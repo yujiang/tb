@@ -246,6 +246,7 @@ export class Fight{
 
     AllUnits: AllUnitType;
     createSide(attack: FightSide, des: FightSide) {
+        attack.clearContributions(); des.clearContributions();
         this.Sides = [attack, des];
         this.AllUnits = [attack.units, des.units];
         //console.log("AllUnits", this.fid, "attack", attack.units.length, "des", des.units.length)
@@ -410,7 +411,7 @@ export class Fight{
     // PC 立即行动：自身可行动、费用足够、目标能接受效果；检查不抽样、不扣费。
     checkPC(unit: FightUnit, input: FightInput, ultimate = false): boolean {
         if (unit.isDied()) { unit.hintClient("自身已死亡，无法行动"); return false; }
-        if (unit.getActionBlockBuff()) { unit.hintClient("当前无法行动"); return false; }
+        if (unit.isForbid("action")) { unit.hintClient("当前无法行动"); return false; }
         if (!this.validateInput(unit, input, ultimate)) return false;
         const skill = input.cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) : undefined;
         const cost = skill?.getCost();
@@ -444,7 +445,7 @@ export class Fight{
         const attack = input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none;
         const equipped = attack ? unit.getAttackSkill() : undefined;
         const skill = (input.cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) : equipped?.isMulti() ? equipped : undefined)
-            ?? getDefaultSkill({ target: this.xls.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey });
+            ?? getDefaultSkill({ target: input.target === undefined && this.xls.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey });
         const explicit = input.target !== undefined ? this.getUnitById(input.target) : undefined;
         if (input.target !== undefined && !explicit) { unit.hintClient("目标不存在"); return undefined; }
         if (attack && explicit?.isDied()) { unit.hintClient("目标已死亡"); return undefined; }
@@ -523,11 +524,12 @@ export class Fight{
             unit.hintClient("自身已死亡，无法行动");
             return;
         }
-        const block = unit.getActionBlockBuff();
-        if (block) {
+        if (unit.isForbid("action")) {
+            const block = unit.getActionBlockBuff();
             unit.hintClient("当前无法行动");
             return { fight: this, attack: unit, defend: null, effects: [],
-                msgs: [["skipAction", unit.uid, block.getId()]] };
+                msgs: [block ? ["skipAction", unit.uid, block.getId()] :
+                    ["skipAction", unit.uid, null, unit.getActionBlockStatus()]] };
         }
         if (!this.validateInput(unit, input, this.ultimateCaster === unit)) return;
         return this.resolveAction(() => this.executeUnit(unit, input));

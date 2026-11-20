@@ -7,7 +7,7 @@ export function trySupport(attacker: FightUnit, defender: FightUnit, ctx: FightC
     const fight = ctx.fight;
     if (ctx.supporting || attacker.isDied() || defender.isDied() || attacker.side === defender.side) return false;
     const candidates = fight.getAllUnits().filter(unit => unit !== attacker && unit.side === attacker.side &&
-        unit.fight === fight && !unit.isDied() && !unit.isForbid("attack") && !unit.getActionBlockBuff() &&
+        unit.fight === fight && !unit.isDied() && !unit.isForbid("attack") && !unit.isForbid("action") &&
         unit.lastSupportTurn !== fight.turn && unit.getSupportSkill()?.getFunc() === "normal");
     if (!candidates.length) return false;
     const supporter = candidates.length === 1 ? candidates[0] : fight.randArray(candidates);

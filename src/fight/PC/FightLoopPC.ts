@@ -65,7 +65,7 @@ export class FightLoopPC extends FightLoop {
                 if (unit.isDied()) continue;
 
                 let input = unit.input ?? { cmd: FightCmdEnum.none };
-                if (unit.needInput() && !unit.getActionBlockBuff()) {
+                if (unit.needInput() && !unit.isForbid("action")) {
                     input = await this.waitUnitInput(unit, turn);
                     if (!this.started || this.fight.isEnd() || this.fight.turn !== turn) break;
                     if (!input) continue;
@@ -107,7 +107,7 @@ export class FightLoopPC extends FightLoop {
             this.closeInput();
             return false;
         }
-        if (unit.getActionBlockBuff()) {
+        if (unit.isForbid("action")) {
             unit.hintClient("当前无法行动");
             this.closeInput({ cmd: FightCmdEnum.none });
             return false;

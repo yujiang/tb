@@ -1,7 +1,44 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
-import { initFightContex, initBuffs, getBuffData, FightCmdEnum, FightResultEnum } from "../../../src";
+import { initFightContex, initBuffs, getBuffData, FightCmdEnum, FightResultEnum, PassiveSkill } from "../../../src";
 import { setupChain, chainIds as ids } from "../../fixtures/skill_chain";
+
+// 测试：普通Buff的休息状态即可跳过攻击、技能和防御，仍允许West提交输入且不依赖rest专用类。
+test("rest status: ordinary status buffs skip actions while online input remains accepted", () => {
+    const s = setupChain({ rootSelfBuff: false });
+    initBuffs([{ ...getBuffData(ids.rest), id: 10011601, class: undefined, status: ["休息"] }]);
+    const initial = initFightContex(s.fight);
+    s.actor.addBuff(s.actor, "test", 10011601, 1, initial); s.flush(initial);
+    const hp = s.target.getHp(), mp = s.actor.attr.point.mp;
+    let samples = 0; s.fight.random = () => { samples++; return 0.5; };
+    for (const input of [{ cmd: FightCmdEnum.attack, target: s.target.uid },
+        { cmd: FightCmdEnum.skill, skill: ids.first, target: s.target.uid }, { cmd: FightCmdEnum.defend }]) {
+        assert.equal(s.fight.checkOnline(s.actor, input), true);
+        assert.equal(s.fight.checkPC(s.actor, input), false);
+        const ctx = s.fight.processUnit(s.actor, input);
+        assert.deepEqual(ctx?.msgs, [["skipAction", s.actor.uid, 10011601]]);
+        s.flush(ctx);
+    }
+    assert.equal(s.actor.isDefend(), false);
+    assert.equal(s.target.getHp(), hp);
+    assert.equal(s.actor.attr.point.mp, mp);
+    assert.equal(samples, 0);
+});
+
+// 测试：被动携带休息状态也能阻止主动行动，缺少Buff来源时简报使用状态名说明跳过原因。
+test("rest status: passive status blocks actions without requiring a Buff instance", () => {
+    const s = setupChain({ rootSelfBuff: false });
+    const data = { ...getBuffData(ids.rest), id: 10011602, name: "休眠被动", status: ["休息"] };
+    s.actor.passiveSkills.push(new PassiveSkill(data, 1));
+    assert.equal(s.actor.getActionBlockBuff(), undefined);
+    assert.equal(s.fight.checkPC(s.actor, { cmd: FightCmdEnum.defend }), false);
+    const ctx = s.fight.processUnit(s.actor, { cmd: FightCmdEnum.defend });
+    assert.ok(ctx?.msgs.some(msg => msg[0] === "skipAction"));
+    s.flush(ctx);
+    assert.equal(s.actor.isDefend(), false);
+    assert.match(s.report.toString(), /休息.*跳过行动/);
+    assert.doesNotMatch(s.report.toString(), /undefined|Buff #/);
+});
 
 // 测试：休息 Buff 跳过下一回合的攻击、技能和防御，完整回合结束后恢复行动。
 test("rest: next turn skips attacks, skills and defense, then expires after the full turn", () => {

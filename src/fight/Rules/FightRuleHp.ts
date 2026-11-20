@@ -3,6 +3,7 @@ import { FightRule } from "./FightRule";
 import type { FightContex } from "../Fight";
 import type { FightAttr } from "../FightAttr";
 import type { FightUnit } from "../Unit/FightUnit";
+import type { RuleData } from "./RuleDatas";
 
 export interface HpAxisLine {
     /** 血线比例，有限数(0,1]；当前 hp/hpMax <= 此值时触发，包括初始生命已在血线以下。 */
@@ -16,8 +17,10 @@ export class FightRuleHp extends FightRule {
     private reached = new Set<number>();
     private attackBonus = 0;
 
-    constructor(lines: HpAxisLine[]) {
-        super();
+    constructor(xls: RuleData) {
+        super(xls);
+        const lines = xls.lines;
+        assert.ok(Array.isArray(lines), "hp rule lines must be an array");
         for (const line of lines) {
             assert.ok(Number.isFinite(line.hp) && line.hp > 0 && line.hp <= 1, "hp must be in (0, 1]");
             assert.ok(Number.isFinite(line.attackRate) && line.attackRate >= 0, "attackRate must be finite and nonnegative");

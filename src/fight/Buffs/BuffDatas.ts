@@ -30,7 +30,7 @@ export type FightUnitEvent =
 export type BuffFuncEnum = 'poison' | 'heal'
 
 export interface BuffData extends StaticData{
-    /** 特殊实现名：buqu/relife/taunt/reflect/rest/protect；省略或未知名使用普通 FightBuff。 */
+    /** 特殊实现名：buqu/relife/taunt/reflect/rest/protect；省略或未知名使用普通 FightBuff；rest为兼容入口，等同提供休息状态，新配置可直接填写status。 */
     class?: string;
     /** 子类参数：relife 为最大生命比例(0,1]、缺省0.2；reflect 为 {magicOnly?:boolean}、缺省true；其他内置类不读此项。 */
     classParam?: any;

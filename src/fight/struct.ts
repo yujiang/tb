@@ -61,6 +61,9 @@ export enum InsertActionPos {
     afterSelf,  // 自己的普通行动后，已行动则插到最前
 }
 
+/** [当前速度倍率, 已学技能ID]；倍率为非负有限数，0有效；技能0表示出手时由AI重新决策，无AI则普攻。 */
+export type SpeedSkill = [number, number];
+
 export interface FightActionDisplay {
     /** 本场行动记录ID，区分同一单位的多次出手，不能用uid代替。 */
     id: number;
@@ -70,6 +73,8 @@ export interface FightActionDisplay {
     skill?: number;
     /** true表示独立追加行动，缺省表示普通行动；供客户端行动条标注。 */
     inserted?: boolean;
+    /** 怪物模板额外行动的速度倍率；缺省不是模板额外行动，0有效；实际速度随单位速度变化。 */
+    speedRate?: number;
 }
 
 export enum FightCmdEnum{

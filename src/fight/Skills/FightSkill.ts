@@ -158,6 +158,7 @@ export class FightSkill {
     }
 
     physicHitTest(f: Fight, defender: FightUnit) {
+        if (this.xls.alwaysHit) return true;
         if (defender.isForbid("dodge")) return true;
         // 70 = 100 - 30
         const d2 = this.getAttack().hit - defender.attr.physic.base.dodge;

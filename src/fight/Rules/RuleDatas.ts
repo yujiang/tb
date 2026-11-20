@@ -1,45 +1,23 @@
-import { FightRule } from "./FightRule";
-import { FightRuleHp, HpAxisLine } from "./FightRuleHp";
-import { FightRuleTurn } from "./FightRuleTurn";
-import { FightRuleHurt } from "./FightRuleHurt";
-import { InsertActionPos } from "../struct";
+import type { HpAxisLine } from "./FightRuleHp";
+import type { InsertActionPos } from "../struct";
 
 // 模板只放配置，每次生成怪物都创建新规则实例，不共享计数、阶段或监听。
 export type RuleData = {
+    /** 规则类型，必填字符串；内置hp血轴、turn回合轴、hurt受伤轴；未知类型工厂报错，字段统一平铺便于XLS配置。 */
+    type: string;
     /** 规则执行顺序，有限数，缺省0；小的先执行，同级按添加顺序；不是事件监听器的 prior。 */
     prior?: number;
-} & (
-    {
-        /** 血轴：跨过配置血线时增加攻击力，每条血线每场一次。 */
-        type: "hp";
-        /** 血线列表，可为空；每项 hp 为生命比例，attackRate 为增攻比例，各项相加。 */
-        lines: HpAxisLine[];
-    } |
-    {
-        /** 回合轴：在全局回合前插入独立技能行动，保留普通行动。 */
-        type: "turn";
-        /** 正安全整数；第 N、2N…全局回合触发，每条规则每回合最多成功登记一次。 */
-        every: number;
-        /** 已学主动技能 ID，正安全整数；照常检查状态、目标、CD、资源，不使用破盾大招槽。 */
-        skill: number;
-        /** 插入位置，缺省 first；支持 first/last/random/afterSelf，并同步客户端行动条。 */
-        pos?: InsertActionPos;
-    } |
-    {
-        /** 受伤轴：允许攻击时每 N 次实际直接受伤，在完整 action 后朝伤害来源发动即时新攻击。 */
-        type: "hurt";
-        /** 正安全整数，有效直接受伤次数阈值；Buff、反伤、反射、分担与零伤害不计。 */
-        every: number;
-        /** 可选已学攻击技能 ID，正安全整数；缺省使用普攻/装配普攻，不进队列，不额外收费用/CD。 */
-        skill?: number;
-    }
-);
+    /** hp必填的血线列表，允许空数组；每项hp为生命比例(0,1]，attackRate为非负增攻比例，多条相加，每条每场一次；其他规则忽略。 */
+    lines?: HpAxisLine[];
+    /** turn/hurt必填的正安全整数；turn为全局回合间隔，hurt为有效直接受伤次数阈值；hp忽略，无统一缺省值。 */
+    every?: number;
+    /** turn必填、hurt可选的已学技能ID，正安全整数；hurt缺省普攻/装配普攻且不额外收费/CD，turn正常校验并禁止使用独立大招槽；hp忽略。 */
+    skill?: number;
+    /** turn的行动插入位置，缺省first；支持first/last/random/afterSelf，同步客户端行动条；hp/hurt忽略。 */
+    pos?: InsertActionPos;
+    /** 宿主自定义附加数据，缺省undefined，不参与内置规则结算；可通过getCustom读取。 */
+    custom?: any;
+};
 
-export function createRule(data: RuleData): FightRule {
-    switch (data.type) {
-        case "hp": return new FightRuleHp(data.lines);
-        case "turn": return new FightRuleTurn(data.every, data.skill, data.pos);
-        case "hurt": return new FightRuleHurt(data.every, data.skill);
-        default: throw new Error(`Unknown rule type: ${(data as { type: string }).type}`);
-    }
-}
+// 保留原有导入路径，创建实现由工厂维护。
+export { createRule } from "./RuleFactory";

@@ -1,8 +1,8 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 import { BaseAttack, Fight, FightRuleHp, FightRuleTurn, FightRuleHurt, FightAttr, FightClient, FightCmdEnum,
-    FightAIRearDoctor,
-    FightLoopPC, FightReport, MonsterData, MonsterSide, CreateMonsterSide, initMonsters, getMonsterData,
+    FightAITarget,
+    FightLoopPC, FightLoopWest, FightReport, MonsterData, MonsterSide, CreateMonsterSide, initMonsters, getMonsterData,
     initZhens, getZhenPos, getZhenData, initSkills, initPassives, initBuffs, TargetSelectEnum,
     OverlapEnum, BuffTurnEnum, initFightContex, WeaponEnum, CarerrEnum } from "../../src";
 
@@ -52,6 +52,34 @@ test("monster side: lookup template IDs and formation IDs to create distinct uni
     assert.ok(side.units[0].rules[2] instanceof FightRuleHp);
 });
 
+// 测试：怪物模板的extraAction每回合生成独立行动记录，保留原行动并进入客户端行动条。
+test("monster side: template extraAction creates a separate scheduled action", () => {
+    const { data, allocateUid } = setup();
+    initMonsters([{ ...data, id: monsterId + 30, extraAction: [[0.5, cycleId]] }]);
+    const side = CreateMonsterSide([monsterId + 30], zhenId, allocateUid);
+    const enemy = CreateMonsterSide([monsterId], zhenId, allocateUid);
+    const fight = new Fight(1001230, { maxTurn: 1, waitInputSec: 1, duiwei: false });
+    fight.createSide(side, enemy);
+    const loop = new FightLoopWest(fight), client = new FightClient();
+    loop.onMsg(msgs => client.onMsg(JSON.parse(JSON.stringify(msgs))));
+    loop.start(); loop.nextTurn();
+    assert.equal(loop.actions.filter(action => action.unit === side.units[0]).length, 2);
+    assert.equal(client.actions.filter(action => action.uid === side.units[0].uid).length, 2);
+    loop.end();
+});
+
+// 测试：相同模板生成的怪物分别复制extraAction和嵌套元组，改单个实例不污染其他怪物与模板。
+test("monster side: extraAction configuration belongs to each generated unit", () => {
+    const { data, allocateUid } = setup();
+    const configured: MonsterData = { ...data, id: monsterId + 31, extraAction: [[0.5, cycleId], [1, 0]] };
+    initMonsters([configured]);
+    const [first, second] = CreateMonsterSide([configured.id, configured.id], zhenId, allocateUid).units;
+    first.extraAction[0][0] = 0.25;
+    assert.deepEqual(second.extraAction, [[0.5, cycleId], [1, 0]]);
+    assert.deepEqual(configured.extraAction, [[0.5, cycleId], [1, 0]]);
+    assert.notEqual(first.extraAction, second.extraAction);
+});
+
 // 怪物模板一次装配单个 AI、多条规则与被动，重复模板生成的实例互不共享。
 test("monster side: one template assembles AI rules and passives together", () => {
     const { data, allocateUid } = setup();
@@ -59,8 +87,8 @@ test("monster side: one template assembles AI rules and passives together", () =
     const original = structuredClone(configured);
     initMonsters([configured]);
     const [first, second] = CreateMonsterSide([configured.id, configured.id], zhenId, allocateUid).units;
-    assert.ok(first.ai instanceof FightAIRearDoctor);
-    assert.ok(second.ai instanceof FightAIRearDoctor);
+    assert.ok(first.ai instanceof FightAITarget);
+    assert.ok(second.ai instanceof FightAITarget);
     assert.notEqual(first.ai, second.ai);
     assert.equal(first.rules.length, 3);
     assert.ok(first.rules[0] instanceof FightRuleTurn);

@@ -1,5 +1,5 @@
 import { FightAttr } from "../FightAttr";
-import { FightDisplay, IdLevelArray } from "../struct";
+import { FightDisplay, IdLevelArray, SpeedSkill } from "../struct";
 import { RuleData } from "../Rules/RuleDatas";
 import { AIData } from "../AI/AIDatas";
 
@@ -26,6 +26,9 @@ export interface MonsterData extends FightDisplay {
     ai?: AIData;
     /** 固定行为规则列表，缺省空；各规则独立实例，按 prior/添加顺序执行，支持整组切换。 */
     rules?: RuleData[];
+
+    /** 每回合额外行动[当前速度倍率,已学技能ID][]，缺省空；倍率非负有限数，随减速重排；技能0重新走AI、无AI普攻；单回合与动态插队合计最多64条。 */
+    extraAction?: SpeedSkill[];
 }
 
 const monsters = new Map<number, MonsterData>();
