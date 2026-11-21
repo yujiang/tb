@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -147,7 +148,18 @@ function setup(
 			supportSkill: ids.support,
 		},
 	]);
-	const fight = new Fight(99210, { maxTurn: 10, waitInputSec: 1, duiwei: false }, 42);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 10,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		99210,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		42,
+	);
 	const a = new FightUnitUser(0, attr(), { name: '协战者' }, passive ? [[ids.passive, 3]] : []);
 	const b = new FightUnitUser(1, attr(), { name: '主攻者' });
 	const c = new FightUnitUser(2, attr(), { name: '敌人' });

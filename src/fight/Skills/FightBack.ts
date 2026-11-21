@@ -55,7 +55,12 @@ export function skillFBack(
 	skill: FightSkill,
 	ctx: FightContex,
 ) {
-	if (attacker.isForbid('attack') || attacker.isForbid('fback')) {
+	if (
+		attacker.isForbid('attack') ||
+		attacker.isForbid('fback') ||
+		!skill.canTarget(defender) ||
+		(!skill.getNoMove() && attacker.isForbid('move'))
+	) {
 		return false;
 	}
 
@@ -77,6 +82,8 @@ export function tryFBack(attacker: FightUnit, defender: FightUnit, ctx: FightCon
 	if (fback) {
 		return skillFBack(attacker, defender, fback, ctx);
 	}
+
+	if (attacker.isForbid('move')) return false;
 
 	return attackFback(attacker, defender, ctx);
 }

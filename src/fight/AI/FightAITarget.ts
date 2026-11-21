@@ -29,6 +29,7 @@ export class FightAITarget extends FightAI {
 			!skill ||
 			skill.isMulti() ||
 			unit.isDied() ||
+			(!skill.getNoMove() && unit.isForbid('move')) ||
 			unit.isForbid('action') ||
 			unit.isForbid(id !== undefined ? 'skill' : 'attack')
 		) {

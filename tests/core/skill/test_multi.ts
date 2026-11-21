@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -362,7 +363,7 @@ for (const func of ['normal', 'poison']) {
 						notRemove: false,
 					},
 				]);
-				fight.xls.protectBuff = protectId;
+				setFightGlobalData({ protectBuff: protectId });
 				flush(fight.processUnit(target, { cmd: FightCmdEnum.protect, target: other.uid }));
 				const ctx = fight.processUnit(actor, {
 					cmd: FightCmdEnum.skill,

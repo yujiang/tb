@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -69,7 +70,18 @@ async function setup(cd?: number) {
 			sel: { target: TargetSelectEnum.enmey },
 		},
 	]);
-	const fight = new Fight(99960, { maxTurn: 1, waitInputSec: 1, duiwei: true }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 1,
+		waitInputSec: 1,
+		duiwei: true,
+	});
+	const fight = new Fight(
+		99960,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	fight.createMap(5, 2);
 	const a = new FightUnitUser(0, attr(200), { name: '甲' });
 	a.setPos(0);
@@ -575,10 +587,10 @@ test('yanyu: full run completes a whole automatic round before its round limit',
 		animations++;
 	};
 	s.fight.turn = 0;
-	assert.equal(await fresh.run(), FightResultEnum.defend);
+	assert.equal(await fresh.run(), FightResultEnum.outoftime);
 	assert.equal(s.fight.turn, 1);
 	assert.equal(animations, 4, '每次普攻等待一次，回合末不重复等待不存在的动画');
-	assert.equal(s.client.win, FightResultEnum.defend);
+	assert.equal(s.client.result, FightResultEnum.outoftime);
 	assert.equal(
 		await fresh.onInput(s.a.uid, {
 			turn: 1,
@@ -664,7 +676,7 @@ test('yanyu: failed animation ends the fight and closes further input', async (t
 		throw new Error('draw failed');
 	};
 	assert.equal(await s.input(), false);
-	assert.equal(s.fight.win, FightResultEnum.defend);
+	assert.equal(s.fight.result, FightResultEnum.defend);
 	assert.equal(logged.mock.callCount(), 1);
 	assert.equal(await s.input(), false);
 });
@@ -691,10 +703,10 @@ test('yanyu: a winning immediate action stops both pending queues', async () => 
 	gate.release();
 	await running;
 	await Promise.all([winning, following]);
-	assert.equal(s.fight.win, FightResultEnum.attack);
+	assert.equal(s.fight.result, FightResultEnum.attack);
 	assert.equal(s.b.attr.point.mp, 100);
 	assert.equal(s.messages.filter((msg) => msg[0] === 'actor' && msg[3] === 'skill').length, 1);
 	s.loop.end();
-	assert.equal(s.client.win, FightResultEnum.attack);
+	assert.equal(s.client.result, FightResultEnum.attack);
 	assert.equal(await s.input(), false);
 });

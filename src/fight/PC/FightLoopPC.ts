@@ -7,7 +7,6 @@ import { FightUnit } from '../Unit/FightUnit';
 
 // 每个玩家单位单独下指令
 export class FightLoopPC extends FightLoop {
-	private started = false;
 	private running: Promise<void> | undefined;
 	private waiting:
 		{ unit: FightUnit; turn: number; resolve: (input?: FightInput) => void } | undefined;
@@ -18,7 +17,6 @@ export class FightLoopPC extends FightLoop {
 
 	override start() {
 		this.closeInput();
-		this.started = true;
 		super.start();
 		this.fight.offUnitEvent('die', this.onWaitingUnitDied);
 		this.fight.onUnitEvent('die', this.onWaitingUnitDied);
@@ -30,7 +28,7 @@ export class FightLoopPC extends FightLoop {
 	}
 
 	override processOneTurn(turn: number): Promise<void> {
-		if (!this.started || this.fight.isEnd() || turn !== this.fight.turn) {
+		if (!this.canProcessTurn(turn)) {
 			return Promise.resolve();
 		}
 
@@ -42,17 +40,13 @@ export class FightLoopPC extends FightLoop {
 		// 先完成 running 赋值，输入与消息回调重入时复用同一轮调度。
 		await Promise.resolve();
 		try {
-			while (
-				this.started &&
-				!this.fight.isEnd() &&
-				this.fight.turn === turn &&
-				this.processUnits?.length
-			) {
+			while (this.canProcessTurn(turn) && this.processUnits?.length) {
 				const action = this.takeAction(),
 					unit = action.unit;
 				if (action.inserted) {
 					const ctx = this.insertedContext(action);
 					if (ctx) {
+						this.finishAction(action, ctx);
 						ctx.msgs.unshift(this.actorMessage(action));
 						this.bcMsg(ctx.msgs);
 						await this.waitDrawOver();
@@ -72,7 +66,7 @@ export class FightLoopPC extends FightLoop {
 					await this.waitDrawOver();
 					await this.processUltimate(turn);
 				}
-				if (!this.started || this.fight.isEnd() || this.fight.turn !== turn) {
+				if (!this.canProcessTurn(turn)) {
 					break;
 				}
 				if (unit.isDied()) continue;
@@ -80,13 +74,14 @@ export class FightLoopPC extends FightLoop {
 				let input = unit.input ?? { cmd: FightCmdEnum.none };
 				if (unit.needInput() && !unit.isForbid('action')) {
 					input = await this.waitUnitInput(unit, turn);
-					if (!this.started || this.fight.isEnd() || this.fight.turn !== turn) {
+					if (!this.canProcessTurn(turn)) {
 						break;
 					}
 					if (!input) continue;
-					if (!this.fight.checkPC(unit, input)) continue;
+					if (!this.fight.checkInput(unit, input)) continue;
 				}
 				const ctx = this.fight.processUnit(unit, input);
+				this.finishAction(action, ctx);
 				if (ctx) this.bcMsg(ctx.msgs);
 				await this.waitDrawOver();
 				await this.processUltimate(turn);
@@ -120,11 +115,9 @@ export class FightLoopPC extends FightLoop {
 	private acceptInput(id: number, input: FightInput): boolean {
 		const pending = this.waiting;
 		if (
-			!this.started ||
 			!pending ||
-			this.fight.isEnd() ||
+			!this.canProcessTurn(pending.turn) ||
 			id !== pending.unit.uid ||
-			pending.turn !== this.fight.turn ||
 			!input ||
 			(input.turn !== undefined && input.turn !== pending.turn)
 		) {
@@ -143,7 +136,7 @@ export class FightLoopPC extends FightLoop {
 			return false;
 		}
 
-		if (!this.fight.checkPC(unit, input)) return false;
+		if (!this.fight.checkInput(unit, input)) return false;
 
 		if (input.cmd === FightCmdEnum.cancel) {
 			unit.input = null;
@@ -172,7 +165,6 @@ export class FightLoopPC extends FightLoop {
 	protected override async waitTurnDrawOver() {}
 
 	override end() {
-		this.started = false;
 		this.closeInput();
 		this.fight.offUnitEvent('die', this.onWaitingUnitDied);
 		super.end();

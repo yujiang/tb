@@ -112,7 +112,6 @@ async function run() {
 	}
 
 	const loop = new FightLoopWest(fight);
-	fight.xls.waitInputSec = 1;
 
 	const client = new FightClient();
 	client.bindFightLoop(loop);

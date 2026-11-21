@@ -15,15 +15,17 @@ export interface SkillData {
 	magic: boolean;
 	/** true跳过物理命中检查，不受目标闪避影响；缺省false，魔法技能原本就不做物理命中检查；不改变发动概率。 */
 	alwaysHit?: boolean;
+	/** 是否原地施法：0/省略表示需要移动，1表示不移动；缠绕等move禁止状态下仅允许1。普攻装配和各子技能独立读取自身配置。 */
+	nomove?: 0 | 1;
 	/** 技能五行；缺省时攻击/毒伤取施放者 weaponProp，治疗取 charProp；显式 none 不回退。 */
 	skillProp?: PropEnum;
 
-	/** 发动概率，0～1，主攻击通常填 1；类型必填，运行时缺省取 1；不是命中率。 */
+	/** 发动概率，0～1；主攻击及heal/poison/relife/nohurt一般填1，注册时只提醒、不改值。类型必填，运行时缺省1；单体每次施放判一次，群体整组判一次，失败仍消耗主动费用/CD，不执行效果或自身Buff；不是命中率，周期Buff不走主动施放判定。 */
 	rand: number;
 
 	/** 阵营、目标人数及溅射规则；主动技能需要有效配置，详见 SelectParam；目标资格由技能canTarget判断。 */
 	sel: SelectParam;
-	/** 根主动技能的 HP/MP 费用，缺省不收费；子技能和装配普攻不重复收费，怪物沿用不耗资源规则。 */
+	/** 根主动技能的HP/MP/SP/JP费用，可同时配置；缺省不收费，子技能和装配普攻不重复收费，怪物沿用不耗资源规则。 */
 	cost?: SkillCost;
 	/** 非负安全整数，全局回合 CD，缺省 0；第 t 回合施放后 t+cd 可再次施放；不随死亡清空。 */
 	cd?: number;

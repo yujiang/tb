@@ -19,6 +19,21 @@ function warnings(t: TestContext) {
 	return () => spy.mock.calls.map((call) => call.arguments.join(' ')).join('\n');
 }
 
+for (const [index, func] of ['heal', 'poison', 'relife', 'nohurt'].entries()) {
+	// 测试：非攻击技能概率一般应填1，其他概率只给中文提醒，保留原配置；填写1时不提醒。
+	test(`skill config: ${func} recommends rand one without changing probability`, (t) => {
+		const output = warnings(t);
+		const data = skill(10013430 + index, { func, rand: 0.5 });
+		const original = structuredClone(data);
+		initSkills([data]);
+		assert.match(output(), new RegExp(`${data.id}.*非攻击.*rand: 1`));
+		assert.deepEqual(data, original);
+		const before = output();
+		initSkills([skill(10013440 + index, { func, rand: 1 })]);
+		assert.equal(output(), before);
+	});
+}
+
 for (const [index, target] of [TargetSelectEnum.self, TargetSelectEnum.duiwei].entries()) {
 	// 测试：群体人数配自身或对位时给出中文目标类型告警，但不修改配置或阻止注册。
 	test(`skill config: group target ${TargetSelectEnum[target]} warns without rewriting`, (t) => {

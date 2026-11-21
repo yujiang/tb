@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import { healFunc } from '../../../src/fight/Skills/Funcs/Heal';
 import { poisonFunc } from '../../../src/fight/Skills/Funcs/Poison';
 import { BuffTurnEnum } from '../../../src/fight/Buffs/BuffDatas';
@@ -17,7 +18,20 @@ import { attackFunc } from '../../../src/fight/Skills/Funcs/NormalAttack';
 import { FightLoopWest } from '../../../src/fight/Online/FightLoopWest';
 
 function createFightPair(random = () => 0) {
-	const fight = new Fight(1, { maxTurn: 10, waitInputSec: 1, duiwei: false });
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 10,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(1, {
+		runaway: false,
+		runawayGrade: 0,
+		deathPenalty: 0,
+		winRecover: 0,
+		winReward: 0,
+	});
 	fight.random = random;
 
 	const attackSide = new FightSide();

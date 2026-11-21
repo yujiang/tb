@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../src/fight/Fight';
 import { FightSkill, getDefaultSkill } from '../../src/fight/Skills/FightSkill';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -6,10 +7,19 @@ import { FightSide } from '../../src/fight/FightSide';
 import { FightUnit } from '../../src/fight/Unit/FightUnit';
 import { MapShapeEnum, SelectParam, TargetSelectEnum } from '../../src/fight/struct';
 
-const fight = new Fight(100, {
+setFightGlobalData({
+	protectBuff: undefined,
+	allShieldBreak: false,
 	maxTurn: 100,
 	waitInputSec: 1,
 	duiwei: false,
+});
+const fight = new Fight(100, {
+	runaway: false,
+	runawayGrade: 0,
+	deathPenalty: 0,
+	winRecover: 0,
+	winReward: 0,
 });
 fight.createMap(5, 5);
 

@@ -1,3 +1,5 @@
+import { fightConsts } from './FightConsts';
+
 // 战斗属性, 需要注入
 export enum PropEnum {
 	none, //默认，不被克也不被生
@@ -91,9 +93,15 @@ export interface PointAttr {
 	mp: number; // 当前蓝量
 	/** 最大法力点数，必填；由宿主提供，当前没有通用自动回蓝机制。 */
 	mpMax: number; // 最大蓝量
+	/** 当前怒气点数；省略初始化为0，可与HP/MP/JP同时存在。 */
+	sp?: number;
+	/** 怒气上限，非负有限数；省略为0，表示不积累怒气。 */
+	spMax?: number;
+	/** 当前集气点数；省略初始化为0，不与MP互斥；仅全局jiqi开启时结算并发送客户端。 */
+	jp?: number;
+	/** 集气上限，非负有限数；省略为0表示不积累集气；全局jiqi关闭时不发送客户端。 */
+	jpMax?: number;
 
-	//     sp: number;         // 当前怒气
-	//     spMax: number;      // 最大怒气
 	//     shield: number;     // 当前护盾
 	//     shieldMax: number;  // 最大护盾
 }
@@ -134,11 +142,22 @@ export interface FightTypeAttr {
 }
 
 export class FightAttr {
-	/** 完整生命/法力结构；资源变化通过单位方法处理，不修改attrOri模拟临时效果。 */
+	/** HP/MP/SP/JP四槽资源结构；显示由宿主决定，资源变化通过单位方法处理，不修改attrOri模拟临时效果。 */
 	point: PointAttr;
+	/** 单位等级，用于与FightData.runawayGrade比较计算逃跑概率；宿主提供，未提供时逃跑按0计算，不是技能等级。 */
+	grade: number;
+
+	/** 本单位每次造成伤害的生命点数上限，如9999；非负有限数，默认0或省略不限制，正数最终按伤害规则取整。读取来源单位当前attr，可由Buff/被动attr与attrLevel修正；防御/盾减伤后、beforeHurt前生效，与调试限伤同时开启取较小值。不影响治疗或HP费用。 */
+	damageLimit = 0;
 
 	/** 速度基础数值，普通行动排序还计初始化乱敏；不影响追加行动的固定插入位置。 */
 	speed: number; // 速度
+	/** 每次有效行动条行动后增加的集气点数；默认取创建属性时的fightConsts.jpAdd（初始1），Buff/被动可修正。 */
+	jpAdd = fightConsts.jpAdd;
+	/** 每点实际受伤增加的怒气；默认取创建属性时的fightConsts.spHurtRate（初始0），Buff/被动可修正，比例不限定0～1。 */
+	spHurtRate = fightConsts.spHurtRate;
+	/** 每点实际输出伤害或治疗增加的怒气；默认取创建属性时的fightConsts.spOutputRate（初始0），Buff/被动可修正。 */
+	spOutputRate = fightConsts.spOutputRate;
 	/** 服务端兵器枚举，与NPC弱点直接匹配，不自动转换MUD兵器文字。 */
 	weapon: WeaponEnum; // 武器类型
 	/** 职业数值，使用CarerrEnum或宿主扩展值；后排医生AI识别CarerrEnum.医生。 */
@@ -187,6 +206,10 @@ export class FightAttr {
 				return point.hp;
 			case 'mp':
 				return point.mp;
+			case 'sp':
+				return point.sp ?? 0;
+			case 'jp':
+				return point.jp ?? 0;
 
 			case 'hpp':
 				return point.hp / point.hpMax;
@@ -201,3 +224,9 @@ export class FightAttr {
 		return this.getAttr('speed');
 	}
 }
+
+/** Buff/被动可统一修正的单位公共数值属性；均为点数或倍率，具体单位见FightAttr对应字段。 */
+export type CommonAttr = Pick<
+	FightAttr,
+	'speed' | 'damageLimit' | 'jpAdd' | 'spHurtRate' | 'spOutputRate'
+>;

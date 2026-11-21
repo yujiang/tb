@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import '../../../src/fight/Buffs/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -76,7 +77,18 @@ function setup(type: 'topThreat' | 'topHealer', magic = false) {
 			event: 'hurt',
 		},
 	]);
-	const fight = new Fight(10011700, { maxTurn: 10, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 10,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		10011700,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	const players = [0, 1, 2, 3].map(
 		(uid) => new FightUnitUser(uid, attributes(), { name: `玩家${uid}` }),
 	);
@@ -344,7 +356,7 @@ test('lethal skill: alwaysHit false preserves ordinary physical dodge checks', (
 // 测试：duiwei战斗配置只控制自动普攻，明确指定非对位敌人仍合法，AI后排选人可复用严格校验。
 test('target AI: default position rules do not reject explicit ordinary attack targets', () => {
 	const s = setup('topThreat');
-	s.fight.xls.duiwei = true;
+	setFightGlobalData({ duiwei: true });
 	s.fight.createMap(3, 3);
 	s.boss.setPos(0);
 	s.players[0].setPos(6);

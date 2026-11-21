@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../src/fight/Fight';
 import { BuffTurnEnum } from '../../src/fight/Buffs/BuffDatas';
 import { strict as assert } from 'node:assert';
 import {
@@ -135,7 +136,20 @@ export function setupChain(
 	];
 	options.change?.(skills);
 	initSkills(skills);
-	const fight = new Fight(98000, { maxTurn: 10, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 10,
+		waitInputSec: 1,
+		duiwei: false,
+		jiqi: false,
+		attackDie: true,
+	});
+	const fight = new Fight(
+		98000,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	const actor = new FightUnitUser(0, attr(options.actorHp ?? 1000), { name: '剑客' });
 	actor.setPos(0);
 	const targetAttr = attr(options.targetHp ?? 1000);

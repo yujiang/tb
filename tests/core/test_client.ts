@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../src/fight/Fight';
 import { BuffTurnEnum } from '../../src/fight/Buffs/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -19,7 +20,18 @@ import {
 } from '../../src/fight/struct';
 
 function setup() {
-	const fight = new Fight(0, { maxTurn: 2, waitInputSec: 0.01, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 2,
+		waitInputSec: 0.01,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		0,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	const sides = [new FightSide(), new FightSide()];
 	sides[0].createSimpleMonster(fight, [{ id: 0, name: 'A', pos: 2 }]);
 	sides[1].createSimpleMonster(fight, [{ id: 1, name: 'B', pos: 1 }]);
@@ -257,7 +269,7 @@ test('client: passive-granted dieNotRemove buff stays synchronized through death
 	missingMessageClient.onMsg(removals);
 	assert.equal(missingMessageClient.checkSame(fight), true);
 	// 同阵营还有复活者存活，战斗不会在这里结束。
-	assert.equal(fight.win, FightResultEnum.ongoing);
+	assert.equal(fight.result, FightResultEnum.ongoing);
 
 	const revival = fight.processUnit(healer, {
 		cmd: FightCmdEnum.skill,
@@ -300,19 +312,26 @@ test('client: action messages update resources and order, and start resets previ
 	assert.equal(client.turn, 3);
 	assert.equal(client.actor, 0);
 	assert.deepEqual(client.sort, [1]);
-	assert.deepEqual(client.getUnitById(0)?.point, { hp: 90, hpMax: 100, mp: 80, mpMax: 100 });
+	assert.deepEqual(client.getUnitById(0)?.point, {
+		hp: 90,
+		hpMax: 100,
+		mp: 80,
+		mpMax: 100,
+		sp: 0,
+		spMax: 0,
+	});
 	// 本地直连也不能共享引用。
 	client.getUnitById(0)!.display.name = 'client only';
 	assert.equal(unit.display.name, 'A');
 	assert.equal(client.checkSame(fight), false);
 	client.onMsg(['end', 2]);
-	assert.equal(client.win, 2);
+	assert.equal(client.result, 2);
 	assert.equal(client.actor, undefined);
 	assert.deepEqual(client.sort, []);
 	client.onMsg(['start', 7]);
 	assert.equal(client.fid, 7);
 	assert.equal(client.turn, 0);
-	assert.equal(client.win, -1);
+	assert.equal(client.result, -1);
 	assert.equal(client.getUnitById(0), undefined);
 	client.onMsg([]);
 });

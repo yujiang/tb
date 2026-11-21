@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import {
 	BaseAttack,
@@ -112,7 +113,18 @@ export async function runAIReport(
 	const allocateUid = () => nextUid++;
 	const left = CreateMonsterSide([heroId], heroZhen, allocateUid);
 	const right = CreateMonsterSide([bossId], bossZhen, allocateUid);
-	const fight = new Fight(1001307, { maxTurn: 5, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 5,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		1001307,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	fight.createSide(left, right);
 	const loop = new FightLoopPC(fight),
 		client = new FightClient(),

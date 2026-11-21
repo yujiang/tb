@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -27,7 +28,7 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
 		});
 		s.loop.end();
 		s.fight.turn = 0;
-		s.fight.xls.maxTurn = 1;
+		setFightGlobalData({ maxTurn: 1 });
 		s.actor.attrOri.speed = 500;
 		s.target.attrOri.speed = 100;
 		s.other.attrOri.speed = 50;
@@ -70,8 +71,8 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
 				return 1;
 			};
 		assert.equal(await loop.run(), FightResultEnum.defend);
-		assert.equal(s.fight.win, FightResultEnum.defend);
-		assert.equal(s.client.win, FightResultEnum.defend);
+		assert.equal(s.fight.result, FightResultEnum.defend);
+		assert.equal(s.client.result, FightResultEnum.defend);
 		assert.equal(later, 0);
 		assert.deepEqual(loop.actions, []);
 		assert.deepEqual(s.client.sort, []);
@@ -89,7 +90,7 @@ test(
 	async (t) => {
 		const logged = t.mock.method(console, 'error', () => {});
 		const s = setupChain();
-		s.fight.xls.waitInputSec = 60;
+		setFightGlobalData({ waitInputSec: 60 });
 		const ctx = initFightContex(s.fight),
 			waiting = s.loop.waitInput(1, ctx);
 		s.actor.onInput = () => {
@@ -97,7 +98,7 @@ test(
 		};
 		s.loop.onInput(s.actor.uid, { cmd: FightCmdEnum.attack, turn: 1 });
 		assert.equal(await waiting, 0);
-		assert.equal(s.fight.win, FightResultEnum.defend);
+		assert.equal(s.fight.result, FightResultEnum.defend);
 		assert.equal(s.loop.input, 0);
 		assert.equal(s.loop.inputResolve, null);
 		assert.equal(logged.mock.callCount(), 1);
@@ -129,7 +130,7 @@ test('fight errors: instant skill failures retain their actor and input in logs'
 	assert.equal(errors[0].error, failure);
 	assert.equal(errors[0].context.actor, s.actor.uid);
 	assert.deepEqual(errors[0].context.input, input);
-	assert.equal(s.fight.win, FightResultEnum.defend);
+	assert.equal(s.fight.result, FightResultEnum.defend);
 });
 
 for (const phase of ['start', 'beforeTurn', 'afterTurn'] as const) {
@@ -139,7 +140,7 @@ for (const phase of ['start', 'beforeTurn', 'afterTurn'] as const) {
 		const s = setupChain({ rootSelfBuff: false });
 		s.loop.end();
 		s.fight.turn = 0;
-		s.fight.xls.maxTurn = 3;
+		setFightGlobalData({ maxTurn: 3 });
 		const loop = new FightLoopPC(s.fight),
 			failure = new Error(`${phase} failed`);
 		loop.onMsg((msgs) => s.loop.bcMsg(msgs));
@@ -164,7 +165,7 @@ for (const phase of ['start', 'beforeTurn', 'afterTurn'] as const) {
 	});
 }
 
-// 一名单位的结束清理抛错也要继续清理其他单位，并以防守方胜结束。
+// 一名单位的结束清理抛错也要继续清理其他单位，并保留已经确定的胜负。
 test('fight errors: one cleanup failure does not skip other units', (t) => {
 	const logged = t.mock.method(console, 'error', () => {});
 	const s = setupChain();
@@ -175,24 +176,105 @@ test('fight errors: one cleanup failure does not skip other units', (t) => {
 	s.other.endFight = () => {
 		cleaned = true;
 	};
-	s.fight.win = FightResultEnum.attack;
+	s.fight.setWin(FightResultEnum.attack);
 	s.loop.end();
 	assert.equal(cleaned, true);
-	assert.equal(s.fight.win, FightResultEnum.defend);
-	assert.equal(s.client.win, FightResultEnum.defend);
+	assert.equal(s.fight.result, FightResultEnum.attack);
+	assert.equal(s.client.result, FightResultEnum.attack);
 	assert.equal(logged.mock.callCount(), 1);
 });
 
-// 结束回调抛错时最终协议仍应是攻击方失败，不能让客户端保留先前的胜利结果。
-test('fight errors: end callback failures are reflected in the final client result', (t) => {
+// 已向胜方发奖后结束回调抛错，最终协议仍须保留原胜方，且不得重复发奖。
+test('fight errors: end callback failures preserve the awarded winner', (t) => {
 	const logged = t.mock.method(console, 'error', () => {});
 	const s = setupChain();
-	s.fight.win = FightResultEnum.attack;
+	const rewarded: number[] = [];
+	s.fight.getSide(0).onWin = () => rewarded.push(0);
+	s.fight.getSide(1).onWin = () => rewarded.push(1);
+	s.fight.setWin(FightResultEnum.attack);
 	s.loop.on('end', () => {
 		throw new Error('end callback failed');
 	});
 	s.loop.end();
-	assert.equal(s.fight.win, FightResultEnum.defend);
-	assert.equal(s.client.win, FightResultEnum.defend);
+	s.loop.end();
+	assert.deepEqual(rewarded, [0]);
+	assert.equal(s.fight.result, FightResultEnum.attack);
+	assert.equal(s.client.result, FightResultEnum.attack);
+	assert.equal(s.client.winSide, 0);
 	assert.equal(logged.mock.callCount(), 1);
+});
+
+for (const result of [
+	FightResultEnum.attack,
+	FightResultEnum.defend,
+	FightResultEnum.draw,
+	FightResultEnum.outoftime,
+]) {
+	// 战斗已有结果后等待动画抛错，运行入口仍返回原结果，并且仅执行一次奖惩和收尾。
+	test(`fight errors: run preserves resolved result ${result} after an animation failure`, async () => {
+		const s = setupChain();
+		const failure = new Error('final animation failed');
+		const errors: unknown[] = [];
+		const messages: fightMsg[] = [];
+		let rewards = 0;
+		let ended = 0;
+		s.loop.onError = (error) => errors.push(error);
+		s.loop.onMsg((msgs) => {
+			messages.push(
+				...(typeof msgs[0] === 'string' ? [msgs as fightMsg] : (msgs as fightMsg[])),
+			);
+		});
+		s.loop.on('end', () => ended++);
+		for (const side of s.fight.Sides) side.onWin = () => rewards++;
+		s.loop.waitInput = async () => 1;
+		s.loop.processOneTurn = async () => {
+			s.fight.setWin(result);
+		};
+		s.loop.waitDrawOver = async () => {
+			throw failure;
+		};
+		assert.equal(await s.loop.run(), result);
+		s.loop.end();
+		assert.equal(s.fight.result, result);
+		assert.equal(s.client.result, result);
+		assert.equal(s.client.winSide, s.fight.getWinSide());
+		assert.equal(rewards, 1);
+		assert.equal(ended, 1);
+		assert.equal(messages.filter((msg) => msg[0] === 'end').length, 1);
+		assert.deepEqual(errors, [failure]);
+		assert.deepEqual(s.loop.actions, []);
+		assert.equal(s.loop.inputResolve, null);
+	});
+}
+
+// 清理、发奖和结束通知接连失败时，每个异常都应记录，其他收尾仍继续且不改变已有结果。
+test('fight errors: consecutive cleanup errors are all logged without changing the winner', () => {
+	const s = setupChain();
+	const failures = [
+		new Error('cleanup failed'),
+		new Error('reward failed'),
+		new Error('end failed'),
+	];
+	const errors: unknown[] = [];
+	let cleaned = false;
+	s.loop.onError = (error) => errors.push(error);
+	s.actor.endFight = () => {
+		throw failures[0];
+	};
+	s.other.endFight = () => {
+		cleaned = true;
+	};
+	s.fight.getSide(0).onWin = () => {
+		throw failures[1];
+	};
+	s.loop.on('end', () => {
+		throw failures[2];
+	});
+	s.fight.setWin(FightResultEnum.attack);
+	s.loop.end();
+	assert.equal(cleaned, true);
+	assert.deepEqual(errors, failures);
+	assert.equal(s.fight.result, FightResultEnum.attack);
+	assert.equal(s.client.result, FightResultEnum.attack);
+	assert.deepEqual(s.loop.actions, []);
 });

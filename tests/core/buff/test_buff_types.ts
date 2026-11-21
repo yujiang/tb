@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import { BuffTurnEnum } from '../../../src/fight/Buffs/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -52,7 +53,18 @@ function attributes(): FightAttr {
 }
 
 function setup() {
-	const fight = new Fight(1, { maxTurn: 10, waitInputSec: 1, duiwei: false }, 123);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 10,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		1,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		123,
+	);
 	const attacker = new FightUnitMonster(1, attributes(), { name: '攻击方' });
 	const defender = new FightUnitMonster(2, attributes(), { name: '防守方' });
 	attacker.setPos(0);

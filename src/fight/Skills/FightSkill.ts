@@ -7,6 +7,7 @@ import { FightUnit } from '../Unit/FightUnit';
 import { calcAttack, calcHurt, mergeTableLevel } from './Calc';
 import { getSkillData, SkillData } from './SkillDatas';
 import { strict as assert } from 'node:assert';
+import { isDebugHit, isDebugMiss } from '../FightDebug';
 
 export class FightSkill {
 	protected xls: SkillData; //因为很多都跟自身level有关，所以外部直接用xls多半不行
@@ -14,6 +15,10 @@ export class FightSkill {
 	constructor(xls: SkillData, level: number) {
 		this.xls = xls;
 		this.level = level;
+		assert.ok(
+			xls.nomove === undefined || xls.nomove === 0 || xls.nomove === 1,
+			'nomove must be 0 or 1',
+		);
 		assert.ok(
 			Number.isSafeInteger(xls.cd ?? 0) && (xls.cd ?? 0) >= 0,
 			'cd must be a nonnegative safe integer',
@@ -82,6 +87,9 @@ export class FightSkill {
 	// 命中率
 	getRand() {
 		return this.xls.rand ?? 1;
+	}
+	getNoMove() {
+		return this.xls.nomove ?? 0;
 	}
 	isMagic() {
 		return this.xls.magic;
@@ -195,9 +203,13 @@ export class FightSkill {
 	}
 
 	physicHitTest(f: Fight, defender: FightUnit) {
-		if (this.xls.alwaysHit) return true;
-
 		if (defender.isForbid('dodge')) return true;
+
+		if (isDebugMiss()) return false;
+
+		if (isDebugHit()) return true;
+
+		if (this.xls.alwaysHit) return true;
 
 		// 70 = 100 - 30
 		const d2 = this.getAttack().hit - defender.attr.physic.base.dodge;

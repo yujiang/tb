@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { Fight, initFightContex } from '../../src';
@@ -55,7 +56,20 @@ test('side contributions: resetting or binding a new battle clears prior records
 	own.clearContributions();
 	assert.deepEqual(own.getContributions(), [{ uid: actor.uid, hurt: 0, heal: 0 }]);
 	assert.equal(enemy.hurt.get(target.uid), 30);
-	const next = new Fight(10011800, { maxTurn: 1, waitInputSec: 1, duiwei: false });
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 1,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const next = new Fight(10011800, {
+		runaway: false,
+		runawayGrade: 0,
+		deathPenalty: 0,
+		winRecover: 0,
+		winReward: 0,
+	});
 	next.createSide(own, enemy);
 	assert.equal(enemy.hurt.size, 0);
 	assert.equal(enemy.heal.size, 0);

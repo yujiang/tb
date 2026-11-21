@@ -1,4 +1,6 @@
 export * from './fight/Fight';
+export * from './fight/FightDebug';
+export * from './fight/FightConsts';
 export * from './fight/FightBehavior';
 export * from './public/OrderedEventEmitter';
 export * from './fight/Client/FightClient';

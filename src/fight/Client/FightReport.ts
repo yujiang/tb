@@ -315,10 +315,26 @@ export class FightReport {
 					break;
 				}
 				case 'costHp':
-				case 'costMp': {
-					const resource = msg[0] === 'costHp' ? '生命' : '法力';
+				case 'costMp':
+				case 'costSp':
+				case 'costJp': {
+					const resource = {
+						costHp: '生命',
+						costMp: '法力',
+						costSp: '怒气',
+						costJp: '集气',
+					}[msg[0]];
 					this.write(
 						`${name(msg[1])} 消耗 ${msg[2]} 点${resource}，剩余${resource} ${msg[3]}`,
+					);
+					break;
+				}
+				case 'addPoint': {
+					const resource = { mp: '法力', sp: '怒气', jp: '集气' }[
+						msg[2] as 'mp' | 'sp' | 'jp'
+					];
+					this.write(
+						`${name(msg[1])} 增加 ${msg[3]} 点${resource}，当前${resource} ${msg[4]}`,
 					);
 					break;
 				}
@@ -379,10 +395,15 @@ export class FightReport {
 								? '防守方获胜'
 								: msg[1] === FightResultEnum.draw
 									? '平局'
-									: `结果 ${msg[1]}`;
-					this.write(`战斗结束：${result}`);
+									: msg[1] === FightResultEnum.outoftime
+										? '超过回合上限，防守方获胜'
+										: `结果 ${msg[1]}`;
+					this.write(`战斗结束：${msg[3] ? '逃跑，' : ''}${result}`);
 					break;
 				}
+				case 'runaway':
+					this.write(`${name(msg[1])} 逃跑${msg[2] ? '成功' : '失败'}`);
+					break;
 				case 'skill':
 				case 'miss':
 				default: {

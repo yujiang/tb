@@ -21,12 +21,20 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 | `final` | FinalAttack 固定增量 | 可 {}；作用于所选物理/魔法组；heal/poison 当前不应用 final |
 | `attackLevel` | 每级 BaseAttack 增量 | 可省略，乘 Buff/被动自身等级，0 级保留固定值 |
 | `finalLevel` | 每级 FinalAttack 增量 | 可省略，乘 Buff/被动自身等级 |
+| `attr` | CommonAttr 公共属性固定增量 | 可省略，字段为 speed/damageLimit/jpAdd/spHurtRate/spOutputRate；不受 magic/attackType 分组影响，可为负数作修正，damageLimit 合并后最低 0，0 表示不限伤 |
+| `attrLevel` | 每级 CommonAttr 增量 | 可省略，字段同 attr，乘 Buff/被动自身等级；0 级保留固定增量 |
+
+`CommonAttr` 字段沿用 [FightAttr 属性字典](./属性与选目标.md) 的单位：`speed` 为速度点数，`damageLimit` 为自身每次造成伤害的生命点数上限，`jpAdd` 为每次有效行动条推进增加的集气点数，`spHurtRate/spOutputRate` 为每点实际受伤/输出（含治疗）增加的怒气倍率。每次从 `attrOri` 重算，当前值存于 `attr`，重复重算不累加；只配置公共属性的 Buff 和被动也会参与重算。所有增量合并后，damageLimit 和三个资源增长属性最低截断到 0；damageLimit 为 0 表示不限伤。移除 Buff 后恢复其余来源计算的属性，不重置当前 HP/MP/SP/JP。
 
 状态和属性、周期、特殊类并不互斥，不需要另设一个互斥的 Buff type。
+
+缠绕映射为 `move` 禁止，不禁止整个行动或接受攻击。技能表的 `nomove` 省略/0 表示需要移动，1 表示原地施法；缠绕下只允许 `nomove: 1` 的技能。未装配技能的普通攻击默认需要移动；原地普攻可装配 `nomove: 1` 的技能。提交和执行均检查，连招、追击、溅射、反击和协战独立使用各自技能的配置，周期 Buff 效果不要求施加者移动。
 
 `FightStatus` 将自身行动限制与受作用限制分开；休息映射为独立 `action`，统一通过 `isForbid("action")` 跳过主动行动（含防御），但仍允许 West 提交指令，支持 Buff 和被动：`isForbid(action)` 判断自身能否行动，`isForbidBeAction(action)` 判断能否接受对应作用。受作用表中，石化和死亡禁止 `attack/skill`；禁疗禁止 `heal`，禁毒禁止 `poison`，禁复活禁止 `relife`。死亡同时识别单位真实死亡和配置的“死亡”状态，状态可以来自 Buff 或被动。
 
 技能选目标经 `FightSkill.canTarget` 使用这张表：普通物理攻击检查 `attack`，其他非复活技能检查 `skill`，并叠加各自 `func` 的限制。复活只检查独立 `relife` 入口，还要求真实死亡且复活量大于零，因此不会被普通受击的死亡限制拦住。
+
+每段攻击执行前也复查 `canTarget`，包括普通和配置反击。原攻击者在首击后被石化等变得不可受作用时，不再受到反击；不重选反击目标，不抽取反击概率、不增加配置反击次数。状态解除后恢复。此检查不限制普通比例反伤。
 
 ## BuffData 自身字段
 
@@ -60,6 +68,8 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 | `protect` | 不读取 | 挂在被保护者身上，施加者承担一半合格直接攻击伤害；比例固定，不用参数调节 |
 
 不屈/自动复活固定使用一次，不是填 times=10 就能变成十次。反射在成功转移时扣 times；保护当前按持续时间移除，不使用普通次数消耗流程。特殊类的 event/prior 行为应按类说明配置，不能只套普通 Buff 的计次规则。
+
+`hp(unit, ctx, source, previousHp, currentHp)` 表达真实生命变化，受伤、保护分担、治疗和生命费用都会通知。生命费用的 source 为本人，在整笔费用及消息完成后通知，不触发 beforeHurt/hurt；零费用、预检或支付失败不通知。普通受伤另发 hurt，保护分担仍不发 hurt。因此血线机制监听 hp，按受伤次数触发的机制监听 hurt，不把生命费用算成受伤。
 
 ### 覆盖与驱散不是同一个比较
 

@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -38,7 +39,7 @@ function setup() {
 			notRemove: false,
 		},
 	]);
-	state.fight.xls.protectBuff = buffId;
+	setFightGlobalData({ protectBuff: buffId });
 	const { fight, target: protector, other: victim, actor: enemy, flush } = state;
 	const protect = () => {
 		const ctx = fight.processUnit(protector, { cmd: protectCmd, target: victim.uid });
@@ -411,7 +412,7 @@ test('protect: self, enemies, missing targets and unconfigured protection are re
 	assert.equal(fight.validateInput(protector, { cmd: protectCmd, target: protector.uid }), false);
 	assert.equal(fight.validateInput(protector, { cmd: protectCmd, target: enemy.uid }), false);
 	assert.equal(fight.validateInput(protector, { cmd: protectCmd }), false);
-	fight.xls.protectBuff = undefined;
+	setFightGlobalData({ protectBuff: undefined });
 	assert.equal(fight.validateInput(protector, { cmd: protectCmd, target: victim.uid }), false);
 });
 

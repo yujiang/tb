@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -97,9 +98,16 @@ test('report demo: protect and support share a real round with incremental clien
 			prior: 500,
 		},
 	]);
+	setFightGlobalData({
+		allShieldBreak: false,
+		maxTurn: 5,
+		waitInputSec: 1,
+		duiwei: false,
+		protectBuff: protectId,
+	});
 	const fight = new Fight(
 		99560,
-		{ maxTurn: 5, waitInputSec: 1, duiwei: false, protectBuff: protectId },
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	const swordsman = new FightUnitUser(0, attributes(100, 120), { name: '剑客' });

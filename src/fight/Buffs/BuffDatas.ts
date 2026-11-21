@@ -37,7 +37,7 @@ export type FightUnitEvent =
 	| 'speed';
 // taunt(unit, ctx, buff)：本次普通行动实际受所选嘲讽约束，完整技能/反应链执行后发出；未命中或发动失败仍计次，预检/费用不足/跳过不发。
 // break(unit, ctx, attacker, allBroken)：盾正数变 0 时；allBroken 为该瞬间本阵营全体存活单位破盾的快照。
-// hp(unit, ctx, attacker, previous, current)：真实生命值变化，包含分担扣血与截断后的治疗。
+// hp(unit, ctx, attacker, previous, current)：真实生命值变化，含受伤、分担、治疗及生命费用；费用在整笔扣费完成后通知，attacker为本人，不发hurt。
 // hurt(unit, ctx, attacker, damage, pending)：最后一项提供 HurtOptions/source；分担伤害仍不发 hurt。
 
 export type BuffFuncEnum = 'poison' | 'heal';

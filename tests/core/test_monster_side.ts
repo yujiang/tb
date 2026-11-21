@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -186,7 +187,20 @@ test('monster side: template extraAction creates a separate scheduled action', (
 	initMonsters([{ ...data, id: monsterId + 30, extraAction: [[0.5, cycleId]] }]);
 	const side = CreateMonsterSide([monsterId + 30], zhenId, allocateUid);
 	const enemy = CreateMonsterSide([monsterId], zhenId, allocateUid);
-	const fight = new Fight(1001230, { maxTurn: 1, waitInputSec: 1, duiwei: false });
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 1,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(1001230, {
+		runaway: false,
+		runawayGrade: 0,
+		deathPenalty: 0,
+		winRecover: 0,
+		winReward: 0,
+	});
 	fight.createSide(side, enemy);
 	const loop = new FightLoopWest(fight),
 		client = new FightClient();
@@ -262,7 +276,18 @@ test('monster side: a template-equipped AI attacks the generated rear doctor', (
 	initZhens([{ id: zhenId + 50, pos: [0, 6] }]);
 	const left = CreateMonsterSide([monsterId + 25], zhenId, allocateUid);
 	const right = CreateMonsterSide([monsterId + 26, monsterId + 26], zhenId + 50, allocateUid);
-	const fight = new Fight(1001502, { maxTurn: 2, waitInputSec: 1, duiwei: true }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 2,
+		waitInputSec: 1,
+		duiwei: true,
+	});
+	const fight = new Fight(
+		1001502,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	fight.createSide(left, right);
 	fight.createMap(3, 3);
 	const loop = new FightLoopPC(fight),
@@ -294,7 +319,18 @@ test('monster side: attributes, passive buffs and rule state are independent for
 	assert.notEqual(a.findBuff(buffId), b.findBuff(buffId));
 	assert.notEqual(a.rules[0], b.rules[0]);
 	const enemy = CreateMonsterSide([monsterId], zhenId, allocateUid);
-	const fight = new Fight(1001200, { maxTurn: 1, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 1,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		1001200,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	fight.createSide(side, enemy);
 	const ctx = initFightContex(fight);
 	fight.resolveAction(() => a.onHurt(enemy.units[0], 'test', 400, ctx, { source: 'buff' }));
@@ -418,7 +454,18 @@ test('monster side: generated units run together with all three rule axes', asyn
 	const { allocateUid } = setup();
 	const left = CreateMonsterSide([monsterId], zhenId, allocateUid);
 	const right = CreateMonsterSide([monsterId], zhenId, allocateUid);
-	const fight = new Fight(1001200, { maxTurn: 3, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 3,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		1001200,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	fight.createSide(left, right);
 	const loop = new FightLoopPC(fight),
 		client = new FightClient(),

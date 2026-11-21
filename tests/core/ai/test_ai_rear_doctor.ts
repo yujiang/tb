@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -53,7 +54,18 @@ function attr(career = CarerrEnum.战士) {
 }
 
 function setup(nx = 3, ny = 3) {
-	const fight = new Fight(1001500, { maxTurn: 2, waitInputSec: 1, duiwei: true }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 2,
+		waitInputSec: 1,
+		duiwei: true,
+	});
+	const fight = new Fight(
+		1001500,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	fight.createMap(nx, ny);
 	const doctor = new FightUnitUser(0, attr(CarerrEnum.医生), { name: '后排医生' });
 	const frontDoctor = new FightUnitUser(1, attr(CarerrEnum.医生), { name: '前排医生' });

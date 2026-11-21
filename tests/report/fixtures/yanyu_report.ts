@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import { setImmediate } from 'node:timers/promises';
 import { strict as assert } from 'node:assert';
 import {
@@ -89,7 +90,18 @@ export async function runYanYuReport(
 			cost: { mp: 10 },
 		},
 	]);
-	const fight = new Fight(99970, { maxTurn: 5, waitInputSec: 1, duiwei: true }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 5,
+		waitInputSec: 1,
+		duiwei: true,
+	});
+	const fight = new Fight(
+		99970,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	fight.createMap(5, 1);
 	const swordsman = new FightUnitUser(0, attributes(180, 30, 50, 200), { name: '剑客' });
 	swordsman.setPos(0);

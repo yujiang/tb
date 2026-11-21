@@ -8,6 +8,29 @@ test('package entry exports the current Fight implementation and has declaration
 	const pkg = require('../package.json');
 	const api = require('..');
 	assert.equal(typeof api.Fight, 'function');
+	assert.equal(typeof api.getRunwayRate, 'function');
+	assert.equal(typeof api.Fight.prototype.getResult, 'function');
+	assert.equal(typeof api.Fight.prototype.getWinSide, 'function');
+	assert.equal(typeof api.Fight.prototype.isRunaway, 'function');
+	assert.equal(typeof api.getFightGlobalData, 'function');
+	assert.equal(typeof api.setFightGlobalData, 'function');
+	const battle = new api.Fight(10013305, {
+		runaway: false,
+		runawayGrade: 0,
+		deathPenalty: 0,
+		winRecover: 0,
+		winReward: 0,
+	});
+	assert.deepEqual(battle.xls, {
+		runaway: false,
+		runawayGrade: 0,
+		deathPenalty: 0,
+		winRecover: 0,
+		winReward: 0,
+	});
+	assert.equal(battle.globalData, api.getFightGlobalData());
+	assert.equal(typeof api.initFightConsts, 'function');
+	assert.deepEqual(api.fightConsts, { spHurtRate: 0, spOutputRate: 0, jpAdd: 1 });
 	assert.equal(typeof api.FightLoopWest, 'function');
 	assert.equal(typeof api.FightLoopYanYu, 'function');
 	assert.equal(typeof api.FightLoopPC, 'function');

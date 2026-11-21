@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import { BuffTurnEnum } from '../../../src/fight/Buffs/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -97,7 +98,18 @@ function setup(extra: Partial<BuffData> = {}) {
 			addbuff: [[buffId, 1]],
 		},
 	]);
-	const fight = new Fight(97600, { maxTurn: 10, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 10,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		97600,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	const attacker = new FightUnitMonster(0, attributes(20), { name: '攻击者' });
 	// 被动构造时添加，尚未绑定 fight。
 	const unit = new FightUnitMonster(1, attributes(50), { name: '不屈者' }, [[passiveId, 1]]);
@@ -139,7 +151,7 @@ test('buqu: nonlethal hits preserve the charge, lethal hits leave 1 HP once per 
 	assert.equal(saved.damage, 39);
 	assert.equal(unit.getHp(), 1);
 	assert.equal(unit.isDied(), false);
-	assert.equal(fight.win, FightResultEnum.ongoing);
+	assert.equal(fight.result, FightResultEnum.ongoing);
 	assert.equal(unit.enemyHurt.get(0), 49);
 	assert.equal(unit.findBuff(buffId), undefined);
 	assert.equal(unit.contextEmitter.listenerCount('beforeHurt'), 0);
@@ -245,7 +257,18 @@ test('buqu: replacement, dispel and natural expiration clean up listeners', () =
 test('buqu: reusing a unit in a new battle grants a new opportunity', () => {
 	const { unit, attacker, ally, hurt } = setup();
 	hurt(100);
-	const nextFight = new Fight(97603, { maxTurn: 1, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 1,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const nextFight = new Fight(
+		97603,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	const a = new FightSide(),
 		b = new FightSide();
 	a.units.push(attacker);

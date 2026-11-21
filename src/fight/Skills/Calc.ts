@@ -3,6 +3,7 @@ import { Fight, FightContex } from '../Fight';
 import { FinalAttack, BaseAttack, FightAttr, FightTypeAttr } from '../FightAttr';
 import { FightStatic } from '../Buffs/StaticData';
 import { clone } from '../../public/Utilts';
+import { isDebugCrit } from '../FightDebug';
 
 const critBonusBase = 0.5;
 
@@ -72,7 +73,7 @@ function calcAttackParts(f: Fight, a: BaseAttack, d: BaseAttack, ctx: FightConte
 	d1 *= 1 + Math.max(a.hurtP - d.hurtPAnti, 0);
 
 	let critBonus = 0;
-	if (d1 > 1 && f.randomLess(a.critP - d.critPAnit)) {
+	if (d1 > 1 && (isDebugCrit() || f.randomLess(a.critP - d.critPAnit))) {
 		critBonus = critBonusBase + clamp(a.critDeep - d.critDeepAnit, 0, 1);
 		ctx.effects.push('crit');
 	}
@@ -124,6 +125,15 @@ export function calcAttr(ori: FightAttr, objs: FightStatic[]): FightAttr {
 		const data = obj.getData();
 		const attackType = data.attackType;
 		const level = obj.getLevel();
+		for (const field of [
+			'speed',
+			'damageLimit',
+			'jpAdd',
+			'spHurtRate',
+			'spOutputRate',
+		] as const) {
+			result[field] += (data.attr?.[field] ?? 0) + (data.attrLevel?.[field] ?? 0) * level;
+		}
 
 		if (attackType === 'heal' || attackType === 'poison') {
 			if (
@@ -181,5 +191,8 @@ export function calcAttr(ori: FightAttr, objs: FightStatic[]): FightAttr {
 		}
 	}
 
+	for (const field of ['damageLimit', 'jpAdd', 'spHurtRate', 'spOutputRate'] as const) {
+		result[field] = Math.max(0, result[field]);
+	}
 	return result;
 }

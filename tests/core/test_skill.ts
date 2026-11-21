@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { Fight } from '../../src/fight/Fight';
@@ -41,7 +42,18 @@ function baseAttack(overrides: Partial<BaseAttack> = {}): BaseAttack {
 
 // 测试：简单怪物的默认暴击率使用比例数值，不能导致每次攻击必然暴击。
 test('simple monsters: default critical chances are fractional and do not force critical hits', () => {
-	const fight = new Fight(97401, { maxTurn: 1, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 1,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		97401,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	fight.random = () => 0.5;
 	const side = new FightSide();
 	side.createSimpleMonster(fight, [{ id: 0, name: '默认暴击', pos: 0 }]);
@@ -62,7 +74,18 @@ test('simple monsters: default critical chances are fractional and do not force 
 
 // 测试：简单怪物显式配置零暴击率时保持为零，不被默认值覆盖。
 test('simple monsters: explicit zero critical chances stay zero', () => {
-	const fight = new Fight(97402, { maxTurn: 1, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 1,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		97402,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	const side = new FightSide();
 	side.createSimpleMonster(fight, [
 		{
@@ -100,7 +123,20 @@ function fightType(base: BaseAttack): FightTypeAttr {
 }
 
 function createFightPair() {
-	const fight = new Fight(1, { maxTurn: 10, waitInputSec: 1, duiwei: false });
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 10,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(1, {
+		runaway: false,
+		runawayGrade: 0,
+		deathPenalty: 0,
+		winRecover: 0,
+		winReward: 0,
+	});
 	fight.random = () => 0.99;
 
 	const attackSide = new FightSide();
@@ -269,7 +305,20 @@ test('ordinary attacks and skills use the shared damage flow with skill attribut
 
 // 测试：简单怪物的技能伤害、治疗和中毒计算均产生有限数值。
 test('simple monsters have finite attributes for skill damage, healing, and poison', () => {
-	const fight = new Fight(2, { maxTurn: 10, waitInputSec: 1, duiwei: false });
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 10,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(2, {
+		runaway: false,
+		runawayGrade: 0,
+		deathPenalty: 0,
+		winRecover: 0,
+		winReward: 0,
+	});
 	fight.random = () => 0.99;
 	const attackSide = new FightSide();
 	const defendSide = new FightSide();
@@ -439,7 +488,20 @@ test('calcAttr applies level-based attack and final bonuses', () => {
 
 // 测试：单位深拷贝嵌套属性，同时保留 FightAttr 的方法。
 test('fight units clone nested attributes while preserving FightAttr methods', () => {
-	const fight = new Fight(3, { maxTurn: 10, waitInputSec: 1, duiwei: false });
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 10,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(3, {
+		runaway: false,
+		runawayGrade: 0,
+		deathPenalty: 0,
+		winRecover: 0,
+		winReward: 0,
+	});
 	const side = new FightSide();
 	side.createSimpleMonster(fight, [{ name: 'clone target', id: 21, pos: 0 }]);
 	const unit = side.units[0];

@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import {
 	Fight,
 	FightAttr,
@@ -74,7 +75,18 @@ export async function runReactionReport(
 		{ ...skill, id: nextId, name: '连斩' },
 		{ ...skill, id: killId, name: '收割' },
 	]);
-	const fight = new Fight(97200, { maxTurn: 5, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 5,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		97200,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	const heroAttr = attr(80, 25, 200);
 	heroAttr.point.hpMax = 120;
 	heroAttr.physic.fback = base(8, 1);

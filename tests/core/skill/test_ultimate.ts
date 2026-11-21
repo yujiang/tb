@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -64,8 +65,8 @@ function setup(enabled = true) {
 	ally.setAttackSkill(chainIds.first);
 	s.fight.getSide(0).units.push(ally);
 	s.fight.createSide(s.fight.getSide(0), s.fight.getSide(1));
-	s.fight.xls.allShieldBreak = enabled;
-	s.fight.xls.duiwei = true;
+	setFightGlobalData({ allShieldBreak: enabled });
+	setFightGlobalData({ duiwei: true });
 	s.fight.createMap(5, 1);
 	s.actor.setPos(0);
 	ally.setPos(1);
@@ -437,7 +438,7 @@ test('ultimate: input callback errors close the ultimate window', async (t) => {
 		throw new Error('ultimate input failure');
 	});
 	await loop.runUltimate(1);
-	assert.equal(s.fight.win, 1);
+	assert.equal(s.fight.result, 1);
 	assert.equal(logged.mock.callCount(), 1);
 	assert.equal(loop.ultimateSide, undefined);
 	loop.end();
@@ -484,7 +485,7 @@ test('ultimate: ending at the round limit clears an unused client opportunity', 
 	const s = setup();
 	s.actor.setUltimateSkill(0);
 	s.ally.setUltimateSkill(0);
-	s.fight.xls.maxTurn = 1;
+	setFightGlobalData({ maxTurn: 1 });
 	const loop = new FightLoopPC(s.fight),
 		client = new FightClient();
 	let requests = 0;

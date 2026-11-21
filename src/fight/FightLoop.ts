@@ -59,9 +59,7 @@ export abstract class FightLoop {
 		ctx?: FightContex,
 	): boolean {
 		if (
-			this.stopped ||
-			this.fight.isEnd() ||
-			this.queueTurn !== this.fight.turn ||
+			!this.canProcessTurn(this.queueTurn) ||
 			unit.fight !== this.fight ||
 			!this.fight.getAllUnits().includes(unit) ||
 			!this.fight.checkPC(unit, input)
@@ -87,6 +85,20 @@ export abstract class FightLoop {
 	}
 	protected takeAction() {
 		return (this.currentAction = this.actionQueue.shift());
+	}
+	// 只有普通行动位和模板extraAction推动集气；规则插入、即时技能、大招及内部反应链不推动。
+	protected finishAction(action: FightAction, ctx: FightContex | undefined) {
+		if (
+			!this.fight.globalData.jiqi ||
+			!ctx?.actionStarted ||
+			(action.inserted && action.speedRate === undefined)
+		) {
+			return;
+		}
+
+		for (const unit of this.fight.getAllUnits()) {
+			if (!unit.isDied()) unit.addJp(unit.attr.jpAdd, ctx);
+		}
 	}
 	protected insertedContext(action: FightAction): FightContex | undefined {
 		if (action.speedRate !== undefined) {
@@ -129,17 +141,22 @@ export abstract class FightLoop {
 				]
 			: ['actor', action.unit.uid, action.unit.getSpeed()];
 	}
-	protected stopped = false;
+	protected stopped = true;
 	protected failed = false;
+	// 调度、输入和等待恢复后统一检查；省略回合号时仅检查当前循环是否仍可运行。
+	protected canProcessTurn(turn = this.fight.turn): boolean {
+		return !this.stopped && !this.fight.isEnd() && this.fight.turn === turn;
+	}
+
 	// 宿主可以覆盖日志入口；原始异常对象保留堆栈，context 保存当前行动意图。
 	onError(error: unknown, context: FightErrorContext) {
-		console.error('战斗异常，停止战斗并判攻击方失败：', context, error);
+		console.error('战斗异常，停止战斗；未结束时判攻击方失败，已有结果保留：', context, error);
 	}
 	private reportFailure(error: unknown, unit?: FightUnit, input?: FightInput) {
-		if (this.failed) return;
-
 		this.failed = true;
-		this.fight.win = FightResultEnum.defend;
+		if (this.fight.result === FightResultEnum.ongoing) {
+			this.fight.setWin(FightResultEnum.defend);
+		}
 		this.fight.resetUltimate();
 		const action = unit === undefined && input === undefined ? this.currentAction : undefined;
 		unit ??= this.currentAction?.unit;
@@ -192,21 +209,23 @@ export abstract class FightLoop {
 
 	async run() {
 		try {
-			return await this.runBattle();
+			await this.runBattle();
 		} catch (error) {
-			this.fail(error);
-			return this.fight.win;
+			this.reportFailure(error);
+		} finally {
+			this.end();
 		}
+		return this.fight.result;
 	}
 
 	private async runBattle() {
 		const f = this.fight;
 		this.start();
 		f.checkOutcome();
-		while (!f.isEnd() && !this.stopped) {
+		while (this.canProcessTurn()) {
 			const turn = this.nextTurn();
 			//console.log(f);
-			if (f.isEnd() || this.stopped) {
+			if (!this.canProcessTurn(turn)) {
 				break;
 			}
 
@@ -215,23 +234,23 @@ export abstract class FightLoop {
 			this.bcMsg(f1.msgs);
 
 			f.checkOutcome();
-			if (f.isEnd() || this.stopped) {
+			if (!this.canProcessTurn(turn)) {
 				break;
 			}
 
-			if (f.xls.allShieldBreak) await this.processUltimate(turn, true);
-			if (f.isEnd() || this.stopped) {
+			if (f.globalData.allShieldBreak) await this.processUltimate(turn, true);
+			if (!this.canProcessTurn(turn)) {
 				break;
 			}
 			const f2 = initFightContex(f);
 			await this.waitInput(turn, f2);
 			this.bcMsg(f2.msgs);
 			f.checkOutcome();
-			if (f.isEnd() || this.stopped) {
+			if (!this.canProcessTurn(turn)) {
 				break;
 			}
-			if (f.xls.allShieldBreak) await this.processUltimate(turn, true);
-			if (f.isEnd() || this.stopped) {
+			if (f.globalData.allShieldBreak) await this.processUltimate(turn, true);
+			if (!this.canProcessTurn(turn)) {
 				break;
 			}
 
@@ -244,13 +263,11 @@ export abstract class FightLoop {
 			const f3 = initFightContex(f);
 			this.processAfterTurn(turn, f3); //回合后主要处理死亡等
 			this.bcMsg(f3.msgs);
-			if (f.xls.allShieldBreak) await this.processUltimate(turn, true);
+			if (f.globalData.allShieldBreak) await this.processUltimate(turn, true);
 			if (this.stopped) break;
 
 			f.finishTurn();
 		}
-		if (!this.stopped) this.end();
-		return this.fight.win;
 	}
 
 	start() {
@@ -296,14 +313,19 @@ export abstract class FightLoop {
 				this.reportFailure(error, unit);
 			}
 		}
-		// 收尾回调完成后再发送最终结果，回调异常同样按攻击方失败结算。
+		// 收尾回调完成后再发送最终结果；异常逐项记录，保留已经确定的胜负。
+		try {
+			this.fight.onEnd();
+		} catch (error) {
+			this.reportFailure(error);
+		}
 		try {
 			this.emitEvent('end');
 		} catch (error) {
 			this.reportFailure(error);
 		}
 		try {
-			this.bcMsg(['end', this.fight.win]);
+			this.bcMsg(['end', this.fight.result, this.fight.getWinSide(), this.fight.isRunaway()]);
 		} catch (error) {
 			this.reportFailure(error);
 		}
@@ -370,10 +392,8 @@ export abstract class FightLoop {
 	private acceptUltimateInput(id: number, input: FightInput): boolean {
 		const pending = this.ultimateInput;
 		if (
-			this.stopped ||
 			!pending ||
-			this.fight.isEnd() ||
-			pending.turn !== this.fight.turn ||
+			!this.canProcessTurn(pending.turn) ||
 			!input ||
 			(input.turn !== undefined && input.turn !== pending.turn)
 		) {
@@ -419,19 +439,14 @@ export abstract class FightLoop {
 				continue;
 			}
 			if (waitBefore) await this.waitDrawOver();
-			while (
-				!this.stopped &&
-				!this.fight.isEnd() &&
-				this.fight.turn === turn &&
-				this.fight.hasUltimateChance(side)
-			) {
+			while (this.canProcessTurn(turn) && this.fight.hasUltimateChance(side)) {
 				let choice: UltimateInput | undefined;
 				try {
 					choice = await this.waitInputUtimate(turn, side);
 				} finally {
 					this.closeUltimateInput();
 				}
-				if (this.stopped || this.fight.isEnd() || this.fight.turn !== turn) {
+				if (!this.canProcessTurn(turn)) {
 					return;
 				}
 

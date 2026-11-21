@@ -3,6 +3,7 @@ const statusForbidActions: Record<string, string[]> = {
 	封印: ['attack', 'skill'],
 	休息: ['action'], // 跳过主动行动（含防御），不在提交阶段禁止普攻/技能输入。
 	沉默: ['skill'],
+	缠绕: ['move'], // 禁止移动，只能使用nomove:1的原地技能，不跳过整个行动。
 	眩晕: ['attack', 'skill', 'item', 'escapse', 'dodge', 'fback'],
 };
 

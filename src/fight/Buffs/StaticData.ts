@@ -1,4 +1,4 @@
-import { BaseAttack, FinalAttack } from '../FightAttr';
+import { BaseAttack, FinalAttack, CommonAttr } from '../FightAttr';
 
 export interface StaticData {
 	/** Buff/被动表 ID；对应查询以 0 表示无配置，请使用非零 ID。 */
@@ -27,6 +27,10 @@ export interface StaticData {
 	attackLevel?: Partial<BaseAttack>;
 	/** 每级最终属性加成，乘 Buff/被动自身等级；缺省无成长。 */
 	finalLevel?: Partial<FinalAttack>;
+	/** 单位公共属性的固定加成：speed/damageLimit/jpAdd/spHurtRate/spOutputRate；缺省无加成，可为负数作修正，不受magic/attackType影响，不改attrOri；damageLimit合并后最低0，0表示不限伤。 */
+	attr?: Partial<CommonAttr>;
+	/** 单位公共属性每级加成，字段同attr；乘Buff/被动自身等级，缺省无成长，0级保留固定加成。 */
+	attrLevel?: Partial<CommonAttr>;
 }
 
 export class FightStatic {
@@ -62,6 +66,13 @@ export class FightStatic {
 	}
 
 	hasAttr() {
-		return this.xls.attack || this.xls.final || this.xls.attackLevel || this.xls.finalLevel;
+		return (
+			this.xls.attack ||
+			this.xls.final ||
+			this.xls.attackLevel ||
+			this.xls.finalLevel ||
+			this.xls.attr ||
+			this.xls.attrLevel
+		);
 	}
 }

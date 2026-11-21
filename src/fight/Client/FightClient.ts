@@ -14,7 +14,9 @@ export type FightClientUnit = ReturnType<FightUnit['getUnitMsg']>;
 export class FightClient {
 	fid: number;
 	turn = 0;
-	win = FightResultEnum.ongoing;
+	result = FightResultEnum.ongoing;
+	winSide = -1;
+	runaway = false;
 	sides: [FightClientUnit[], FightClientUnit[]] = [[], []];
 	sort: number[] = [];
 	actions: FightActionDisplay[] = [];
@@ -60,7 +62,9 @@ export class FightClient {
 					this.ultimateReady = [false, false];
 					this.fid = msg[1];
 					this.turn = 0;
-					this.win = FightResultEnum.ongoing;
+					this.result = FightResultEnum.ongoing;
+					this.winSide = -1;
+					this.runaway = false;
 					this.sides = [[], []];
 					this.sort = [];
 					this.actions = [];
@@ -74,11 +78,22 @@ export class FightClient {
 					this.actor = undefined;
 					break;
 				case 'end':
-					this.win = msg[1];
-					if (this.win !== FightResultEnum.ongoing) this.ultimateReady = [false, false];
+					this.result = msg[1];
+					this.winSide =
+						msg[2] ??
+						(this.result === FightResultEnum.draw ||
+						this.result === FightResultEnum.outoftime
+							? FightSideEnum.defend
+							: this.result);
+					this.runaway = msg[3] ?? this.runaway;
+					if (this.result !== FightResultEnum.ongoing)
+						this.ultimateReady = [false, false];
 					this.actor = undefined;
 					this.sort = [];
 					this.actions = [];
+					break;
+				case 'runaway':
+					if (msg[2]) this.runaway = true;
 					break;
 				case 'sort':
 					this.sort = [...msg[1]];
@@ -114,9 +129,17 @@ export class FightClient {
 					break;
 				}
 				case 'costHp':
-				case 'costMp': {
+				case 'costMp':
+				case 'costSp':
+				case 'costJp': {
 					const unit = this.getUnitById(msg[1]);
-					if (unit) unit.point[msg[0] === 'costHp' ? 'hp' : 'mp'] = msg[3];
+					const key = msg[0].slice(4).toLowerCase() as 'hp' | 'mp' | 'sp' | 'jp';
+					if (unit) unit.point[key] = msg[3];
+					break;
+				}
+				case 'addPoint': {
+					const unit = this.getUnitById(msg[1]);
+					if (unit) unit.point[msg[2] as 'mp' | 'sp' | 'jp'] = msg[4];
 					break;
 				}
 				case 'skillCd': {

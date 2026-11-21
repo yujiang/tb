@@ -8,6 +8,7 @@ export enum FightResultEnum {
 	attack = 0,
 	defend = 1,
 	draw = 2,
+	outoftime = 3,
 }
 
 export function EnemySide(side: FightSideEnum): FightSideEnum {
@@ -76,12 +77,12 @@ export interface FightActionDisplay {
 
 export enum FightCmdEnum {
 	none, //没有来得及发指令, 默认攻击!
-	//stand,      //什么都不干
+	//stand,    //什么都不干
 	attack, //攻击
 	defend, //防御
 	skill, //技能
-	//runaway,    //逃跑
-	//catch,      //捕捉宠物
+	runaway, //逃跑
+	//catch,    //捕捉宠物
 	cancel, //取消
 	protect, //保护队友，行动优先级高于普通指令
 }
@@ -89,7 +90,7 @@ export enum FightCmdEnum {
 export interface FightInput {
 	/** West/YanYu网络入口必填当前全局回合；PC入口可省略，提供时须匹配；底层本地调用可省略。 */
 	turn?: number;
-	/** 指令枚举：none默认普攻、attack、defend、skill、cancel、protect；必须由宿主先鉴权。 */
+	/** 指令枚举：none默认普攻、attack、defend、skill、runaway逃跑、cancel、protect；逃跑无须目标，PC/西游支持，烟雨不接受；必须由宿主先鉴权。 */
 	cmd: FightCmdEnum;
 	/** cmd=skill时的已学技能ID；独立大招入口可省略，按装备的ultimateSkill推导。 */
 	skill?: number;
@@ -109,8 +110,12 @@ export type IdLevelArray = IdLevel[];
 export type fightMsg = [string, ...any[]];
 
 export interface SkillCost {
-	/** 生命点数费用，建议非负数；省略/0不扣，玩家/召唤物支付后必须仍>0，怪物不耗资源。 */
+	/** 生命点数费用，建议非负数；省略/0不扣，玩家/召唤物支付后必须仍>0，怪物不耗资源。真实变化在整笔费用支付后发送hp事件（来源为本人），不发hurt、不产怒气。 */
 	hp?: number;
 	/** 法力点数费用，建议非负数；省略/0不扣，玩家/召唤物允许刚好用完。 */
 	mp?: number;
+	/** 怒气点数费用，非负有限数；省略/0不扣，玩家/召唤物允许刚好用完，怪物不耗资源。 */
+	sp?: number;
+	/** 集气点数费用，非负有限数；省略/0不扣，玩家/召唤物允许刚好用完，怪物不耗资源；全局jiqi关闭时忽略校验及扣费、不发消息。 */
+	jp?: number;
 }

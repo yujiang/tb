@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import { BuffTurnEnum } from '../../../src/fight/Buffs/BuffDatas';
 import { strict as assert } from 'node:assert';
 import {
@@ -116,7 +117,18 @@ export function runHealExample(
 		},
 	]);
 
-	const fight = new Fight(10011500, { maxTurn: 10, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 10,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		10011500,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	const doctor = new FightUnitUser(0, attributes(900), { name: '医师' });
 	const allies = [
 		new FightUnitMonster(1, attributes(50), { name: '禁疗队友' }),

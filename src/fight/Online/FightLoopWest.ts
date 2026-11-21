@@ -35,7 +35,7 @@ export class FightLoopWest extends FightLoopOnline {
 			(a, b) => this.compareProcessActions(a, b),
 		);
 		this.syncActionOrder();
-		while (this.actionQueue.length && !this.fight.isEnd() && !this.stopped) {
+		while (this.actionQueue.length && this.canProcessTurn(turn)) {
 			const action = this.takeAction(),
 				u = action.unit;
 			let ctx = action.inserted
@@ -44,9 +44,10 @@ export class FightLoopWest extends FightLoopOnline {
 					? this.freshInputContext(action)
 					: u.processOneTurn(turn);
 			if (ctx) {
+				this.finishAction(action, ctx);
 				ctx.msgs.unshift(this.actorMessage(action));
 				this.bcMsg(ctx.msgs);
-				if (this.fight.xls.allShieldBreak) await this.processUltimate(turn, true);
+				if (this.fight.globalData.allShieldBreak) await this.processUltimate(turn, true);
 			} else this.syncActionOrder();
 			index++;
 		}
@@ -89,7 +90,7 @@ export class FightLoopWest extends FightLoopOnline {
 		const p = new Promise<number>((resolve) => {
 			this.inputResolve = resolve;
 		});
-		const wait = this.fight.xls.waitInputSec || 30;
+		const wait = this.fight.globalData.waitInputSec || 30;
 		const timer = new AbortController();
 		this.inputTimer = timer;
 		const p2 = delay(wait * 1000, 0, { signal: timer.signal });
@@ -112,7 +113,7 @@ export class FightLoopWest extends FightLoopOnline {
 	}
 
 	private acceptInput(id: number, input: FightInput) {
-		if (this.input == 0 || this.fight.isEnd() || input?.turn !== this.fight.turn) {
+		if (this.input == 0 || !this.canProcessTurn() || input?.turn !== this.fight.turn) {
 			return;
 		}
 

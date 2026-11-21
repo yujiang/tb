@@ -1,11 +1,21 @@
+import { setFightGlobalData } from '../../src/fight/Fight';
 import { Fight } from '../../src/fight/Fight';
 import { FightSide } from '../../src/fight/FightSide';
 
 export function createFightAndSide(fid: number) {
-	const fight = new Fight(fid, {
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
 		maxTurn: 100,
 		waitInputSec: 1,
 		duiwei: false,
+	});
+	const fight = new Fight(fid, {
+		runaway: false,
+		runawayGrade: 0,
+		deathPenalty: 0,
+		winRecover: 0,
+		winReward: 0,
 	});
 	fight.createMap(5, 5);
 	const s1 = new FightSide();

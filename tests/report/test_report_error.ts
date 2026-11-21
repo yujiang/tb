@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { FightCmdEnum, FightLoopPC, FightResultEnum } from '../../src';
@@ -15,7 +16,7 @@ test('report demo: skill errors print their stack and end the fight', async () =
 	});
 	s.loop.end();
 	s.fight.turn = 0;
-	s.fight.xls.maxTurn = 1;
+	setFightGlobalData({ maxTurn: 1 });
 	s.actor.attrOri.speed = 500;
 	s.actor.calcAttr();
 
@@ -46,7 +47,7 @@ test('report demo: skill errors print their stack and end the fight', async () =
 	console.log('剩余行动数：', loop.actions.length);
 	console.log('等待输入单位：', loop.inputUnit);
 	assert.equal(result, FightResultEnum.defend);
-	assert.equal(s.client.win, FightResultEnum.defend);
+	assert.equal(s.client.result, FightResultEnum.defend);
 	assert.equal(loop.actions.length, 0);
 	assert.equal(loop.inputUnit, undefined);
 });

@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../src/fight/Fight';
 import { BuffTurnEnum } from '../../src/fight/Buffs/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -422,7 +423,18 @@ test('report: empty messages do nothing and start clears previous names and text
 
 // 测试：简报与客户端同时绑定完整战斗循环，输出结局且状态一致。
 test('report: binding coexists with FightClient and reports a full battle', async () => {
-	const fight = new Fight(97103, { maxTurn: 1, waitInputSec: 0.01, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 1,
+		waitInputSec: 0.01,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		97103,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	const a = new FightSide(),
 		b = new FightSide();
 	a.createSimpleMonster(fight, [{ id: 0, name: '甲', pos: 0 }]);

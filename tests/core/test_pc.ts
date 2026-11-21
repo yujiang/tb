@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -80,7 +81,19 @@ function setup(summon = false) {
 		: new FightUnitUser(1, attributes(100), { name: '乙' });
 	const c = new FightUnitMonster(2, attributes(150), { name: '丙' });
 	const d = new FightUnitMonster(3, attributes(50), { name: '丁' });
-	const fight = new Fight(1001050, { maxTurn: 1, waitInputSec: 0.001, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 1,
+		waitInputSec: 0.001,
+		duiwei: false,
+		attackDie: false,
+	});
+	const fight = new Fight(
+		1001050,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	const left = new FightSide(),
 		right = new FightSide();
 	left.units.push(a, b);
@@ -122,7 +135,7 @@ test("pc: request each player's input at its speed slot and run NPC AI automatic
 		animations++;
 	};
 	const result = await s.loop.run();
-	assert.equal(result, FightResultEnum.defend);
+	assert.equal(result, FightResultEnum.outoftime);
 	assert.equal(s.fight.turn, 1);
 	assert.deepEqual(requests, [0, 1]);
 	assert.deepEqual(
@@ -186,7 +199,7 @@ test('pc: input waits indefinitely and ending releases the waiting actor', async
 // 测试：宿主在完整 run 的输入等待期间结束循环时，不继续空跑后续全局回合，也不重复发送结束消息。
 test('pc: ending a full run while waiting stops later global rounds', async () => {
 	const s = setup();
-	s.fight.xls.maxTurn = 100;
+	setFightGlobalData({ maxTurn: 100 });
 	s.loop.on('input', () => s.loop.end());
 	assert.equal(await s.loop.run(), FightResultEnum.ongoing);
 	assert.equal(s.fight.turn, 1);
@@ -407,7 +420,7 @@ test('pc: input callback errors end the fight and close the input window', async
 		throw new Error('input failure');
 	});
 	await s.loop.processOneTurn(1);
-	assert.equal(s.fight.win, FightResultEnum.defend);
+	assert.equal(s.fight.result, FightResultEnum.defend);
 	assert.equal(logged.mock.callCount(), 1);
 	assert.equal(s.loop.inputUnit, undefined);
 	assert.equal(s.loop.onInput(s.a.uid, { cmd: FightCmdEnum.attack }), false);
@@ -424,7 +437,7 @@ test('pc: errors after synchronous input submission end the fight', async (t) =>
 		throw new Error('after input failure');
 	});
 	await s.loop.processOneTurn(1);
-	assert.equal(s.fight.win, FightResultEnum.defend);
+	assert.equal(s.fight.result, FightResultEnum.defend);
 	assert.equal(logged.mock.callCount(), 1);
 	assert.equal(s.loop.inputUnit, undefined);
 	s.loop.end();

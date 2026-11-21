@@ -228,7 +228,7 @@ test('mud: live loop binding prints a complete story without changing battle sta
 	assert.ok(live.report instanceof FightMud);
 	assert.equal(live.client.checkSame(live.fight), true);
 	assert.deepEqual(live.messages, baseline.messages);
-	assert.equal(live.fight.win, baseline.fight.win);
+	assert.equal(live.fight.result, baseline.fight.result);
 	assert.equal(live.fight.turn, baseline.fight.turn);
 	assert.equal(live.fight.random(), baseline.fight.random());
 	assert.match(live.report.toString(), /凝神|窥见破绽/);

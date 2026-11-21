@@ -6,7 +6,7 @@ import { runReactionReport } from './fixtures/report_reactions';
 // 测试：固定种子战斗完整展示连击、追击、反击、吸血和反伤，简报可读且客户端一致。
 test('report: deterministic combo, pursuit, counterattack, lifesteal and reflection are readable', async () => {
 	const { fight, client, report, messages, checkedBatches } = await runReactionReport(() => {});
-	assert.equal(fight.win, FightResultEnum.attack);
+	assert.equal(fight.result, FightResultEnum.attack);
 	assert.equal(fight.turn, 2);
 	assert.equal(fight.getUnitById(0).getHp(), 101);
 	assert.equal(client.checkSame(fight), true);

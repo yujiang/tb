@@ -10,6 +10,7 @@ export function multiFunc(
 	skill: FightSkill,
 	ctx: FightContex,
 	func: (attacker: FightUnit, target: FightUnit, skill: FightSkill, ctx: FightContex) => boolean,
+	force = false,
 ) {
 	return ctx.fight.resolveAction(() => {
 		const targets = ctx.fight.selectGroupTargets(attacker, skill);
@@ -18,7 +19,7 @@ export function multiFunc(
 			return false;
 		}
 
-		if (ctx.fight.randomGreat(skill.getRand())) {
+		if (!force && ctx.fight.randomGreat(skill.getRand())) {
 			ctx.msgs.push(['skillFailed', attacker.uid, targets[0].uid, skill.getId()]);
 			return false;
 		}

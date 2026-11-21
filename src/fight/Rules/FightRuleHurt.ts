@@ -71,6 +71,10 @@ export class FightRuleHurt extends FightRule {
 						return;
 					}
 
+					if (owner.isForbid('move') && !(skill ?? owner.getAttackSkill())?.getNoMove()) {
+						return;
+					}
+
 					// 新攻击沿用普通攻击属性与反应预算，不走反击属性，也不进入行动条。
 					ctx.msgs.push(['aiAttack', owner.uid, attacker.uid]);
 					if (skill) skillAttackFunc(owner, attacker, skill, ctx);

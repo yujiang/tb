@@ -146,6 +146,6 @@ test('rest: duration zero does not expire and ended battles do not emit skip act
 	loop.processAfterTurn(2, ctx);
 	assert.ok(actor.findBuff(ids.rest));
 	flush(ctx);
-	fight.win = FightResultEnum.attack;
+	fight.result = FightResultEnum.attack;
 	assert.equal(fight.processUnit(actor, { cmd: FightCmdEnum.attack }), undefined);
 });

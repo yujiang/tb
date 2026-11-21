@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import { BuffTurnEnum } from '../../../src/fight/Buffs/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -134,7 +135,18 @@ function setup(
 			sel: { target: TargetSelectEnum.friend },
 		},
 	]);
-	const fight = new Fight(97900, { maxTurn: 10, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 10,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		97900,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	const caster = new FightUnitMonster(0, attr(100), { name: '施法者' });
 	caster.setPos(0);
 	const enemy = new FightUnitMonster(3, attr(50), { name: '另一敌人' });
@@ -266,6 +278,28 @@ test('reflect: reflected attacks do not grant the original attacker lifesteal or
 	assert.equal(holder.getHp(), 150);
 });
 
+for (const damage of [0, 1, 2]) {
+	// 测试：反射后零伤害及实际一点伤害不触发反击，实际两点伤害仍正常反击。
+	test(`reflect: counterattack requires actual damage greater than one (${damage})`, () => {
+		const { caster, holder, cast } = setup({}, (holder) => {
+			holder.attrOri.physic.fback.rand = 1;
+			holder.calcAttr();
+			if (damage > 0) {
+				holder.onContex('beforeHurt', (_unit, _ctx, _attacker, pending) => {
+					pending.damage = damage;
+				});
+			}
+		});
+		const ctx = cast(damage === 0 ? magicId : physicalId);
+		assert.equal(
+			ctx.msgs.filter((msg) => msg[0] === 'skill' && msg[4] === 'fback').length,
+			damage > 1 ? 1 : 0,
+		);
+		assert.equal(holder.getHp(), 150 - damage);
+		assert.equal(caster.getHp(), damage === 1 ? 100 : 70);
+	});
+}
+
 // 测试：反射次数只在实际转移时消耗，耗尽后解绑伤害和治疗两个监听。
 test('reflect: limited charges count actual transfers and unregister both listeners', () => {
 	const { holder, caster, cast } = setup({ times: 1 });
@@ -330,7 +364,7 @@ test("reflect: an overkill hit returns its full offered damage and resolves the 
 	assert.equal(holder.isDied(), false);
 	assert.equal(caster.getHp(), 0);
 	assert.equal(caster.isDied(), true);
-	assert.equal(fight.win, FightResultEnum.defend);
+	assert.equal(fight.result, FightResultEnum.defend);
 	assert.deepEqual(
 		ctx.msgs.filter((msg) => msg[0] === 'hurt').map((msg) => msg[4]),
 		[20],

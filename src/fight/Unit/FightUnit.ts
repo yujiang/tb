@@ -19,6 +19,8 @@ import { createPassiveSkills, PassiveSkill } from '../Passives/PassiveSkill';
 import { calcAttr } from '../Skills/Calc';
 import EventEmitter from 'node:events';
 import { OrderedEventEmitter } from '../../public/OrderedEventEmitter';
+import { fightConsts } from '../FightConsts';
+import { getDebugHurtHpLimit } from '../FightDebug';
 
 export enum UnitType {
 	user,
@@ -72,6 +74,11 @@ export abstract class FightUnit {
 	) {
 		this.uid = id;
 		this.attrOri = attr;
+		// 兼容直接传入普通对象的宿主数据；在首次绑定单位时补齐公共默认值。
+		this.attrOri.jpAdd ??= fightConsts.jpAdd;
+		this.attrOri.damageLimit ??= 0;
+		this.attrOri.spHurtRate ??= fightConsts.spHurtRate;
+		this.attrOri.spOutputRate ??= fightConsts.spOutputRate;
 		this.display = display;
 		this.setPassiveSkills(passiveSkills);
 		this.calcAttr();
@@ -102,6 +109,35 @@ export abstract class FightUnit {
 	}
 	getHpMax() {
 		return this.attr.point.hpMax;
+	}
+
+	// 统一资源增长及上限截断；消息携带实际增加值和最终值，客户端无需重复计算。
+	private addPoint(key: 'mp' | 'sp' | 'jp', amount: number, ctx: FightContex): number {
+		if (!Number.isFinite(amount) || amount <= 0) {
+			return 0;
+		}
+
+		const point = this.attr.point;
+		const before = point[key] ?? 0;
+		const max = point[`${key}Max`] ?? 0;
+		const added = Math.max(0, Math.min(amount, max - before));
+		if (added <= 0) return 0;
+
+		point[key] = before + added;
+		ctx.msgs.push(['addPoint', this.uid, key, added, point[key]]);
+		return added;
+	}
+
+	addMp(amount: number, ctx: FightContex) {
+		return this.addPoint('mp', amount, ctx);
+	}
+	addSp(amount: number, ctx: FightContex) {
+		return this.addPoint('sp', amount, ctx);
+	}
+	addJp(amount: number, ctx: FightContex) {
+		if (!ctx.fight.globalData.jiqi) return 0;
+
+		return this.addPoint('jp', amount, ctx);
 	}
 
 	getAttr(key: string) {
@@ -159,6 +195,14 @@ export abstract class FightUnit {
 		if (shield > 0 && !breaksShield) {
 			hp *= 0.5;
 		}
+		// 来源单位的伤害上限与调试限伤取较小值，受伤前效果也应看到限伤后的伤害。
+		let hurtLimit = getDebugHurtHpLimit();
+		const damageLimit = attacker.attr.damageLimit;
+		if (damageLimit > 0) {
+			hurtLimit = hurtLimit > 0 ? Math.min(hurtLimit, damageLimit) : damageLimit;
+		}
+		if (hurtLimit > 0) hp = Math.min(hp, hurtLimit);
+
 		const pending: PendingHurt = { ...options, source: options.source ?? 'skill', damage: hp };
 		this.emitContext('beforeHurt', ctx, attacker, pending);
 		if (pending.cancelled || this.isDied()) {
@@ -187,24 +231,30 @@ export abstract class FightUnit {
 				results,
 			);
 		}
-		hp = Math.min(this.getHp(), Math.max(0, Math.floor(pending.damage)));
-
 		const point = this.attr.point;
 		const previousHp = point.hp;
-		point.hp -= hp;
-		if (point.hp < this.minHp) {
-			point.hp = this.minHp;
-		}
+		// 锁血只限制本次可扣生命；当前血量已低于锁血线时不能因受伤回血。
+		const availableHp = Math.max(0, previousHp - Math.max(0, this.minHp));
+		// 受伤前回调仍可能增加伤害，最终扣血再次遵守生效的上限。
+		const damage = hurtLimit > 0 ? Math.min(pending.damage, hurtLimit) : pending.damage;
+		const actual = Math.min(availableHp, Math.max(0, Math.floor(damage)));
+		point.hp -= actual;
 
-		ctx.msgs.push(['hurt', why, this.uid, attacker.uid, hp, point.hp, ctx.effects]);
-		this.addEnemy(attacker, hp);
+		ctx.msgs.push(['hurt', why, this.uid, attacker.uid, actual, point.hp, ctx.effects]);
+		this.addSp(actual * this.attr.spHurtRate, ctx);
+		if (attacker.fight === ctx.fight && attacker !== this) {
+			attacker.addSp(actual * attacker.attr.spOutputRate, ctx);
+		}
+		this.addEnemy(attacker, actual);
 		if (attacker.fight === ctx.fight)
-			ctx.fight.Sides?.[attacker.side]?.recordHurt(attacker.uid, previousHp - point.hp);
+			ctx.fight.Sides?.[attacker.side]?.recordHurt(attacker.uid, actual);
 		results.push(() => {
 			if (point.hp !== previousHp)
 				this.emitContext('hp', ctx, attacker, previousHp, point.hp);
 			// 分担只承担伤害，不展开保护者自己的受伤反应链；死亡流程仍正常执行。
-			if (pending.source !== 'share') this.emitContext('hurt', ctx, attacker, hp, pending);
+			if (pending.source !== 'share') {
+				this.emitContext('hurt', ctx, attacker, actual, pending);
+			}
 			if (point.hp <= 0) {
 				point.hp = 0;
 				ctx.msgs.push(['die', this.uid]);
@@ -212,7 +262,7 @@ export abstract class FightUnit {
 				this.fight.onDie(this);
 			}
 		});
-		return hp;
+		return actual;
 	}
 
 	// 加入仇恨列表
@@ -249,6 +299,9 @@ export abstract class FightUnit {
 		ctx.msgs.push(['heal', why, this.uid, attacker.uid, hp, point.hp, effects]);
 		const previousHp = point.hp;
 		point.hp = Math.min(point.hp + hp, point.hpMax);
+		if (attacker.fight === ctx.fight) {
+			attacker.addSp((point.hp - previousHp) * attacker.attr.spOutputRate, ctx);
+		}
 		this.addFriend(attacker, point.hp - previousHp);
 		if (attacker.fight === ctx.fight)
 			ctx.fight.Sides?.[attacker.side]?.recordHeal(attacker.uid, point.hp - previousHp);
@@ -443,7 +496,7 @@ export abstract class FightUnit {
 	}
 
 	onInput(input: FightInput) {
-		if (!this.fight?.checkOnline(this, input)) return false;
+		if (!this.fight?.checkInput(this, input)) return false;
 
 		this.input = { ...input };
 		if (input.cmd == FightCmdEnum.cancel) {
@@ -646,7 +699,13 @@ export abstract class FightUnit {
 		if (point) {
 			this.attr.point.hp = point.hp;
 			this.attr.point.mp = point.mp;
+			this.attr.point.sp = point.sp;
+			this.attr.point.jp = point.jp;
 		}
+		this.attr.point.sp ??= 0;
+		this.attr.point.spMax ??= 0;
+		this.attr.point.jp ??= 0;
+		this.attr.point.jpMax ??= 0;
 		this.modifyAttr(this.attr);
 		this.emit('attr');
 		if (oldspeed != this.attr.speed) {
@@ -833,6 +892,11 @@ export abstract class FightUnit {
 	}
 
 	getUnitMsg() {
+		const point = { ...this.attr.getPointAttr() };
+		if (!this.fight?.globalData.jiqi) {
+			delete point.jp;
+			delete point.jpMax;
+		}
 		const buffs = Array.from(this.buffs.values())
 			.map((b) => b.getDisplayMsg())
 			.filter((b) => b);
@@ -841,7 +905,7 @@ export abstract class FightUnit {
 			pos: this.pos,
 			dead: this.dead,
 			display: structuredClone(this.display),
-			point: { ...this.attr.getPointAttr() },
+			point,
 			// 被动技能不传输，但是buff要传
 			buffs,
 			...(this.hasShield()

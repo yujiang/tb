@@ -53,3 +53,8 @@
 # 0.1.4
 1. selectTarget refactor(remove spread, die check move to skill)
 
+# 0.1.5
+1. 修缮一些遗留问题
+2. 重构一些函数
+3. FightDebug
+

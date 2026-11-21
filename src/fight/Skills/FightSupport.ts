@@ -24,6 +24,7 @@ export function trySupport(attacker: FightUnit, defender: FightUnit, ctx: FightC
 				!unit.isDied() &&
 				!unit.isForbid('attack') &&
 				!unit.isForbid('action') &&
+				(!unit.isForbid('move') || unit.getSupportSkill()?.getNoMove() === 1) &&
 				unit.lastSupportTurn !== fight.turn &&
 				unit.getSupportSkill()?.getFunc() === 'normal',
 		);

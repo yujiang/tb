@@ -139,17 +139,25 @@ for (const group of plan.groups) {
 
 已支持：
 
+### 战斗调试
+
+单位正式伤害上限可配置在 `FightAttr.damageLimit`，例如 `unit.attrOri.damageLimit = 9999` 后调用 `calcAttr()`；默认 0 或省略不限制，临时修改使用 Buff/被动的 `attr/attrLevel.damageLimit`。每次受伤读取实际伤害来源的当前属性，连招逐段限制，反伤读取反伤者的上限。它与下述调试限伤同时启用时取较小值，先于不屈、保护处理，消息、吸血、反伤和统计继续使用实际扣血。治疗及 HP 费用不受影响。
+
+调试时可从包入口调用 `setFightDebug({ hit: true, crit: true, next: true })`，省略字段均为 false；再次调用会替换全部配置，`setFightDebug()` 或 `setFightDebug(undefined)` 清空。配置为进程共享副本，不受调用者随后修改对象影响。`hit/miss` 控制物理命中（两者同时开启时 miss 优先，不能闪避状态仍优先；魔法不做物理命中），`crit` 强制原公式允许的攻击/治疗暴击，毒伤不判暴击；`next` 强制已有连击/连招，`spread/kill/support/fback` 分别强制已有溅射、追击、协战和反击，覆盖各自零概率。强制判定不消耗该次概率随机数，但目标选择和其他未强制的概率仍使用 `Fight.random()`。禁止字段、死亡/封印、合法目标、已有技能与副目标配置、协战次数和反应上限仍有效，不会凭空创建技能或在未击杀时追击。开关不改变主动技能的费用/CD，也不把 hit 当作技能发动概率。调试配置不写入战斗数据，可能改变相同种子的抽样次数与结果；关闭后恢复原逻辑。字段详见 [排错与维护](document/wiki/排错与维护.md)。
+
+`setFightDebug({ hurtHpLimit: 20 })` 可把单次受伤限制为最多扣 20 点生命，`getDebugHurtHpLimit()` 查询当前值；省略或 0 不限伤，清空调试配置后恢复。限伤在防御/盾减伤后、`beforeHurt` 前应用，保护基于限伤后的值分担，不屈按限伤后的值判断；最终扣血仍受上限及锁血约束。技能、周期伤害、反伤、反射和保护分担均经过此入口，消息、仇恨、贡献、怒气、吸血和反伤继续使用实际扣血。治疗和 HP 费用不受影响。
+
 ### 战斗异常
 
-`FightLoop.run()`、PC/西游/烟雨的行动驱动及输入入口捕获抛出的异常后，停止本场战斗，统一判攻击方失败（`FightResultEnum.defend = 1`），不再执行后续行动。默认通过 `console.error` 输出中文说明、原始错误及堆栈、战斗 ID、种子、回合、当前行动和指令信息；宿主可覆盖 `loop.onError(error, context: FightErrorContext)` 接自己的日志系统。
+`FightLoop.run()`、PC/西游/烟雨的行动驱动及输入入口捕获抛出的异常后，停止本场战斗，不再执行后续行动。仅当 `result === FightResultEnum.ongoing`（`-1`）时判攻击方失败（`FightResultEnum.defend = 1`）；已有胜负、平局或超时结果均保留。默认通过 `console.error` 输出中文说明、原始错误及堆栈、战斗 ID、种子、回合、当前行动和指令信息；宿主可覆盖 `loop.onError(error, context: FightErrorContext)` 接自己的日志系统。
 
-异常结束会关闭普通/大招输入窗口，取消西游输入定时器，清空普通及追加行动、烟雨即时技能队列，调用单位结束清理并解绑 AI/Rule 监听。单位清理抛错时继续清理其他单位；`end` 生命周期回调在最终结束协议发送前执行，其异常同样判负。`run()` 返回防守方胜，不再拒绝 Promise；烟雨即时输入发生异常返回 false。错误堆栈只记日志，不放进客户端协议，客户端收到普通 `["end", 1]`。
+`run()` 在 `finally` 中统一调用幂等的 `end()` 收尾；输入等入口也可立即调用 `end()` 释放等待，不重复结算。结束会关闭普通/大招输入窗口，取消西游输入定时器，清空普通及追加行动、烟雨即时技能队列，调用单位结束清理并解绑 AI/Rule 监听。单位清理抛错时继续清理其他单位；奖惩、`end` 生命周期回调及最终广播异常分别记录，继续后续收尾，已有结果不改判，也不重试奖惩。宿主需保证实际发奖幂等，库不回滚已执行的宿主操作。`run()` 返回最终保留的结果，不再拒绝 Promise；烟雨即时输入发生异常返回 false。错误堆栈只记日志，不放进客户端协议，结束协议仍为 `["end", result, winSide, runaway]`。
 
 底层计算和 `Fight.processUnit/resolveAction` 保留原来的抛错机制，供战斗驱动捕获；直接调用底层 API 的宿主仍自行处理异常。已有 Calc 数值检查保持不变。异常动作可能已经执行部分扣费或效果，不做回滚、补算或继续结算，也不把失败动作当作成功结果。
 
 ```ts
 loop.onError = (error, context) => {
-    logger.error({ ...context, error }, "战斗异常，攻击方失败");
+    logger.error({ ...context, error }, "战斗异常");
 };
 const result = await loop.run();
 ```
@@ -164,11 +172,17 @@ const result = await loop.run();
 
 为保持场面清晰，建议填表时仅让单一主目标触发协战和保护：群攻技能及溅射子技能填写 `nosupport: true, noprotect: true`，单体主技能按需配置。这是填表建议，程序不因群攻或溅射身份强制关闭能力；禁止字段省略或 `false` 时不额外禁止。群攻拆成逐目标结算时保留原配置，溅射子技能独立读取自己的配置，后续链接的子技能也应逐个检查。溅射仍保留原来的单次攻击结算流程。
 
-`initSkills` 在整批注册后用中文 `console.warn` 提醒填表问题，包含技能名称、ID 和具体字段，只告警、不改配置、不阻止注册。检查 `num > 1` 时 `sel.target` 是否为 `friend/enmey`（群体仅支持这两种目标类型），群攻/溅射的 `nosupport/noprotect`，协战及后续攻击链的 `nofback/nodback`，协战根技能的攻击类 `func`，大招的 `noprotect`，主攻击的 `rand: 1`，以及同时填写 `next/combo` 的歧义。角色从已注册技能表的引用识别；未被引用为子技能、协战或反击的攻击类技能按主攻击建议检查。跨批次可识别已有引用，不报告无关旧行；被动、怪物表或运行时才装配的技能角色，单靠 `initSkills` 无法识别。
+`initSkills` 在整批注册后用中文 `console.warn` 提醒填表问题，包含技能名称、ID 和具体字段，只告警、不改配置、不阻止注册。检查 `num > 1` 时 `sel.target` 是否为 `friend/enmey`（群体仅支持这两种目标类型），群攻/溅射的 `nosupport/noprotect`，协战及后续攻击链的 `nofback/nodback`，协战根技能的攻击类 `func`，大招的 `noprotect`，主攻击及 `heal/poison/relife/nohurt` 一般建议的 `rand: 1`，以及同时填写 `next/combo` 的歧义。角色从已注册技能表的引用识别；未被引用为子技能、协战或反击的攻击类技能按主攻击建议检查。跨批次可识别已有引用，不报告无关旧行；被动、怪物表或运行时才装配的技能角色，单靠 `initSkills` 无法识别。
+
+单体 `heal/poison/relife/nohurt` 在扣费及启动 CD 后、执行效果前判一次发动概率；群体仍整组判一次，不按目标重复判定。`rand: 0` 必定不发动，`rand: 1` 必定发动，两者不抽取概率随机数。失败发送 `skillFailed`，仍消耗费用/CD，不执行效果、溅射或施放后自身 Buff；受有效嘲讽约束时仍消耗该次嘲讽。周期 Buff 的治疗/毒伤不走主动技能概率判定。此前单体非攻击技能遗漏此判定，修正后配置 `0 < rand < 1` 会增加一次随机抽样，相同旧种子的后续结果可能变化；一般技能建议填 1。
 
 - 两个敌对阵营、固定站位、对位及数量/横线/竖线/十字选目标。
 - 普通攻击、防御、技能费用、治疗、中毒伤害、复活、状态和属性 Buff。
-- 连击、追击、溅射、反击、吸血和反伤。
+- 技能 `nomove` 默认 0，需要移动；1 表示原地施法。缠绕只禁止 move，允许原地技能；普攻装配和各子技能独立读取配置，提交及执行均复验。
+- 连击、追击、溅射、反击、吸血和反伤。反击要求本次对主目标的实际伤害大于 1；连招在末段按对主目标的累计实际伤害判断。被反射后实际伤害为 0，或仅造成 1 点伤害时，不触发反击；协战和溅射伤害不计入此门槛。
+- `PointAttr` 同时保存 `hp/hpMax`、`mp/mpMax`、`sp/spMax`（怒气）、`jp/jpMax`（集气），显示哪些条由宿主决定。新增 SP/JP 字段省略时为 0，上限省略也为 0，旧配置不自动积累。技能 `cost` 可同时消耗四种资源；怪物维持不耗资源规则。
+- 公共默认值集中在 `src/fight/FightConsts.ts`，通过 `initFightConsts({ spHurtRate: 0.2, spOutputRate: 0.1, jpAdd: 1 })` 配置（数值为示例），通过 `fightConsts` 查询。省略字段保留当前值，显式 0 有效，非负有限数整批校验。创建 FightAttr 时复制默认值，单位基础属性可单独覆盖；更新公共配置不改已有属性。详细字典见[战斗常量](document/wiki/战斗常量.md)。
+- `FightAttr.jpAdd`、`spHurtRate`、`spOutputRate` 属于单位战斗属性，初始默认分别为 1、0、0，运行时从 `unit.attr` 读取。Buff/被动通过 `attr/attrLevel` 配置固定加成和等级成长（同时支持 speed），移除后重算恢复，不修改 `attrOri` 或清空当前资源。全局 `jiqi: true` 时，普通行动位及 Boss `extraAction` 完整执行后，所有存活单位按自己的 `attr.jpAdd` 增加集气；规则插入技能、烟雨即时技能、大招及内部反应链不推动。怒气按实际受伤乘 `spHurtRate`、实际输出伤害或治疗乘 `spOutputRate` 增长，费用扣血不产怒气。增长保留小数并截断到上限，属性重算保留当前资源。通过 `addMp/addSp/addJp(amount, ctx)` 可恢复资源，返回实际增加量。客户端新增 `costSp/costJp`（与原费用消息结构相同），以及 `["addPoint", uid, "mp"或"sp"或"jp", 实际增加值, 最终值]`；完整字段字典见 [属性与选目标](document/wiki/属性与选目标.md)。
 - 单位初始化、乱敏、速度变化后的剩余行动队列重排。
 - 输入和执行时校验、网游输入超时及迟到指令过滤。
 - 基于 Mulberry32 v1 的种子随机数；种子转换为 uint32，零种子可用。
@@ -180,6 +194,8 @@ Buff 已支持周期回血/扣血和事件次数限制：`func` 配置 `heal` �
 
 回合前和回合后周期结算分别在完整边界结束后检查胜负，双方同时因周期伤害全灭为平局。战斗已经结束时只进行到期清理，不再执行周期回血/扣血；死亡保留的 Buff 在回合后仍可到期，但不会治疗尸体。`createBuff` 的第六个可选参数可指定回合后计时起点，单位正常添加时会自动提供。
 
+
+公共 `hp(unit, ctx, source, previousHp, currentHp)` 表达真实生命变化，包括受伤、保护分担、治疗及技能生命费用。玩家/召唤物支付生命费用时，先完成全部资源扣除和费用消息，再以本人为 source 发出 hp，随后才进入技能效果；血线监听可立即重算属性，本次技能读取新属性。预检、支付失败或零生命费用不发 hp。费用不发 beforeHurt/hurt、不计受伤次数、伤害贡献或怒气，客户端仍使用原有 costHp 消息。血线机制监听 hp，按受伤次数触发的机制监听 hurt。
 
 `times=3, event="hurt"` 可让属性减伤维持三次受伤，第三次仍享受减伤，随后移除。次数扣除使用带 `ctx` 的单位事件；移除、替换和死亡清理都会解绑监听。周期遍历固定本次名单，回调中新加的 Buff 下次处理，已移除或替换的旧实例跳过。
 
@@ -342,7 +358,7 @@ npm run example
 
 ## 烟雨式自动普攻与即时技能
 
-`FightLoopYanYu` 每回合推进一次单位输入边界，不等玩家收齐指令；自动队列按速度执行：显式配置 `FightAI` 的怪物使用其输入，其余单位执行 `attack`（含装配的 `attackSkill`）；未配置 AI 的怪物仍不读取旧 `inputSkill` 指令。设置 `FightData.duiwei: true` 并创建地图时，沿用当前对位查找：优先对位、无存活对位者时寻找其他位置的存活敌人。自动普攻仍受死亡、禁止攻击、休息与嘲讽等规则约束。
+`FightLoopYanYu` 每回合推进一次单位输入边界，不等玩家收齐指令；自动队列按速度执行：显式配置 `FightAI` 的怪物使用其输入，其余单位执行 `attack`（含装配的 `attackSkill`）；未配置 AI 的怪物仍不读取旧 `inputSkill` 指令。设置 `FightGlobalData.duiwei: true` 并创建地图时，沿用当前对位查找：优先对位、无存活对位者时寻找其他位置的存活敌人。自动普攻仍受死亡、禁止攻击、休息与嘲讽等规则约束。
 
 手动技能是额外行动，不占用或替代本回合自动普攻。它不按速度排序，处于动作动画等待期间时按提交顺序排队；当前完整动作及其反应链绘制完后，先执行等待的技能，再继续自动普攻。技能不会打断正在结算的反应链。剩余普攻队列因速度变化重排，已行动者不重新加入。
 
@@ -361,7 +377,7 @@ const accepted = await loop.onInput(unitId, {
 // 生命周期由 loop.run() 驱动；上面的输入处理挂到宿主网络事件中。
 ```
 
-`onInput` 返回 `Promise<boolean>`，`false` 表示没有入队，`true` 表示已接收入队，仍可能在出队复验时失效而丢弃。调用方应 await：结算或动画异常会统一记录并判攻击方失败，关闭输入窗口、清空剩余技能，本次返回 false；不再向调用方传播为 Promise 拒绝。缺回合号、旧回合/未来回合、非 skill 指令、未知/非控制单位、死亡、禁止技能、休息、未学会技能、非法目标、技能冷却中或当前费用不足时不会入队；接收时复制指令，执行前再次检查目标、状态、冷却与资源。资源只在真正执行时扣除。`canCost()` 为不扣资源的预检，`costSkill()` 仍做实际收费校验。宿主负责鉴权，回合号和冷却不能替代鉴权。
+`onInput` 返回 `Promise<boolean>`，`false` 表示没有入队，`true` 表示已接收入队，仍可能在出队复验时失效而丢弃。调用方应 await：结算或动画异常会统一记录，关闭输入窗口、清空剩余技能，本次返回 false；仅在结果为 -1 时判攻击方失败，已有结果保留，不再向调用方传播为 Promise 拒绝。缺回合号、旧回合/未来回合、非 skill 指令、未知/非控制单位、死亡、禁止技能、休息、未学会技能、非法目标、技能冷却中或当前费用不足时不会入队；接收时复制指令，执行前再次检查目标、状态、冷却与资源。资源只在真正执行时扣除。`canCost()` 为不扣资源的预检，`costSkill()` 仍做实际收费校验。宿主负责鉴权，回合号和冷却不能替代鉴权。
 
 技能可配置 `cd: 2`，省略或 `0` 表示无冷却，只接受非负安全整数。第 1 回合施放后第 3 回合可再次施放，剩余冷却通过 `unit.getSkillCd(skillId)` 查询。冷却由每个单位按技能 ID 保存，只随全局回合推进，重复输入、重新学习、死亡与复活不会清除；新战斗开始时重置。费用检查通过、正式尝试施放时启动冷却，概率未发动或未命中也消耗 CD；非法输入、费用不足及无可用目标不启动。公共主动技能入口统一执行此规则，装配普攻及连招、追击、反击、协战等反应链不读取或启动主动 CD。
 
@@ -471,12 +487,12 @@ unit.onContex("break", (unit, ctx, attacker, allBroken) => {
 }, prior);
 ```
 
-`FightData.allShieldBreak` 默认关闭。某一击打破敌方最后一个未破盾者时，若敌方所有存活单位均配置了盾且盾为 0，就登记一次大招事件；完整 action 的连招、反击、死亡及自动复活全部结束、确认战斗仍在继续后，才发出机会消息。当前行动动画完成后，PC、西游、烟雨均调用公共 `waitInputUtimate(turn, side)` 等待选择己方一人，合法输入后立即施放大招，再恢复原队列。每队每个全局回合最多触发一次，多个弱点或多段攻击不重复触发；这是破盾事件，回盾不会取消已经触发的输入。存在未配置盾的存活敌人时不触发，仅杀掉无盾者也不补发破盾事件。
+`FightGlobalData.allShieldBreak` 默认关闭。某一击打破敌方最后一个未破盾者时，若敌方所有存活单位均配置了盾且盾为 0，就登记一次大招事件；完整 action 的连招、反击、死亡及自动复活全部结束、确认战斗仍在继续后，才发出机会消息。当前行动动画完成后，PC、西游、烟雨均调用公共 `waitInputUtimate(turn, side)` 等待选择己方一人，合法输入后立即施放大招，再恢复原队列。每队每个全局回合最多触发一次，多个弱点或多段攻击不重复触发；这是破盾事件，回盾不会取消已经触发的输入。存在未配置盾的存活敌人时不触发，仅杀掉无盾者也不补发破盾事件。
 
 单位通过 `ultimateSkill`、`getUltimateSkill()`、`setUltimateSkill(id)` 装配大招，0 卸下；技能必须已学会。`SkillData/PassiveData.ultimateSkill` 也可装配，不学习或改动原技能等级。大招严格检查己方、存活、休息/封印、目标资格、费用和 CD，普通技能指令不能直接施放已装配的大招。大招复用技能结算及完整反应链，不推进普通输入次数，不消耗普通行动位。正式尝试时消耗整队机会，概率未发动和未命中也不返还；非法选择不消费，仍等待重选。
 
 ```ts
-fight.xls.allShieldBreak = true;
+setFightGlobalData({ allShieldBreak: true });
 hero.addSkill(ultimateId, level);
 hero.setUltimateSkill(ultimateId);
 loop.on("ultimate", (side, turn, units) => {
@@ -493,7 +509,9 @@ loop.on("ultimate", (side, turn, units) => {
 
 ## 单机逐单位输入
 
-输入校验有两个具名入口，均返回 boolean：`fight.checkPC(unit, input)` 严格检查立即行动的自身状态、费用及目标效果资格，`fight.checkOnline(unit, input)` 按网游收指令规则检查，保留死亡单位提交和普攻守尸。窗口、控制权与回合号仍由对应循环检查；烟雨循环另外预检即时费用。二者不扣费、不抽取自动目标；PC 校验通过后用 `preparePCInput()` 选一次并保存主目标。原 `validateInput()` 保留为基础合法性检查，供公共执行复验和已有本地调用使用。
+循环运行状态统一由 `FightLoop.stopped` 管理：新建时为停止，`start()` 开启，`end()` 停止；PC、烟雨不再另设 `started`。公共 `canProcessTurn(turn)` 检查循环未停止、战斗未结束及回合一致，供主循环、子类调度及输入复用。手动调用循环分步方法前需先 `start()`；`run()` 会自行启动并在 `finally` 中结束。
+
+输入统一通过 `fight.checkInput(unit, input)` 分派：全局 `attackDie` 默认 true，调用 `checkOnline`；false 调用 `checkPC`。单位输入、PC 输入和烟雨技能输入共用此入口，烟雨仍额外检查即时施法者存活和费用，大招仍使用严格检查。另保留两个具名检测入口，均返回 boolean，直接调用时不受开关影响：`fight.checkPC(unit, input)` 严格检查立即行动的自身状态、费用及目标效果资格，`fight.checkOnline(unit, input)` 按网游收指令规则检查，保留死亡单位提交和普攻守尸。窗口、控制权与回合号仍由对应循环检查；烟雨循环另外预检即时费用。二者不扣费、不抽取自动目标；PC 校验通过后用 `preparePCInput()` 选一次并保存主目标。原 `validateInput()` 保留为基础合法性检查，供公共执行复验和已有本地调用使用。
 
 `FightLoopPC` 按速度逐个执行。玩家和受控召唤物轮到时触发 `input(unit, turn)` 事件，等本单位提交指令后立刻执行；NPC 在自己的输入边界调用原有 `inputStart()` 选择 AI 指令。没有真实时间超时，`waitInputSec` 不影响 PC。死亡单位轮到时跳过，提前被复活则照常行动；休息直接跳过输入。各单位的 `inputTurn` 周期效果仅在轮到它时推进一次，全局回合前后效果与盾恢复仍由公共边界统一处理。
 
@@ -510,9 +528,33 @@ const result = await loop.run();
 
 `loop.inputUnit` 表示当前等待输入的单位。`onInput()` 同步返回 boolean，只接受当前单位；本地可省略 `turn`，提供时必须匹配。指令检查沿用公共目标、封印、CD 和费用规则，失败通过 `hintClient` 提示，继续等输入；`cancel` 返回 true 并继续等待。接受后关闭窗口并保存副本，不接受动画期间抢先输入或重复提交，执行时再复验。输入次数效果若产生消息，先等动画完成再开放输入；每次完整行动结束也等动画，回合末不重复等待。速度变化只重排剩余队列，当前行动者已取出，不会重复入队。
 
-PC 输入要求当前行动者存活且能执行所选指令，目标符合当前阵营、存活/死亡与效果资格。普通攻击和默认普攻拒绝尸体，网游守尸规则不变；复活只接受可复活的死亡目标，禁疗、禁毒、禁复活均在提交时提示并拒绝，不扣费、不启动 CD，继续等该单位重选。没有指定目标时先过滤不可接受对应效果的对象；没有可用对象时拒绝且不抽随机数，通过全部检查后才选一次并保存主目标。执行前再次检查目标资格，已接受的目标若失效则跳过而不扣费或启动 CD。满血治疗仍可提交，不把治疗收益为零当成非法目标。
+`attackDie: false` 时，PC 输入要求当前行动者存活且能执行所选指令，目标符合当前阵营、存活/死亡与效果资格。普通攻击和默认普攻拒绝尸体；`attackDie: true` 时使用 `checkOnline`，允许提交合法死亡敌人的普攻守尸意图，PC 指令准备也保留原目标，执行时仍死则跳过、不换人，费用由执行阶段复验；复活只接受可复活的死亡目标，禁疗、禁毒、禁复活均在提交时提示并拒绝，不扣费、不启动 CD，继续等该单位重选。没有指定目标时先过滤不可接受对应效果的对象；没有可用对象时拒绝且不抽随机数，通过全部检查后才选一次并保存主目标。执行前再次检查目标资格，已接受的目标若失效则跳过而不扣费或启动 CD。满血治疗仍可提交，不把治疗收益为零当成非法目标。
 
-保护在当前单位轮到并提交时生效，不会倒排已经执行的行动；西游整轮收齐指令后统一排保护优先的规则保持原实现。胜负在完整反应链后检查，结束后不再请求后续输入。`end()` 可释放等待并停止主循环，不改写战斗胜负结果；输入回调、结算或动画异常会向宿主传播并关闭输入，包括同步提交后回调再抛错的情况，宿主应结束该场战斗。测试见 `tests/core/test_pc.ts`。
+保护在当前单位轮到并提交时生效，不会倒排已经执行的行动；西游整轮收齐指令后统一排保护优先的规则保持原实现。胜负在完整反应链后检查，结束后不再请求后续输入。`end()` 可释放等待并停止主循环，不改写已有战斗结果；输入回调、结算或动画异常由驱动记录并关闭输入，包括同步提交后回调再抛错的情况，仅在结果为 -1 时判攻击方失败。测试见 `tests/core/test_pc.ts`。
+
+## 全局配置与战斗表格
+
+宿主启动时调用一次 `setFightGlobalData` 设置公共规则，`getFightGlobalData()` 查询当前值。`FightGlobalData` 包含 `maxTurn/waitInputSec/duiwei/jiqi/attackDie/protectBuff/allShieldBreak`；默认分别为 0（不限回合）、30 秒、false、false、true、未配置、false。支持按字段更新，省略字段保留原值，配置合法性由宿主保证，库不做运行时校验；所有战斗共享，更新时会同时影响已有场次。`getYanyuGlobalData()` 返回独立的 `{ duiwei: true, jiqi: true, attackDie: false }` 预设，需显式传给 `setFightGlobalData` 才生效。`jiqi` 默认关闭：不计算行动集气，`addJp` 返回 0，JP 费用不校验、不扣除；初始化不发送 `jp/jpMax`，也不发送集气增减消息。开启后按原规则计算并同步；关闭不会清空内部集气，HP/MP/SP 照常处理。
+
+```ts
+import { Fight, setFightGlobalData } from '@mosnpm/tb';
+
+setFightGlobalData({ maxTurn: 100, waitInputSec: 30, duiwei: false });
+
+// row由宿主从XLS/JSON表读取，当前FightData包含逃跑开关、等级基准与宿主奖惩配置。
+const row = { runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 };
+const fight = new Fight(1, row, 123);
+```
+
+`fight.xls` 只保存表格行，公共规则通过 `fight.globalData` 读取。旧构造参数里的五个公共字段迁到启动配置；PC/西游已支持普通行动位逃跑，烟雨不接受逃跑输入。完整字段字典见[战斗与输入](document/wiki/战斗与输入.md)。
+
+## 逃跑与结果处理
+
+运行 `npm run test:build` 后执行 `node --test .test-build/tests/report/test_report_runaway.js`，可查看 PC 与西游两种完整逃跑简报：第一回合玩家提交逃跑，成功后整场结束，后续两名敌人不再行动，输出客户端结束消息和剩余行动/奖惩调用次数；逐批检查客户端一致性。示例将等级设为逃跑基准，保证每次都能看到成功结束战斗的流程。
+
+PC和西游可在普通行动位提交 `{ cmd: FightCmdEnum.runaway }`，西游仍须带当前 `turn`。`FightData.runaway` 控制开关，概率为 `clamp(1-(unit.attr.grade-runawayGrade)/100,0,1)`，通过战斗随机源判定；缠绕等禁止move、眩晕的escapse限制、休息和死亡在执行时复验。成功后整场标记逃跑、对方胜，双方均不发奖、不恢复、不惩罚；失败只消耗当前行动并继续队列，仍推动普通行动位的集气。烟雨不支持逃跑。广播 `["runaway", uid, success]` 供客户端表现。
+
+正常结束时，败方收到 `FightSide.deathPenalty(deathPenalty)`，胜方收到 `FightSide.onWin(winReward, winRecover)`，宿主负责实际效果和保存。结果回调重入不会重复结算，异常也会清理等待和队列并记录。`FightUltimate` 已集中管理破盾事件、机会发放与消费、回合限制、大招校验和执行、失败回退及状态重置；六组状态由类内部私有持有。Fight只保留转发入口和通用动作边界，等待输入与动画仍由FightLoop负责。
 
 ## 西游式整轮输入
 
@@ -532,9 +574,9 @@ loop.onInput(unitId, {
 
 `selectMainTarget`、`selectGroupTargets`、`selectSpreadTargets`、`isLegalTarget`、`getTauntTarget` 和 `FightMap.findDuiwei` 接收 `FightSkill`；阵营查询使用 `getSideUnitsBySkill`。没有具体技能时可调用公共 `getDefaultSkill(sel?)` 获取默认普攻规则，缺省选择敌方存活单位；每次返回独立实例，不依赖技能表。
 
-读取 `fight.win` 时，`-1` 表示未结束，`0/1` 表示攻击方/防守方获胜，`2` 表示平局，可使用 `FightResultEnum`。达到回合上限仍沿用防守方获胜的规则。
+读取 `fight.result/getResult()` 获取结果类型：-1未结束、0攻击方胜、1防守方胜、2平局、3超时。胜方使用 `getWinSide()`，败方使用 `getLostSide()`；沿用当前规则，平局和超时均将防守方设为胜方。客户端同样使用 `result/winSide/runaway`，结束消息为 `["end", result, winSide, runaway]`。
 
-攻击、吸血和反伤按实际扣血结算；生命值最低为零。`bloodP`、`dbackP`、技能发动概率使用比例数值，例如 `0.2` 表示 20%。单次动作最多执行 64 次攻击效果，嵌套动作也有限制；超限抛出带 `Reaction limit` 的异常，宿主应终止该场战斗，不要继续使用部分结算状态。
+攻击、吸血和反伤按实际扣血结算；生命值最低为零。单位 `minHp` 为锁血下限，默认 0；伤害在扣血前按当前可扣生命截断，`onHurt` 返回值、`hurt` 消息及事件、仇恨、贡献、怒气和连招累计统一使用实际扣血。当前生命已达到或低于锁血线时实际伤害为 0，不会因受伤回血；保护双方分别应用自己的锁血下限，不把未扣掉的分担伤害转回主目标。`bloodP`、`dbackP`、技能发动概率使用比例数值，例如 `0.2` 表示 20%。单次动作最多执行 64 次攻击效果，嵌套动作也有限制；超限抛出带 `Reaction limit` 的异常，宿主应终止该场战斗，不要继续使用部分结算状态。
 
 相同种子、初始数据及指令在相同规则版本下可重复运行；当前尚无随机状态或战斗快照的导出/恢复接口。
 
@@ -546,11 +588,14 @@ loop.onInput(unitId, {
 
 反击执行时检查反击者当前的 `isForbid("attack")` 和 `isForbid("fback")`，普通反击和配置技能反击都受这一限制；封印、眩晕等禁止攻击的状态会阻止反击，包括受击后才附加的状态。被阻止时不抽样、不计反击次数，也不视为已经发动反击，因此原有后续连击可继续；状态解除后恢复反击。普通被动反伤不受禁止攻击限制。状态规则统一来自 `Buffs/FightStatus.ts` 的 `statusForbidActions`：禁止 `dodge` 时物理攻击直接命中，不抽取闪避随机数；每段攻击复查 `attack`，中途被禁止则停止后续连招。Buff 与破盾眩晕共用配置，不直接修改闪避属性，解除后恢复原行为。
 
-保护使用 `FightCmdEnum.protect`，必须明确指定存活队友，不能保护自己。战斗配置 `FightData.protectBuff` 指定已注册的 `class: "protect"` Buff ID；未配置或不是保护类时拒绝该指令。执行时以保护者 A 为施加者，向 B 添加一级保护 Buff，并占用 A 本次行动。沿用 Buff 的覆盖、驱散及显示字段，通常配置 `overlap: OverlapEnum.REPLACE`。示意（Buff 其他通用字段照常填写）：
+每段攻击执行前还复查 `FightSkill.canTarget()`。普通及配置反击的固定目标若在首击后被石化等变得不可受作用，反击直接跳过，不重选目标、不抽取反击概率、不增加配置反击次数；状态解除后可再次反击。普通比例反伤保持原规则。
+
+保护使用 `FightCmdEnum.protect`，必须明确指定存活队友，不能保护自己。战斗配置 `FightGlobalData.protectBuff` 指定已注册的 `class: "protect"` Buff ID；未配置或不是保护类时拒绝该指令。执行时以保护者 A 为施加者，向 B 添加一级保护 Buff，并占用 A 本次行动。沿用 Buff 的覆盖、驱散及显示字段，通常配置 `overlap: OverlapEnum.REPLACE`。示意（Buff 其他通用字段照常填写）：
 
 ```ts
 // Buff 表：{ id: 98710, name: "保护", class: "protect", turnType: BuffTurnEnum.afterTurn, lastTurn: 1, overlap: OverlapEnum.REPLACE, ... }
-const fight = new Fight(1, { maxTurn: 100, waitInputSec: 30, duiwei: false, protectBuff: 98710 });
+setFightGlobalData({ maxTurn: 100, waitInputSec: 30, duiwei: false, protectBuff: 98710 });
+const fight = new Fight(1, { runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 });
 // 收指令窗口开启后：
 loop.onInput(A.uid, { turn: fight.turn, cmd: FightCmdEnum.protect, target: B.uid });
 ```
@@ -593,7 +638,7 @@ const contributions = fight.getSide(monster.side).getContributions(); // [{ uid,
 
 排名先过滤无效目标，同分按贡献首次记录顺序；无候选或技能不可用则沿用普攻回退，嘲讽仍正常生效。危急时自疗等动态切换行动的策略应放入新的 AI。`alwaysHit: true` 是通用物理必中字段，缺省 false，不改变技能发动概率；致死固定的是攻击力，仍经过对应防御、免伤、保护和反应流程。
 
-阵营 `hurt/heal` Map 按来源 UID 记录实际扣血/回血（含自疗等恢复来源，不计过量部分），来源或受作用者离场后保留历史；`getContributions()` 返回独立列表，战斗结束后可由宿主展示、发送或持久化。`Fight.createSide` 会清空旧记录，也可显式调用 `clearContributions()`。`FightData.duiwei` 控制未指定目标时的默认普攻：true 对位，false 随机；显式选人不会被自动对位规则拒绝，技能自己的 duiwei 目标规则仍正常校验。
+阵营 `hurt/heal` Map 按来源 UID 记录实际扣血/回血（含自疗等恢复来源，不计过量部分），来源或受作用者离场后保留历史；`getContributions()` 返回独立列表，战斗结束后可由宿主展示、发送或持久化。`Fight.createSide` 会清空旧记录，也可显式调用 `clearContributions()`。`FightGlobalData.duiwei` 控制未指定目标时的默认普攻：true 对位，false 随机；显式选人不会被自动对位规则拒绝，技能自己的 duiwei 目标规则仍正常校验。
 
 ### Boss每回合多次行动
 

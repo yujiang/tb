@@ -84,6 +84,9 @@ export function warnSkillConfigs(datas: SkillData[], skills: ReadonlyMap<number,
 			messages.push('协战技能应使用攻击类 func: normal');
 		}
 		if (ultimates.has(id)) recommend('大招技能', ['noprotect']);
+		if (['heal', 'poison', 'relife', 'nohurt'].includes(data.func) && (data.rand ?? 1) !== 1) {
+			messages.push('非攻击技能一般建议填写 rand: 1，避免施放时未发动');
+		}
 		if (
 			!children.has(id) &&
 			!supports.has(id) &&

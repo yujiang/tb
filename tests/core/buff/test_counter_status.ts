@@ -4,6 +4,55 @@ import { initBuffs, getBuffData, initSkills, initFightContex } from '../../../sr
 import { skillFBack } from '../../../src/fight/Skills/FightBack';
 import { setupChain, chainIds as ids } from '../../fixtures/skill_chain';
 
+for (const kind of ['ordinary', 'physic', 'magic']) {
+	// 测试：首击后原攻击者石化时普通及配置反击均拒绝目标，不抽样不计次；石化解除后恢复反击。
+	test(`counterattack: ${kind} rechecks petrified targets before probability and counting`, () => {
+		const s = setup('石化', kind !== 'ordinary');
+		const removed = initFightContex(s.fight);
+		s.target.expireBuff(s.buff, 'test', removed);
+		s.flush(removed);
+		if (kind !== 'ordinary') {
+			Object.assign(s.target.getFBackSkill().getXls(), {
+				magic: kind === 'magic',
+				rand: 0.5,
+			});
+		}
+		s.target.attr.physic.fback.rand = 0.5;
+		let samples = 0;
+		s.fight.random = () => {
+			samples++;
+			return 0.25;
+		};
+		let petrify = true;
+		s.target.onContex('hurt', (_unit, ctx) => {
+			if (petrify) s.actor.addBuff(s.target, 'test', 98500, 1, ctx);
+		});
+		const blocked = s.cast();
+		assert.equal(s.actor.inStatus('石化'), true);
+		assert.equal(s.actor.getHp(), 1000);
+		assert.equal(samples, 0);
+		assert.equal(blocked.fbackNum, undefined);
+		assert.equal(
+			blocked.msgs.some((msg) => msg[0] === 'skill' && msg[4] === 'fback'),
+			false,
+		);
+		if (kind !== 'ordinary') {
+			const direct = initFightContex(s.fight);
+			assert.equal(skillFBack(s.target, s.actor, s.target.getFBackSkill(), direct), false);
+			assert.equal(direct.fbackNum, undefined);
+			assert.equal(samples, 0);
+			assert.deepEqual(direct.msgs, []);
+		}
+		petrify = false;
+		const restored = initFightContex(s.fight);
+		s.actor.expireBuff(s.actor.findBuff(98500), 'test', restored);
+		s.flush(restored);
+		s.cast();
+		assert.equal(s.actor.getHp(), 990);
+		assert.equal(samples, 1);
+	});
+}
+
 function setup(status: string, skillCounter: boolean) {
 	const pair = setupChain({
 		rootSelfBuff: false,

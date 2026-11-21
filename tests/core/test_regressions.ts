@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../src/fight/Fight';
 import { BuffTurnEnum } from '../../src/fight/Buffs/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -14,7 +15,12 @@ import { attackFunc } from '../../src/fight/Skills/Funcs/NormalAttack';
 import { tryBlood, tryDBack } from '../../src/fight/Skills/FightBack';
 import { initSkills, SkillData } from '../../src/fight/Skills/SkillDatas';
 import { relifeFunc } from '../../src/fight/Skills/Funcs/Relife';
-import { FightCmdEnum, FightSideEnum, TargetSelectEnum } from '../../src/fight/struct';
+import {
+	FightCmdEnum,
+	FightSideEnum,
+	FightResultEnum,
+	TargetSelectEnum,
+} from '../../src/fight/struct';
 import { FightReport } from '../../src/fight/Client/FightReport';
 
 // 测试：主技能概率判定失败时发出未发动消息，简报说明行动者没有攻击的原因。
@@ -83,7 +89,18 @@ function attr(): FightAttr {
 }
 
 function pair(user = false, extraEnemy = false) {
-	const f = new Fight(1, { maxTurn: 10, waitInputSec: 0.01, duiwei: false }, 123);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 10,
+		waitInputSec: 0.01,
+		duiwei: false,
+	});
+	const f = new Fight(
+		1,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		123,
+	);
 	f.random = () => 0.5;
 	const a = new FightSide(),
 		b = new FightSide();
@@ -289,12 +306,12 @@ test('regression: West initializes units and speed changes reorder without paylo
 // 测试：最大回合数为一时仍完整执行一轮再判定结果。
 test('regression: maxTurn=1 executes exactly one full round', async () => {
 	const { f, u, v, loop } = pair();
-	f.xls.maxTurn = 1;
+	setFightGlobalData({ maxTurn: 1 });
 	await loop.run();
 	assert.equal(u.getHp(), 80);
 	assert.equal(v.getHp(), 80);
 	assert.equal(f.turn, 1);
-	assert.equal(f.win, FightSideEnum.defend);
+	assert.equal(f.result, FightResultEnum.outoftime);
 });
 
 // 测试：攻击与反伤导致双方全灭时，在结算结束后判为平局。
@@ -306,12 +323,13 @@ test('regression: mutual elimination is resolved after reflection as a draw', ()
 	assert.equal(u.isDied(), true);
 	assert.equal(v.isDied(), true);
 	assert.equal(f.isEnd(), true);
-	assert.equal(f.win, 2, '2 denotes a draw');
+	assert.equal(f.result, 2, '2 denotes a draw');
 });
 
 // 测试：战斗分出胜负后不再执行本轮剩余行动。
 test('regression: winner stops remaining actions in the round', async () => {
 	const { f, u, v, loop } = pair();
+	loop.start();
 	v.attr.point.hp = 1;
 	loop.processUnits = [u, v];
 	let visited = false;
@@ -320,7 +338,7 @@ test('regression: winner stops remaining actions in the round', async () => {
 		return undefined;
 	};
 	await loop.processOneTurn(loop.fight.turn);
-	assert.equal(f.win, FightSideEnum.attack);
+	assert.equal(f.result, FightSideEnum.attack);
 	assert.equal(visited, false);
 });
 
@@ -371,6 +389,7 @@ test('regression: timeout closes input and late packets cannot overwrite command
 // 测试：怪物不能提交玩家指令，死亡玩家仍需要收取指令。
 test('regression: monsters cannot submit commands but dead players still need input', async () => {
 	const { u, v, loop } = pair(true);
+	loop.start();
 	const waiting = loop.waitInput(loop.fight.turn, initFightContex(loop.fight));
 	const original = v.input;
 	loop.onInput(v.uid, { cmd: FightCmdEnum.defend, ...{ turn: loop.fight.turn } });
@@ -393,6 +412,7 @@ test('regression: zero chance physical counterattacks and followups stay disable
 // 测试：旧回合及缺少回合号的网络指令不能填入新输入窗口。
 test('regression: old-round and unversioned network packets cannot fill a new input window', async () => {
 	const { f, u, loop } = pair(true);
+	loop.start();
 	f.turn = 2;
 	const waiting = loop.waitInput(loop.fight.turn, initFightContex(loop.fight));
 	loop.onInput(u.uid, { cmd: FightCmdEnum.defend, ...{ turn: 1 } });
@@ -406,7 +426,18 @@ test('regression: old-round and unversioned network packets cannot fill a new in
 // 测试：相同种子产生相同随机序列，零种子也可正常使用。
 test('regression: seeded random sequences are reproducible and seed zero works', () => {
 	const sequence = (seed: number) => {
-		const f = new Fight(1, { maxTurn: 1, waitInputSec: 1, duiwei: false }, seed);
+		setFightGlobalData({
+			protectBuff: undefined,
+			allShieldBreak: false,
+			maxTurn: 1,
+			waitInputSec: 1,
+			duiwei: false,
+		});
+		const f = new Fight(
+			1,
+			{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+			seed,
+		);
 		return Array.from({ length: 20 }, () => f.random());
 	};
 	assert.deepEqual(sequence(123), sequence(123));
@@ -510,6 +541,7 @@ test('skill reaction fields control actual healing reflection and counterattacks
 // 测试：死亡玩家和召唤物可提交、取消并重新提交网络指令。
 test('regression: dead players and summons submit, cancel and resubmit network input', async () => {
 	const { f, u, v, loop } = pair(true);
+	loop.start();
 	addAlly(f);
 	const summon = new FightUnitSummon(4, attr(), { name: 'summon' });
 	summon.setFight(f, FightSideEnum.attack);
@@ -532,6 +564,7 @@ test('regression: dead players and summons submit, cancel and resubmit network i
 // 测试：死亡玩家在先手队友复活后执行已提交的原指令。
 test('regression: a dead player acts on the submitted command after an earlier ally revives them', async () => {
 	const { f, u, v, loop } = pair(true);
+	loop.start();
 	const healer = addAlly(f);
 	initSkills([
 		skill(8050, { func: 'relife', healRate: 0.5, sel: { target: TargetSelectEnum.friend } }),
@@ -566,6 +599,7 @@ test('regression: a submitted command does not let a still-dead actor act', () =
 // 测试：守尸指令锁定死亡敌人，在其出手前复活后攻击原目标。
 test('regression: corpse guarding locks a dead enemy and attacks it if revived before the turn', async () => {
 	const { f, u, v, loop } = pair(true, true);
+	loop.start();
 	v.attr.point.hp = 0;
 	v.die();
 	const waiting = loop.waitInput(loop.fight.turn, initFightContex(loop.fight));

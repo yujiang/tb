@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import { FightSkill, getDefaultSkill } from '../../../src/fight/Skills/FightSkill';
 import { BuffTurnEnum } from '../../../src/fight/Buffs/BuffDatas';
 import { strict as assert } from 'node:assert';
@@ -108,7 +109,18 @@ function setup(extra: Partial<BuffData> = {}) {
 			sel: { target: TargetSelectEnum.enmey, num: 2, sortAttr: 'hp' },
 		},
 	]);
-	const fight = new Fight(97800, { maxTurn: 10, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 10,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		97800,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	fight.createMap(3, 2);
 	const actor = new FightUnitUser(10, attr(), { name: '被嘲讽者' });
 	actor.setPos(0);
@@ -151,7 +163,7 @@ test('taunt: bearer attacks source ID zero instead of random or lowest-HP enemy'
 	};
 	assert.equal(fight.getDefaultEnemy(actor), source);
 	assert.equal(samples, 0);
-	fight.xls.duiwei = true;
+	setFightGlobalData({ duiwei: true });
 	assert.equal(fight.getDefaultEnemy(actor), source);
 	assert.equal(fight.processUnit(actor, { cmd: FightCmdEnum.attack })?.defend, source);
 	assert.equal(
@@ -321,6 +333,8 @@ test('taunt: network input preserves selected enemy and execution redirects to t
 	const { fight, actor, source, other, add } = setup();
 	add();
 	const loop = new FightLoopWest(fight);
+	loop.onMsg(() => {});
+	loop.start();
 	fight.nextTurn();
 	const wait = loop.waitInput(fight.turn, initFightContex(fight));
 	loop.onInput(actor.uid, { turn: fight.turn, cmd: FightCmdEnum.attack, target: other.uid });

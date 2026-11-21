@@ -219,7 +219,7 @@ test('buff timing: simultaneous afterTurn poison deaths resolve as a draw after 
 		fight.getAllUnits().every((unit) => unit.isDied()),
 		true,
 	);
-	assert.equal(fight.win, FightResultEnum.draw);
+	assert.equal(fight.result, FightResultEnum.draw);
 	flush(ctx);
 });
 
@@ -229,7 +229,7 @@ test('buff timing: round-end cleanup expires Buffs but does not apply periodic e
 	initBuffs([data(98813)]);
 	const ctx = initFightContex(fight);
 	actor.addBuff(actor, 'test', 98813, 1, ctx);
-	fight.win = FightResultEnum.attack;
+	fight.result = FightResultEnum.attack;
 	loop.processAfterTurn(1, ctx);
 	assert.equal(actor.getHp(), 100);
 	assert.equal(actor.findBuff(98813), undefined);

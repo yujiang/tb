@@ -16,6 +16,38 @@ test('beaction: target restrictions initialize independently of actor restrictio
 	assert.equal(findForbidStatusByBeaction('unknown'), undefined);
 });
 
+// 测试：缠绕禁止移动和普攻，但不跳过行动、不禁止原地技能，也不影响自己成为目标。
+test('beaction: entanglement blocks movement and basic attacks but permits skills', () => {
+	const { fight, actor, target } = setupChain({
+		rootSelfBuff: false,
+		finalReactions: false,
+		change: (skills) => {
+			for (const skill of skills) Object.assign(skill, { nomove: 1 });
+		},
+	});
+	const buff = 1001132;
+	initBuffs([
+		{ ...getBuffData(ids.rest), id: buff, class: undefined, status: ['缠绕'], lastTurn: 0 },
+	]);
+	actor.addBuff(target, 'test', buff, 1, initFightContex(fight));
+	assert.deepEqual(findForbidStatusByAction('move'), ['缠绕']);
+	assert.equal(actor.isForbid('move'), true);
+	assert.equal(actor.isForbid('attack'), false);
+	assert.equal(actor.isForbid('skill'), false);
+	assert.equal(actor.isForbid('action'), false);
+	assert.equal(getDefaultSkill().canTarget(actor), true);
+	const attack = { cmd: FightCmdEnum.attack, target: target.uid };
+	assert.equal(fight.checkPC(actor, attack), false);
+	assert.equal(fight.processUnit(actor, attack), undefined);
+	assert.equal(target.getHp(), 1000);
+	const input = { cmd: FightCmdEnum.skill, skill: ids.first, target: target.uid };
+	assert.equal(fight.checkPC(actor, input), true);
+	const ctx = fight.processUnit(actor, input);
+	assert.ok(ctx);
+	assert.equal(target.getHp(), 790);
+	assert.equal(actor.attr.point.mp, 90);
+});
+
 for (const func of ['normal', 'heal', 'poison', 'nohurt']) {
 	// 测试：石化目标不能接受普通攻击或技能，自动选择跳过它，显式输入拒绝且不扣费。
 	test(`beaction: petrification excludes ${func} targets before input and execution`, () => {

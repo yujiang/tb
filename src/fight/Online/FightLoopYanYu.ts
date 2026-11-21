@@ -11,14 +11,12 @@ import type { FightUnit } from '../Unit/FightUnit';
 // 但是有可能在动画中，a,b同时按了技能，还是有一个技能队列在。
 
 export class FightLoopYanYu extends FightLoopOnline {
-	private started = false;
 	private accepting = false;
 	private skills: { id: number; input: FightInput }[] = [];
 	private running: Promise<void> | undefined;
 	private automaticTurn: number | undefined;
 
 	override start() {
-		this.started = true;
 		this.accepting = false;
 		this.skills.length = 0;
 		this.automaticTurn = undefined;
@@ -33,7 +31,7 @@ export class FightLoopYanYu extends FightLoopOnline {
 
 	override async waitInput(turn: number, ctx: FightContex): Promise<number> {
 		this.accepting = false;
-		if (!this.started || this.fight.isEnd() || turn !== this.fight.turn) {
+		if (!this.canProcessTurn(turn)) {
 			return 0;
 		}
 
@@ -51,7 +49,7 @@ export class FightLoopYanYu extends FightLoopOnline {
 	}
 
 	override async processOneTurn(turn: number) {
-		if (!this.started || this.fight.isEnd() || turn !== this.fight.turn) {
+		if (!this.canProcessTurn(turn)) {
 			return;
 		}
 
@@ -76,9 +74,8 @@ export class FightLoopYanYu extends FightLoopOnline {
 	private canCast(id: number, input: FightInput): boolean {
 		const fight = this.fight;
 		if (
-			!this.started ||
+			!this.canProcessTurn() ||
 			!this.accepting ||
-			fight.isEnd() ||
 			!Number.isSafeInteger(id) ||
 			input?.turn !== fight.turn ||
 			input.cmd !== FightCmdEnum.skill
@@ -99,7 +96,7 @@ export class FightLoopYanYu extends FightLoopOnline {
 			return false;
 		}
 
-		if (!fight.checkOnline(unit, input)) return false;
+		if (!fight.checkInput(unit, input)) return false;
 
 		const cost = unit.findSkill(input.skill).getCost();
 		return !cost || unit.canCost(cost);
@@ -116,7 +113,7 @@ export class FightLoopYanYu extends FightLoopOnline {
 		// 先让 running 完成赋值，消息回调中的重入输入只入队，不另开结算循环。
 		await Promise.resolve();
 		try {
-			while (this.started && !this.fight.isEnd() && this.fight.turn === turn) {
+			while (this.canProcessTurn(turn)) {
 				activeUnit = undefined;
 				activeInput = undefined;
 				const queued = this.skills.shift();
@@ -139,8 +136,10 @@ export class FightLoopYanYu extends FightLoopOnline {
 						: unit.getExtraActions().length
 							? this.freshInputContext(action, true)
 							: this.fight.processUnit(unit, input ?? { cmd: FightCmdEnum.attack });
-					if (ctx) ctx.msgs.unshift(this.actorMessage(action));
-					else this.syncActionOrder();
+					if (ctx) {
+						this.finishAction(action, ctx);
+						ctx.msgs.unshift(this.actorMessage(action));
+					} else this.syncActionOrder();
 				} else {
 					break;
 				}
@@ -173,7 +172,6 @@ export class FightLoopYanYu extends FightLoopOnline {
 	protected override async waitTurnDrawOver() {}
 
 	override end() {
-		this.started = false;
 		this.accepting = false;
 		this.skills.length = 0;
 		this.automaticTurn = undefined;

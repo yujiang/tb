@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import { BuffTurnEnum } from '../../../src/fight/Buffs/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -83,7 +84,18 @@ function setup(
 			],
 		},
 	]);
-	const fight = new Fight(97700, { maxTurn: 10, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 10,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		97700,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	const a = new FightSide(),
 		b = new FightSide();
 	a.createSimpleMonster(fight, [{ id: 0, name: '攻击者', pos: 0 }]);
@@ -177,7 +189,7 @@ for (const field of ['next', 'combo'] as const) {
 		);
 		assert.equal(unit.isDied(), false);
 		assert.equal(unit.getHp(), 30);
-		assert.equal(fight.win, FightResultEnum.ongoing);
+		assert.equal(fight.result, FightResultEnum.ongoing);
 		assert.ok(client.checkSame(fight));
 	});
 }
@@ -193,7 +205,7 @@ test('auto relife: removing a pending revival buff cancels revival', () => {
 	loop.bcMsg(ctx.msgs);
 	assert.ok(unit.isDied());
 	assert.ok(!ctx.msgs.some((msg) => msg[0] === 'relife' || msg[0] === 'buffTrigger'));
-	assert.equal(fight.win, FightResultEnum.attack);
+	assert.equal(fight.result, FightResultEnum.attack);
 	assert.ok(client.checkSame(fight));
 });
 
@@ -251,13 +263,13 @@ test('auto relife: both sides revive before mutual death is checked for an outco
 		attacker.onHurt(unit, 'test', 1000, ctx);
 		assert.ok(unit.isDied());
 		assert.ok(attacker.isDied());
-		assert.equal(fight.win, FightResultEnum.ongoing);
+		assert.equal(fight.result, FightResultEnum.ongoing);
 	});
 	loop.bcMsg(ctx.msgs);
 	assert.equal(ctx.msgs.filter((msg) => msg[0] === 'relife').length, 2);
 	assert.equal(unit.getHp(), 30);
 	assert.equal(attacker.getHp(), 30);
-	assert.equal(fight.win, FightResultEnum.ongoing);
+	assert.equal(fight.result, FightResultEnum.ongoing);
 	assert.ok(client.checkSame(fight));
 });
 
@@ -289,7 +301,7 @@ test('auto relife: actual death clears normal buffs then revives before outcome 
 	assert.deepEqual(deadStates, [true]);
 	assert.equal(unit.isDied(), false);
 	assert.equal(unit.getHp(), 30);
-	assert.equal(fight.win, FightResultEnum.ongoing);
+	assert.equal(fight.result, FightResultEnum.ongoing);
 	assert.equal(unit.findBuff(ordinaryId), undefined);
 	assert.equal(unit.findBuff(reviveId), undefined);
 	assert.equal(unit.contextEmitter.listenerCount('hurt'), 0);
@@ -302,7 +314,7 @@ test('auto relife: actual death clears normal buffs then revives before outcome 
 	assert.doesNotMatch(report.toString(), /未识别消息/);
 	hurt(1000);
 	assert.equal(unit.isDied(), true);
-	assert.equal(fight.win, FightResultEnum.attack);
+	assert.equal(fight.result, FightResultEnum.attack);
 });
 
 // 测试：自动复活成功后重新施加 Buff，不刷新本场战斗的一次复活机会。
@@ -325,7 +337,7 @@ test('auto relife: forbidden revival does not trigger or consume the opportunity
 	const blocked = hurt(1000);
 	assert.equal(unit.isDied(), true);
 	assert.equal(unit.findBuff(reviveId)?.times, 1);
-	assert.equal(fight.win, FightResultEnum.ongoing);
+	assert.equal(fight.result, FightResultEnum.ongoing);
 	assert.ok(blocked.ctx.msgs.some((msg) => msg[0] === '无法复活'));
 	assert.ok(!blocked.ctx.msgs.some((msg) => msg[0] === 'relife' || msg[0] === 'buffTrigger'));
 	// 队友维持战斗，外部复活并解除禁止后，自动复活机会应仍未消耗。
@@ -384,7 +396,7 @@ test('auto relife: the attack pipeline counts full lethal damage and continues r
 	assert.equal(unit.getHp(), 30);
 	assert.equal(unit.enemyHurt.get(attacker.uid), 100);
 	assert.equal(attacker.getHp(), 50); // 20 + 50 吸血 - 20 反伤
-	assert.equal(fight.win, FightResultEnum.ongoing);
+	assert.equal(fight.result, FightResultEnum.ongoing);
 	assert.equal(client.checkSame(fight), true);
 });
 
@@ -443,7 +455,18 @@ test('auto relife: unyielding triggers first, then auto revival on the next leth
 test('auto relife: a new battle grants a reused unit another successful revival', () => {
 	const { unit, attacker, hurt } = setup();
 	hurt(1000);
-	const nextFight = new Fight(97705, { maxTurn: 1, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 1,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const nextFight = new Fight(
+		97705,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	const a = new FightSide(),
 		b = new FightSide();
 	a.units.push(attacker);
@@ -454,5 +477,5 @@ test('auto relife: a new battle grants a reused unit another successful revival'
 	nextFight.resolveAction(() => unit.onHurt(attacker, 'test', 1000, ctx));
 	assert.equal(unit.isDied(), false);
 	assert.equal(unit.getHp(), 30);
-	assert.equal(nextFight.win, FightResultEnum.ongoing);
+	assert.equal(nextFight.result, FightResultEnum.ongoing);
 });

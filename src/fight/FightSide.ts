@@ -139,4 +139,13 @@ export class FightSide {
 			u.setPos(data.pos);
 		}
 	}
+
+	//实际上必须交给上层完成
+	deathPenalty(penalty: number) {
+		for (const unit of this.units) {
+			// unit.deathPenalty(dp);
+		}
+	}
+
+	onWin(reward: number, recover: number) {}
 }

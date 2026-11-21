@@ -1,5 +1,6 @@
 // 核心的战斗对象
 import { FightMap } from './FightMap';
+import { FightUltimate } from './FightUltimate';
 import { FightSide } from './FightSide';
 import { FightUnit, UnitEventFunc, sortByAttr } from './Unit/FightUnit';
 import { FightUnitEvent } from './Buffs/BuffDatas';
@@ -23,19 +24,79 @@ import { FightSkill, getDefaultSkill } from './Skills/FightSkill';
 
 export type AllUnitType = [FightUnit[], FightUnit[]];
 
-//表格化数据
-export interface FightData {
-	/** 全局回合上限，0 不设上限；正数允许完整执行该轮，轮末仍未分胜负则防守方胜。 */
+// 宿主启动时统一设置，所有战斗共用。
+export interface FightGlobalData {
+	/** 所有战斗共用的全局回合上限，默认0不设上限；非负安全整数，正数允许完整执行该轮，轮末仍未分胜负则防守方胜。 */
 	maxTurn: number;
-	/** 西游整轮输入等待秒数，可用小数；0/缺省运行时回退30秒，PC 不限时、烟雨不等待收齐。 */
+	/** 西游整轮输入等待秒数，默认30；非负有限数、可用小数，显式0运行时仍回退30秒；PC不限时、烟雨不等待收齐。 */
 	waitInputSec: number;
-	/** true 时默认普攻按对位查找，需先 createMap；false 时随机敌方存活单位，手动目标仍优先。 */
+	/** 默认false；true时默认普攻按对位查找，需先createMap；false时随机敌方存活单位，手动目标仍优先。 */
 	duiwei: boolean;
+	/** 集气开关，默认false；关闭时跳过行动集气、addJp及JP费用，初始化不发送jp/jpMax；true启用集气结算和同步。 */
+	jiqi: boolean;
+	/** 输入校验模式，默认true调用checkOnline，允许死亡行动者提交和普攻守尸、资源延后复验；false调用checkPC严格即时预检。烟雨预设false；两种检测函数自身规则不变。 */
+	attackDie: boolean;
 	/** 保护指令施加的已注册 Buff ID，必须 class:protect；缺省保护指令不可用。 */
 	protectBuff?: number;
 
 	/** 缺省false；敌方最后一面盾打破且全体存活单位均破盾后，action 结束开放队伍共享一次大招，每回合最多一次。 */
 	allShieldBreak?: boolean;
+}
+
+const gData: FightGlobalData = {
+	maxTurn: 0,
+	waitInputSec: 30,
+	duiwei: false,
+	jiqi: false,
+	attackDie: true,
+	protectBuff: undefined,
+	allShieldBreak: false,
+};
+
+/** 返回独立的烟雨预设（对位和集气为true，attackDie为false）；需显式传给setFightGlobalData，查询本身不修改共享配置。 */
+export function getYanyuGlobalData(): Partial<FightGlobalData> {
+	return {
+		duiwei: true,
+		jiqi: true,
+		attackDie: false,
+	};
+}
+
+/** 查询进程共享的全局战斗配置；通过setFightGlobalData更新，表格行不覆盖这些字段。 */
+export function getFightGlobalData(): Readonly<FightGlobalData> {
+	return gData;
+}
+
+/** 启动时按字段设置公共配置，省略字段保留当前值；配置合法性由宿主保证，不做运行时校验。 */
+export function setFightGlobalData(data: Partial<FightGlobalData>) {
+	const next = { ...gData, ...data };
+
+	gData.maxTurn = next.maxTurn;
+	gData.waitInputSec = next.waitInputSec;
+	gData.duiwei = next.duiwei;
+	gData.jiqi = next.jiqi;
+	gData.attackDie = next.attackDie;
+	gData.protectBuff = next.protectBuff;
+	gData.allShieldBreak = next.allShieldBreak ?? false;
+}
+
+// FightData 填xls实现
+export interface FightData {
+	/** 是否允许逃跑，表格行必填；PC/西游在普通行动位执行，烟雨不接受逃跑输入。 */
+	runaway: boolean;
+	/** 逃跑等级基准，必填有限数；概率clamp(1-(行动者grade-runawayGrade)/100,0,1)，执行时读取。 */
+	runawayGrade: number;
+	/** 败方惩罚配置值，必填；0不调用惩罚，单位与执行交给宿主；成功逃跑不惩罚。 */
+	deathPenalty: number;
+	/** 胜方恢复配置值，必填；单位与执行交给宿主onWin，成功逃跑不恢复。 */
+	winRecover: number;
+	/** 胜方奖励配置值，必填；含义与发放交给宿主onWin，成功逃跑不发奖。 */
+	winReward: number;
+}
+
+// 逃跑概率
+export function getRunwayRate(unit: number, runawayGrade: number) {
+	return Math.min(1, Math.max(0, 1 - (unit - runawayGrade) / 100));
 }
 
 // 上下文, 因为反击,连击, 需要回溯堆栈来得到上下文
@@ -51,6 +112,7 @@ export interface FightContex {
 	//crit?: boolean; // 是否暴击
 
 	damage?: number; // 伤害值
+	actionStarted?: boolean; // 根单位行动已通过目标、禁止及费用检查；用于完整行动后统一集气
 
 	killNum?: number; // 追击次数
 	nextNum?: number; // 追击次数
@@ -89,6 +151,10 @@ export class Fight {
 	// seed为随机数种子
 	seed: number;
 	xls: FightData;
+	/** 所有战斗共享的全局规则；每场xls只保存表格配置。 */
+	get globalData(): Readonly<FightGlobalData> {
+		return getFightGlobalData();
+	}
 
 	constructor(id: number, data: FightData, seed = 0) {
 		this.fid = id;
@@ -110,18 +176,44 @@ export class Fight {
 
 	finishTurn() {
 		this.checkOutcome();
-		if (!this.isEnd() && this.xls.maxTurn && this.turn >= this.xls.maxTurn) {
+		if (!this.isEnd() && this.globalData.maxTurn && this.turn >= this.globalData.maxTurn) {
 			// 超时防守获胜！
-			this.win = FightSideEnum.defend;
+			// this.win = FightSideEnum.defend;
+			this.setWin(FightResultEnum.outoftime);
 		}
 	}
 
-	win: number = -1;
+	result: FightResultEnum = -1;
+	getResult() {
+		return this.result;
+	}
+	winSide: number = -1;
+	getWinSide() {
+		return this.winSide;
+	}
+	getLostSide() {
+		if (this.winSide < 0) return -1;
+		return this.winSide === FightSideEnum.attack ? FightSideEnum.defend : FightSideEnum.attack;
+	}
+	runaway = false;
+	isRunaway() {
+		return this.runaway;
+	}
+
 	isEnd() {
-		return this.win >= 0;
+		return this.result >= 0;
 	}
 	onDie(unit: FightUnit) {
 		if (this.actionDepth === 0) this.checkOutcome();
+	}
+
+	setWin(win: FightResultEnum) {
+		this.result = win;
+		if (win === FightResultEnum.outoftime || win === FightResultEnum.draw) {
+			this.winSide = FightSideEnum.defend;
+		} else {
+			this.winSide = win;
+		}
 	}
 
 	checkOutcome() {
@@ -131,146 +223,53 @@ export class Fight {
 
 		const alive = this.AllUnits.map((units) => units.some((u) => !u.isDied()));
 		if (!alive[0] && !alive[1]) {
-			this.win = FightResultEnum.draw;
-		} else if (!alive[0]) this.win = FightSideEnum.defend;
-		else if (!alive[1]) this.win = FightSideEnum.attack;
+			this.setWin(FightResultEnum.draw);
+		} else if (!alive[0]) {
+			this.setWin(FightResultEnum.defend);
+		} else if (!alive[1]) {
+			this.setWin(FightResultEnum.attack);
+		}
 	}
 
 	private actionDepth = 0;
 	private afterActionTasks: (() => void)[] = [];
-	private ultimateReady: [boolean, boolean] = [false, false];
-	private ultimateUsedTurn: [number, number] = [-1, -1];
-	private ultimateGrantTurn: [number, number] = [-1, -1];
-	private ultimateBreak: [boolean, boolean] = [false, false];
-	private ultimateContext: FightContex | undefined;
-	private ultimateCaster: FightUnit | undefined;
+	private readonly ultimate = new FightUltimate(this);
+
+	/** 是否仍在动作或嵌套反应链中；大招等子模块据此延迟发布或拒绝重入。 */
+	isInAction(): boolean {
+		return this.actionDepth > 0;
+	}
 
 	resetUltimate() {
-		this.ultimateReady = [false, false];
-		this.ultimateUsedTurn = [-1, -1];
-		this.ultimateGrantTurn = [-1, -1];
-		this.ultimateBreak = [false, false];
-		this.ultimateContext = undefined;
+		this.ultimate.reset();
 	}
 
 	hasUltimateChance(side: FightSideEnum): boolean {
-		return (
-			!!this.ultimateReady[side] && this.ultimateUsedTurn[side] !== this.turn && !this.isEnd()
-		);
+		return this.ultimate.hasChance(side);
 	}
 
-	// 最后一面盾被打破的时刻记录事件；行动完成后再开放输入，而非持续轮询全破状态。
 	isAllShieldBroken(side: FightSideEnum): boolean {
-		const units = this.getSideUnits(side).filter((unit) => !unit.isDied());
-		return (
-			units.length > 0 && units.every((unit) => unit.isMonster() && unit.attr.shield === 0)
-		);
+		return this.ultimate.isAllShieldBroken(side);
 	}
 
-	onShieldBreak(
-		unit: FightUnit,
-		ctx: FightContex,
-		allBroken = this.isAllShieldBroken(unit.side),
-	) {
-		if (!this.xls.allShieldBreak) return;
-
-		if (allBroken) {
-			this.ultimateBreak[EnemySide(unit.side)] = true;
-			this.ultimateContext = ctx;
-		}
+	onShieldBreak(unit: FightUnit, ctx: FightContex, allBroken?: boolean) {
+		this.ultimate.onShieldBreak(unit, ctx, allBroken);
 	}
 
-	// 反应链内先登记，最外层完成死亡、自动复活与胜负结算后统一发布事件。
 	updateUltimate(ctx: FightContex) {
-		if (!this.xls.allShieldBreak && !this.ultimateReady.some(Boolean)) {
-			return;
-		}
-
-		if (this.actionDepth > 0) {
-			this.ultimateContext = ctx;
-			return;
-		}
-
-		const broken = this.ultimateBreak;
-		this.ultimateBreak = [false, false];
-		this.ultimateContext = undefined;
-		for (const side of [FightSideEnum.attack, FightSideEnum.defend]) {
-			let ready = this.ultimateReady[side];
-			if (
-				!this.xls.allShieldBreak ||
-				this.isEnd() ||
-				this.ultimateUsedTurn[side] === this.turn
-			) {
-				ready = false;
-			} else if (broken[side] && this.ultimateGrantTurn[side] !== this.turn) {
-				ready = true;
-				this.ultimateGrantTurn[side] = this.turn;
-			}
-			if (ready !== this.ultimateReady[side]) {
-				this.ultimateReady[side] = ready;
-				ctx.msgs.push(['ultimateReady', side, ready]);
-			}
-		}
+		this.ultimate.update(ctx);
 	}
 
 	checkUltimate(unit: FightUnit, input: FightInput): boolean {
-		if (this.actionDepth > 0) {
-			unit.hintClient('当前行动尚未结束');
-			return false;
-		}
-
-		if (!this.getAllUnits().includes(unit) || !this.hasUltimateChance(unit.side)) {
-			unit.hintClient('当前没有大招机会');
-			return false;
-		}
-
-		if (!unit.getUltimateSkill()) {
-			unit.hintClient('未装备可用大招');
-			return false;
-		}
-
-		if (
-			input?.cmd !== FightCmdEnum.skill ||
-			(input.skill !== undefined && input.skill !== unit.ultimateSkill)
-		) {
-			unit.hintClient('大招技能不匹配');
-			return false;
-		}
-
-		return this.checkPC(unit, { ...input, skill: unit.ultimateSkill }, true);
+		return this.ultimate.check(unit, input);
 	}
 
 	skipUltimate(side: FightSideEnum, ctx: FightContex) {
-		this.ultimateUsedTurn[side] = this.turn;
-		this.updateUltimate(ctx);
+		this.ultimate.skip(side, ctx);
 	}
 
 	processUltimate(unit: FightUnit, input: FightInput): FightContex | undefined {
-		if (!this.checkUltimate(unit, input)) return undefined;
-
-		const prepared = this.preparePCInput(unit, { ...input, skill: unit.ultimateSkill });
-		if (!prepared) return undefined;
-
-		return this.resolveAction(() => {
-			const previous = this.ultimateUsedTurn[unit.side];
-			// 先占用整队机会，避免伤害回调重入施放；普通技能入口处理费用、CD 与反应链。
-			this.ultimateUsedTurn[unit.side] = this.turn;
-			const caster = this.ultimateCaster;
-			let ctx: FightContex;
-			this.ultimateCaster = unit;
-			try {
-				ctx = this.processUnit(unit, prepared);
-			} finally {
-				this.ultimateCaster = caster;
-			}
-			if (!ctx) {
-				this.ultimateUsedTurn[unit.side] = previous;
-				return undefined;
-			}
-
-			this.updateUltimate(ctx);
-			return ctx;
-		});
+		return this.ultimate.process(unit, input);
 	}
 
 	// 完整动作的反应链结束后、胜负检查前执行；不在动作中时直接执行。
@@ -303,12 +302,8 @@ export class Fight {
 			if (this.actionDepth === 0) {
 				// 异常动作不能把待处理效果带进下一次行动。
 				this.afterActionTasks.length = 0;
-				const ultimate = this.ultimateContext;
-				this.ultimateContext = undefined;
-				if (completed) {
-					this.checkOutcome();
-					if (ultimate) this.updateUltimate(ultimate);
-				} else this.ultimateBreak = [false, false];
+				if (completed) this.checkOutcome();
+				this.ultimate.finishAction(completed);
 			}
 		}
 	}
@@ -457,7 +452,7 @@ export class Fight {
 		if (taunt) return taunt;
 
 		const skill = getDefaultSkill({
-			target: this.xls.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey,
+			target: this.globalData.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey,
 		});
 		return this.selectMainTarget(unit, skill);
 	}
@@ -514,6 +509,13 @@ export class Fight {
 		return undefined;
 	}
 
+	// 输入入口按共享配置选择检查模式，显式调用checkOnline/checkPC仍保留各自规则。
+	checkInput(unit: FightUnit, input: FightInput): boolean {
+		return this.globalData.attackDie
+			? this.checkOnline(unit, input)
+			: this.checkPC(unit, input);
+	}
+
 	// 网游先收指令再行动：允许死亡单位输入、普攻守尸，目标与资源留到执行时复验。
 	checkOnline(unit: FightUnit, input: FightInput): boolean {
 		return this.validateInput(unit, input);
@@ -551,9 +553,19 @@ export class Fight {
 		return this.getPCTargets(unit, input) !== undefined;
 	}
 
-	// checkPC 通过后再选一次主目标，保存副本；检查失败不会消耗选目标的随机数。
+	// 输入检查通过后准备主目标副本；允许守尸时保留死亡敌人的原始意图，其余仍按即时目标规则选择。
 	preparePCInput(unit: FightUnit, input: FightInput): FightInput | undefined {
 		const attack = input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none;
+		if (
+			this.globalData.attackDie &&
+			attack &&
+			input.target !== undefined &&
+			this.getUnitById(input.target)?.isDied()
+		) {
+			// 只保留通过守尸校验的原始意图，不自动换人；嘲讽和目标复活由执行阶段处理。
+			return this.checkOnline(unit, input) ? { ...input } : undefined;
+		}
+
 		const skill = input.cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) : undefined;
 		if (!attack && !skill) {
 			return { ...input };
@@ -568,7 +580,7 @@ export class Fight {
 
 		const sel = skill
 			? skill.getSel()
-			: { target: this.xls.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey };
+			: { target: this.globalData.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey };
 		const taunt = this.getTauntTarget(unit, skill ?? getDefaultSkill(sel));
 		if (sel.sortAttr) sortByAttr(targets, sel.sortAttr, sel.sortDescend);
 		const fixed =
@@ -592,7 +604,7 @@ export class Fight {
 					: undefined) ??
 			getDefaultSkill({
 				target:
-					input.target === undefined && this.xls.duiwei
+					input.target === undefined && this.globalData.duiwei
 						? TargetSelectEnum.duiwei
 						: TargetSelectEnum.enmey,
 			});
@@ -637,11 +649,27 @@ export class Fight {
 				FightCmdEnum.attack,
 				FightCmdEnum.defend,
 				FightCmdEnum.skill,
+				FightCmdEnum.runaway,
 				FightCmdEnum.cancel,
 				FightCmdEnum.protect,
 			].includes(input.cmd)
 		) {
 			return false;
+		}
+
+		if (input.cmd === FightCmdEnum.runaway) {
+			if (!this.xls.runaway) {
+				unit.hintClient('本场战斗不能逃跑');
+				return false;
+			}
+
+			// escapse沿用状态表的现有拼写；逃跑本身需要移动。
+			if (unit.isForbid('move') || unit.isForbid('escapse')) {
+				unit.hintClient('当前状态无法逃跑');
+				return false;
+			}
+
+			return true;
 		}
 
 		// 普攻可以显式指定死亡敌人守尸；自动选目标仍只选存活敌人。
@@ -651,7 +679,7 @@ export class Fight {
 			if (
 				input.target === undefined ||
 				input.target === unit.uid ||
-				getBuffData(this.xls.protectBuff)?.class !== 'protect'
+				getBuffData(this.globalData.protectBuff)?.class !== 'protect'
 			) {
 				return false;
 			}
@@ -695,6 +723,18 @@ export class Fight {
 		) {
 			skill = unit.getAttackSkill();
 			guardCorpse = false;
+		}
+		if (
+			input.cmd === FightCmdEnum.attack ||
+			input.cmd === FightCmdEnum.none ||
+			input.cmd === FightCmdEnum.skill
+		) {
+			const actionSkill =
+				input.cmd === FightCmdEnum.skill ? skill : (unit.getAttackSkill() ?? skill);
+			if (!actionSkill.getNoMove() && unit.isForbid('move')) {
+				unit.hintClient('当前无法移动，只能使用原地技能');
+				return false;
+			}
 		}
 		if (input.target !== undefined) {
 			const target = this.getUnitById(input.target);
@@ -744,7 +784,7 @@ export class Fight {
 			};
 		}
 
-		if (!this.validateInput(unit, input, this.ultimateCaster === unit)) {
+		if (!this.validateInput(unit, input, this.ultimate.isCaster(unit))) {
 			return;
 		}
 
@@ -764,7 +804,25 @@ export class Fight {
 
 		if (cmd === FightCmdEnum.defend) {
 			unit.doDefend();
-			return;
+			return { ...initFightContex(this), attack: unit, actionStarted: true };
+		}
+
+		if (cmd === FightCmdEnum.runaway) {
+			const ctx = { ...initFightContex(this), attack: unit, actionStarted: true };
+			const success = this.randomLess(
+				getRunwayRate(unit.attr.grade ?? 0, this.xls.runawayGrade),
+			);
+			ctx.msgs.push(['runaway', unit.uid, success]);
+			if (success) {
+				this.runaway = true;
+				this.setWin(
+					unit.side === FightSideEnum.attack
+						? FightResultEnum.defend
+						: FightResultEnum.attack,
+				);
+				this.updateUltimate(ctx);
+			}
+			return ctx;
 		}
 
 		const actionSkill =
@@ -782,7 +840,10 @@ export class Fight {
 				effects: [],
 			};
 			if (cmd === FightCmdEnum.skill) skillFunc(unit, null, input.skill, ctx);
-			else attackFunc(unit, null, ctx);
+			else {
+				ctx.actionStarted = true;
+				attackFunc(unit, null, ctx);
+			}
 			return ctx;
 		}
 
@@ -811,8 +872,9 @@ export class Fight {
 		const ctx: FightContex = { fight: this, attack: unit, defend: des, msgs: [], effects: [] };
 
 		if (cmd === FightCmdEnum.protect) {
+			ctx.actionStarted = true;
 			ctx.msgs.push(['protect', unit.uid, des.uid]);
-			des.addBuff(unit, 'protect', this.xls.protectBuff, 1, ctx);
+			des.addBuff(unit, 'protect', this.globalData.protectBuff, 1, ctx);
 			return ctx;
 		}
 
@@ -827,6 +889,7 @@ export class Fight {
 				return;
 			}
 
+			ctx.actionStarted = true;
 			attackFunc(unit, des, ctx);
 			return ctx;
 		}
@@ -887,5 +950,22 @@ export class Fight {
 	}
 	offUnitEvent(event: FightUnitEvent, func: UnitEventFunc) {
 		this.emitUnit.off(event, func);
+	}
+
+	onEnd() {
+		if (!this.isEnd() || this.isRunaway()) {
+			return; //逃跑没有奖励和惩罚。
+		}
+
+		if (this.xls.deathPenalty) {
+			const side = this.getLostSide();
+			if (side >= 0) {
+				this.Sides[side].deathPenalty(this.xls.deathPenalty);
+			}
+		}
+		const side = this.getWinSide();
+		if (side >= 0) {
+			this.Sides[side].onWin(this.xls.winReward, this.xls.winRecover);
+		}
 	}
 }

@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -96,7 +97,18 @@ test('report demo: weakness shield breaks, stuns and refills before the next rou
 		right = new FightSide();
 	left.units.push(...allies);
 	right.units.push(boss);
-	const fight = new Fight(1001030, { maxTurn: 2, waitInputSec: 1, duiwei: false }, 0);
+	setFightGlobalData({
+		protectBuff: undefined,
+		allShieldBreak: false,
+		maxTurn: 2,
+		waitInputSec: 1,
+		duiwei: false,
+	});
+	const fight = new Fight(
+		1001030,
+		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		0,
+	);
 	for (const unit of [...allies, boss]) unit.setPos(unit.uid);
 	fight.createSide(left, right);
 	const loop = new FightLoopWest(fight),
@@ -145,7 +157,7 @@ test('report demo: weakness shield breaks, stuns and refills before the next rou
 		fight.finishTurn();
 	}
 	loop.end();
-	assert.equal(fight.win, FightResultEnum.attack);
+	assert.equal(fight.result, FightResultEnum.attack);
 	assert.ok(checked > 10);
 	assert.deepEqual(
 		messages.filter((msg) => msg[0] === 'shield').map((msg) => msg.slice(2)),

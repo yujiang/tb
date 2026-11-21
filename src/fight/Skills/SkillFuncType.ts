@@ -34,6 +34,11 @@ export function skillFunc(
 		return;
 	}
 
+	if (!skill.getNoMove() && attacker.isForbid('move')) {
+		attacker.hintClient('当前无法移动，只能使用原地技能');
+		return;
+	}
+
 	const cd = attacker.getSkillCd(skillId);
 	if (cd > 0) {
 		attacker.hintClient(`[${skill.getName()}]冷却中，还需 ${cd} 回合`);
@@ -67,6 +72,7 @@ export function skillFunc(
 		return;
 	}
 
+	ctx.actionStarted = true;
 	attacker.startSkillCd(skill, ctx);
 
 	if (skill.isMulti() && func !== skillAttackFunc) {
@@ -74,7 +80,14 @@ export function skillFunc(
 	}
 
 	const taunt = !skill.isMulti() ? f.getTauntBuff(attacker, skill) : undefined;
-	const result = func(attacker, defender, skill, ctx);
+	let result: boolean;
+	// 攻击和群体技能在各自管线判定；单体非攻击技能在执行效果前统一判定一次。
+	if (func !== skillAttackFunc && f.randomGreat(skill.getRand())) {
+		ctx.msgs.push(['skillFailed', attacker.uid, defender.uid, skill.getId()]);
+		result = false;
+	} else {
+		result = func(attacker, defender, skill, ctx);
+	}
 	// 普通攻击类在整条反应链结束后处理自身效果；其余技能在本次执行完成后处理。
 	if (result && func !== skillAttackFunc) {
 		afterSelfBuff(attacker, skill, ctx);

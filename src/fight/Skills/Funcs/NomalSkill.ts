@@ -7,6 +7,7 @@ import { FightContex } from '../../Fight';
 import { getSkillData } from '../SkillDatas';
 import { trySupport } from '../FightSupport';
 import { multiFunc } from './Multi';
+import { isDebugReaction } from '../../FightDebug';
 
 export type AttackReaction = 'next' | 'combo' | 'kill' | 'fback' | 'support';
 
@@ -64,10 +65,17 @@ export function skillAttack(
 	ctx: FightContex,
 	reaction?: AttackReaction,
 	combo?: ComboDamage,
+	force = false,
 ) {
 	// assert(skill);
 	const f = ctx.fight;
-	if (attacker.isDied() || defender.isDied() || attacker.isForbid('attack')) {
+	if (
+		attacker.isDied() ||
+		defender.isDied() ||
+		!skill.canTarget(defender) ||
+		attacker.isForbid('attack') ||
+		(!skill.getNoMove() && attacker.isForbid('move'))
+	) {
 		return false;
 	}
 
@@ -75,7 +83,7 @@ export function skillAttack(
 	if (ctx.reactionSteps > 64) throw new Error('Reaction limit exceeded (64 effects per action)');
 
 	// 发动概率, 比如连击...
-	if (f.randomGreat(skill.getRand())) {
+	if (!force && !isDebugReaction(reaction) && f.randomGreat(skill.getRand())) {
 		if (!reaction && skill.getId() !== 0) {
 			ctx.msgs.push(['skillFailed', attacker.uid, defender.uid, skill.getId()]);
 		}
@@ -135,7 +143,9 @@ function skillKill(attacker: FightUnit, sk: FightSkill, ctx: FightContex) {
 	if (!skill) return false;
 
 	const f = ctx.fight;
-	if (skill.getRand() <= 0) return false;
+	if (skill.getRand() <= 0 && !isDebugReaction('kill')) {
+		return false;
+	}
 
 	const configured = sk.getKill() != null;
 	if (configured && skill.isMulti()) {
@@ -170,7 +180,9 @@ function skillNext(
 	if (!skill) return false;
 
 	const f = ctx.fight;
-	if (skill.getRand() <= 0) return false;
+	if (skill.getRand() <= 0 && !isDebugReaction('next')) {
+		return false;
+	}
 
 	const configured = sk.getNext() != null;
 	const combo = usesCombo(sk);
@@ -241,8 +253,13 @@ export function magicAttackFunc(
 	combo?: ComboDamage,
 ): boolean {
 	if (magic.isMulti() && reaction !== 'combo' && reaction !== 'support') {
-		return multiFunc(attacker, magic, ctx, (actor, target, single, context) =>
-			magicAttackFunc(actor, target, single, context, reaction),
+		return multiFunc(
+			attacker,
+			magic,
+			ctx,
+			(actor, target, single, context) =>
+				magicAttackFunc(actor, target, single, context, reaction),
+			isDebugReaction(reaction),
 		);
 	}
 
@@ -260,6 +277,8 @@ export function magicAttackFunc(
 			const rt = skillAttack(attacker, defender, magic, ctx, reaction, chain);
 			if (!rt) return false;
 
+			// 协战、溅射会复用 ctx，先保存本次主目标的实际伤害；连招读取累计伤害。
+			const damage = chain?.damage ?? ctx.damage;
 			if (!attacker.isDied()) {
 				if (!usesCombo(magic) && !chain?.interrupted && magic.canSupport()) {
 					trySupport(attacker, defender, ctx);
@@ -279,7 +298,7 @@ export function magicAttackFunc(
 				) {
 					tryDBack(attacker, defender, magic.isMagic(), chain.damage, ctx);
 				}
-				afterSkillAttack(attacker, defender, magic, ctx, chain);
+				afterSkillAttack(attacker, defender, magic, ctx, chain, damage);
 			}
 			afterSelfBuff(attacker, magic, ctx);
 			return true;
@@ -314,7 +333,15 @@ function spread(
 
 	// 副目标只执行单次攻击结算，是否允许保护由溅射子技能配置决定。
 	for (const target of targets) {
-		skillAttack(attacker, target, spreadSkill, ctx, undefined, combo);
+		skillAttack(
+			attacker,
+			target,
+			spreadSkill,
+			ctx,
+			undefined,
+			combo,
+			isDebugReaction('spread'),
+		);
 	}
 }
 
@@ -324,6 +351,7 @@ export function afterSkillAttack(
 	skill: FightSkill,
 	ctx: FightContex,
 	combo?: ComboDamage,
+	damage = combo?.damage ?? ctx.damage,
 ) {
 	if (attacker.isDied()) return;
 
@@ -336,7 +364,7 @@ export function afterSkillAttack(
 		//反击
 		// const f = ctx.fight;
 		let back = false;
-		if (!usesCombo(skill) && skill.canFBack()) {
+		if (damage > 1 && !usesCombo(skill) && skill.canFBack()) {
 			back = tryFBack(defender, attacker, ctx);
 		}
 		if (!back) {

@@ -1,3 +1,4 @@
+import { setFightGlobalData } from '../../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { FightUnitEvent, PropEnum, initBuffs, getBuffData, initFightContex } from '../../../src';
@@ -125,7 +126,7 @@ test('break: failed, missed and cancelled attacks do not emit', () => {
 // 测试：最后一面盾破碎的事件已发生，即使 break 监听者立刻回盾，也不取消全体破盾的大招触发。
 test('break: buff reactions cannot erase the last-shield-break event', () => {
 	const s = setup();
-	s.fight.xls.allShieldBreak = true;
+	setFightGlobalData({ allShieldBreak: true });
 	const initial = initFightContex(s.fight);
 	s.other.onHurt(s.actor, 'test', 1000, initial);
 	s.flush(initial);
