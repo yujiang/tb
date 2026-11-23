@@ -54,7 +54,7 @@
 1. selectTarget refactor(remove spread, die check move to skill)
 
 # 0.1.5
-1. 修缮一些遗留问题
-2. 重构一些函数
+1. cost(hp,mp,sp,jp)
+2. 修缮一些遗留问题, 重构一些函数
 3. FightDebug
 
