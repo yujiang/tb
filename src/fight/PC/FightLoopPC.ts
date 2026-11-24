@@ -47,8 +47,8 @@ export class FightLoopPC extends FightLoop {
 					unit = action.unit;
 				if (action.inserted) {
 					const ctx = this.insertedContext(action);
+					this.finishAction(action, ctx);
 					if (ctx) {
-						this.finishAction(action, ctx);
 						ctx.msgs.unshift(this.actorMessage(action));
 						this.bcMsg(ctx.msgs);
 						await this.waitDrawOver();

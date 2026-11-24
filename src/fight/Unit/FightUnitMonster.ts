@@ -46,7 +46,7 @@ export class FightUnitMonster extends FightUnit {
 		value?.bind(this); // 先确认新实例可绑定，失败时保留原 AI。
 		this.decisionAI?.unbind(this);
 		this.decisionAI = value;
-		this.calcAttr();
+		this.attrDirty = true;
 	}
 	setAI(value?: FightAI | AIData) {
 		this.ai =
@@ -82,7 +82,7 @@ export class FightUnitMonster extends FightUnit {
 		this.ruleEntries = entries.sort((a, b) => a.prior - b.prior || a.order - b.order);
 		this.nextRuleOrder += entries.length;
 		for (const rule of bound) rule.startFight(this, ctx);
-		this.calcAttr();
+		this.attrDirty = true;
 	}
 	clearRules(ctx?: FightContex) {
 		this.setRules([], ctx);
@@ -101,7 +101,7 @@ export class FightUnitMonster extends FightUnit {
 		this.ruleEntries.push({ rule, prior, order: this.nextRuleOrder++ });
 		this.ruleEntries.sort((a, b) => a.prior - b.prior || a.order - b.order);
 		rule.startFight(this, ctx);
-		this.calcAttr();
+		this.attrDirty = true;
 		return true;
 	}
 	removeRule(rule: FightRule, ctx?: FightContex): boolean {
@@ -110,7 +110,7 @@ export class FightUnitMonster extends FightUnit {
 
 		this.ruleEntries.splice(index, 1);
 		rule.remove(this, ctx);
-		this.calcAttr();
+		this.attrDirty = true;
 		return true;
 	}
 	override startFight(fight: Fight) {
@@ -122,7 +122,7 @@ export class FightUnitMonster extends FightUnit {
 			entry.rule.startFight(this);
 		}
 		if (this.ai || this.ruleEntries.length) {
-			this.calcAttr();
+			this.attrDirty = true;
 		}
 	}
 	override endFight() {

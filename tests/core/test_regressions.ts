@@ -290,7 +290,7 @@ test('regression: rectangular maps find enemies across the full width', () => {
 	assert.equal(f.map.findDuiwei(u, getDefaultSkill()), v);
 });
 
-// 测试：网游驱动初始化乱敏，速度变化后安全重排行动队列。
+// 测试：网游驱动初始化乱敏，宿主显式重排时使用新速度且不依赖速度事件参数。
 test('regression: West initializes units and speed changes reorder without payload errors', () => {
 	const { u, v, loop } = pair();
 	loop.fight.random = () => 0;
@@ -299,6 +299,7 @@ test('regression: West initializes units and speed changes reorder without paylo
 	loop.sortUnitsByProcess();
 	v.attrOri.speed = 200;
 	assert.doesNotThrow(() => v.calcAttr());
+	loop.onChangeSpeed(v);
 	assert.equal(loop.processUnits[0], v);
 	loop.end();
 });

@@ -35,6 +35,10 @@ tb = turnbase 回合制
 
 # 当前实现
 
+单位属性采用延迟重算：Buff、被动、AI、Rule 变化时设置 `unit.attrDirty = true`，首次读取 `unit.attr` 时才合并计算。构造末尾仍初始化一次；`unit.calcAttr()` 保留立即强制重算入口。修改 `attrOri` 后可置脏或显式重算；不要长期缓存 `unit.attr` 引用跨越属性来源变化。重算保留当前 HP/MP/SP/JP 与盾格数。
+
+Loop 在完整行动结束后刷新所有脏单位，再按当前速度重排剩余行动，顺序变化时同步行动条；下一行动出队前也会刷新，覆盖输入和消息/动画回调中的变化。烟雨即时技能同样刷新，但不占普通行动条。Loop 不再监听 `speed` 事件，动作内读取属性不会立即重排行动条；`attr/speed` 事件仍在实际重算时发送，宿主需要动作外立即重排时可调用 `loop.onChangeSpeed(unit)`。
+
 配置字段、架构流程、玩法取舍和排错入口已整理到 [tb 战斗知识库](document/wiki/index.md)。全部采用普通 Markdown，可直接阅读，后续可作为 VitePress 内容目录。每个配置字段的中文 JSDoc 与 Wiki 字典一起维护，嵌套属性、继承字段、默认值和入口差异均有说明。
 
 单位可通过 `addSkill(attackId, level)` 学习，再用 `setAttackSkill(attackId)`（字段 `attackSkill`）装配攻击技能替代普攻，`getAttackSkill()` 查询，`setAttackSkill(0)` 卸下。显式 `attack` 和默认 `none` 指令优先使用有效装配；未学会或未装配时回退到原物理普攻。替代普攻走攻击管线、使用技能自身配置和已学等级，不额外支付主动费用，发动失败不补原普攻；仍检查 `attack` 禁止状态并保留普攻目标、嘲讽和守尸规则。被动及技能命中后的公共效果也可配置 `attackSkill`，只装配、不学习或改等级，`attackSkill: 0` 可卸下；与 `supportSkill/fbackSkill` 的职责一致。详细配置与边界见 `document/技能.md`。
@@ -439,6 +443,8 @@ monster.addRule(new FightRuleHurt({ type: "hurt", everyHurt: 3 }));
 ### 插入行动与行动条
 
 `fight.insertAction(unit, input, pos?, speedRate?, ctx?)` 或 `loop.insertAction(unit, input, pos?, ctx?, speedRate?)` 插入独立行动，返回是否接受。`InsertActionPos` 包含 `first`（默认）、`last`、`random`、`afterSelf`。随机间隙只用 `Fight.random()`；相同固定位置保持提交顺序。afterSelf 在自己当前行动或下一条普通行动后插入，自己的普通行动已完成则回退队首；不打断正在执行的完整 action。普通行动因速度变化重排时，afterSelf 项仍跟随所属普通行动，未带倍率的其他插入项不参与速度竞争。未指定pos且提供speedRate时，按当前速度×倍率插入并随速度重排（0有效）；显式pos优先，忽略倍率。规则通过这一入口传入倍率，仍不推进输入次数或集气。每回合最多接受 64 次插入，超限抛错；取消不返还上限。
+
+`FightActionQueue.sort(compare)` 只接收一个 `(a: FightAction, b: FightAction) => number` 比较函数；需要按单位比较时读取 `a.unit/b.unit`，按行动比较时可同时使用 `speedRate/input` 等字段。
 
 队列现为 `FightAction` 记录，包含独立 id、unit、复制保存的 input 和 inserted。`loop.actions` 可读取记录，`loop.cancelAction(id)` 可取消追加行动并同步；`processUnits` 保留单位列表的读取及整体赋值接口，直接修改读取结果不会改动内部队列。追加行动取消、状态失效或目标死亡时只移除对应记录；切换回合、结束战斗会清理剩余项。需要与当前结算消息一起发送时传 ctx，避免行动条先于本次资源变化同步。
 

@@ -173,15 +173,10 @@ export class FightActionQueue {
 		}
 		this.entries = this.entries.filter((action) => action.unit !== unit);
 	}
-	sort(
-		compare: (a: FightUnit, b: FightUnit) => number,
-		compareActions?: (a: FightAction, b: FightAction) => number,
-	) {
+	sort(compare: (a: FightAction, b: FightAction) => number) {
 		const sortable = (action: FightAction) =>
 			!action.inserted || action.speedRate !== undefined;
-		const ordinary = this.entries
-			.filter(sortable)
-			.sort((a, b) => (compareActions ? compareActions(a, b) : compare(a.unit, b.unit)));
+		const ordinary = this.entries.filter(sortable).sort(compare);
 		let index = 0;
 		this.entries = this.entries.map((action) =>
 			sortable(action) ? ordinary[index++] : action,

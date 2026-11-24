@@ -63,10 +63,8 @@ export abstract class FightLoop {
 			rate,
 		);
 		if (rate !== undefined) {
-			this.actionQueue.sort(
-				(a, b) => this.compareProcessUnits(a, b, false),
-				(a, b) => this.compareProcessActions(a, b, false),
-			);
+			this.flushAttrs();
+			this.actionQueue.sort((a, b) => this.compareProcessActions(a, b, false));
 		}
 		this.syncActionOrder(ctx);
 		return true;
@@ -84,6 +82,7 @@ export abstract class FightLoop {
 		else this.bcMsg(msg);
 	}
 	protected takeAction() {
+		this.refreshActionOrder();
 		return (this.currentAction = this.actionQueue.shift());
 	}
 	private dismissListener = (unit: FightUnit, ctx: FightContex) => {
@@ -92,6 +91,7 @@ export abstract class FightLoop {
 	};
 	// 只有普通行动位和模板extraAction推动集气；规则插入、即时技能、大招及内部反应链不推动。
 	protected finishAction(action: FightAction, ctx: FightContex | undefined) {
+		this.refreshActionOrder(ctx);
 		if (
 			!this.fight.globalData.jiqi ||
 			!ctx?.actionStarted ||
@@ -196,6 +196,7 @@ export abstract class FightLoop {
 		this.fight.resolveAction(() => {
 			for (const unit of this.fight.getAllUnits()) unit.processBeforeTurn(turn, ctx);
 		});
+		this.flushAttrs();
 	}
 
 	abstract processOneTurn(turn: number): Promise<void>;
@@ -204,6 +205,7 @@ export abstract class FightLoop {
 		this.fight.resolveAction(() => {
 			for (const unit of this.fight.getAllUnits()) unit.processAfterTurn(turn, ctx);
 		});
+		this.flushAttrs();
 	}
 
 	async run() {
@@ -280,8 +282,6 @@ export abstract class FightLoop {
 				this.fight.getSide(side).units.map((unit) => unit.getUnitMsg()),
 			]);
 		}
-		this.fight.offUnitEvent('speed', this.speedListener);
-		this.fight.onUnitEvent('speed', this.speedListener);
 		this.fight.offUnitEvent('dismiss', this.dismissListener);
 		this.fight.onUnitEvent('dismiss', this.dismissListener);
 	}
@@ -295,7 +295,6 @@ export abstract class FightLoop {
 		this.actionQueue.clear();
 		this.queueTurn = -1;
 		this.currentAction = undefined;
-		this.fight.offUnitEvent('speed', this.speedListener);
 		for (const unit of this.fight.getAllUnits()) {
 			try {
 				unit.endFight();
@@ -336,15 +335,30 @@ export abstract class FightLoop {
 		return turn;
 	}
 
-	private speedListener = (unit: FightUnit) => this.onChangeSpeed(unit);
+	// 行动结束后统一刷新；排序前先算完，比较函数只读取已经计算好的属性。
+	protected flushAttrs() {
+		for (const unit of this.fight.getAllUnits()) {
+			if (unit.attrDirty) unit.calcAttr();
+		}
+	}
+	protected refreshActionOrder(ctx?: FightContex) {
+		this.flushAttrs();
+		const before = this.actions.map((action) => action.id);
+		this.sortRemainingActions();
+		if (this.actions.some((action, index) => action.id !== before[index])) {
+			this.syncActionOrder(ctx);
+		}
+	}
+	// 兼容宿主显式要求重排；Loop 不再监听单位 speed 事件。
 	onChangeSpeed(unit: FightUnit) {
 		if (!this.processUnits?.includes(unit)) return;
 
-		this.actionQueue.sort(
-			(a, b) => this.compareProcessUnits(a, b, false),
-			(a, b) => this.compareProcessActions(a, b, false),
-		);
+		this.flushAttrs();
+		this.sortRemainingActions();
 		this.syncActionOrder();
+	}
+	protected sortRemainingActions() {
+		this.actionQueue.sort((a, b) => this.compareProcessActions(a, b, false));
 	}
 
 	// return 0: 超时, 1: 正常结束
@@ -366,6 +380,7 @@ export abstract class FightLoop {
 		return priority(b) - priority(a) || b.getSpeedOrder() - a.getSpeedOrder();
 	}
 
+	// 把保护排在队列首位
 	protected compareProcessActions(a: FightAction, b: FightAction, withInput = true) {
 		if (a.speedRate === undefined && b.speedRate === undefined) {
 			return this.compareProcessUnits(a.unit, b.unit, withInput);
@@ -384,7 +399,9 @@ export abstract class FightLoop {
 		);
 	}
 
+	// protect指令下了需要重排序
 	sortUnitsByProcess(withInput = true) {
+		this.flushAttrs();
 		const all = this.fight.getAllUnits();
 		// all包括死亡单位，如果他中途被复活了，还在列表中，就可以行动；否则下个回合才能行动！
 		// 客户端渲染需要剔除死亡的
@@ -392,10 +409,7 @@ export abstract class FightLoop {
 		all.sort((a, b) => this.compareProcessUnits(a, b, withInput));
 
 		this.processUnits = all; //但是如果有插队,降速会扰乱出手表?
-		this.actionQueue.sort(
-			(a, b) => this.compareProcessUnits(a, b, withInput),
-			(a, b) => this.compareProcessActions(a, b, withInput),
-		);
+		this.actionQueue.sort((a, b) => this.compareProcessActions(a, b, withInput));
 
 		return all;
 	}

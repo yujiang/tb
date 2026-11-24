@@ -76,8 +76,8 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
 			const s = setup(Loop, [[0.5, extraSkill]]),
 				revive = 10011901;
 			s.boss.attrOri.speed = 200; // 死亡清理重算后仍保持模板原始速度。
-			s.other.attr.speed = 120;
-			s.other.emit('speed');
+			s.other.attrOri.speed = 120; // 替换 AI 后重算也应保留本场测试的基础速度。
+			s.other.attrDirty = true;
 			initSkills([
 				{
 					...s.skills[3],
@@ -156,8 +156,8 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
 		const s = setup(Loop),
 			revive = 10011902;
 		s.boss.attrOri.speed = 200;
-		s.other.attr.speed = 40;
-		s.other.emit('speed');
+		s.other.attrOri.speed = 40;
+		s.other.attrDirty = true;
 		initSkills([
 			{
 				...s.skills[3],
@@ -244,9 +244,10 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
 				slowed = true;
 				s.boss.attr.speed = 80;
 				s.boss.emit('speed');
+				// 消息回调中的修改留到下一行动出队前重排，不依赖 speed 监听。
 				assert.deepEqual(
 					s.loop.processUnits.map((unit) => unit.uid),
-					[s.actor.uid, s.other.uid, s.boss.uid],
+					[s.actor.uid, s.boss.uid, s.other.uid],
 				);
 			}
 		});

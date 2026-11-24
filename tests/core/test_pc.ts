@@ -301,7 +301,8 @@ test('pc: speed changes reorder remaining slots without duplicating the waiting 
 			s.a.emit('speed', 1);
 			s.b.attr.speed = 300;
 			s.b.emit('speed', 300);
-			assert.deepEqual(s.client.sort, [1, 2, 3]);
+			// 输入期间保持原行动条，本次完整动作结束后才统一重排。
+			assert.deepEqual(s.client.sort, [2, 1, 3]);
 		}
 		s.loop.onInput(unit.uid, { cmd: FightCmdEnum.attack });
 	});

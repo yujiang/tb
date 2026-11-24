@@ -409,7 +409,7 @@ test('rule turn speed: inserts by effective speed and follows speed changes', ()
 	);
 	assert.equal(s.client.actions.find((action) => action.id === extra.id).speedRate, 0.5);
 	s.target.attr.speed = 80;
-	s.target.emit('speed');
+	s.loop.onChangeSpeed(s.target); // 动作外由宿主显式要求立即重排。
 	assert.deepEqual(
 		s.loop.actions.map((action) => [action.unit.uid, action.inserted]),
 		[

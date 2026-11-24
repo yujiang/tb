@@ -125,6 +125,7 @@ export class FightLoopYanYu extends FightLoopOnline {
 					if (!this.canCast(queued.id, queued.input, true)) continue;
 					const unit = this.fight.getUnitById(queued.id);
 					ctx = this.fight.processUnit(unit, queued.input);
+					this.refreshActionOrder(ctx);
 					if (ctx) ctx.msgs.unshift(['actor', unit.uid, unit.getSpeed(), 'skill']);
 				} else if (this.automaticTurn === turn && this.processUnits?.length) {
 					const action = this.takeAction(),
@@ -137,8 +138,8 @@ export class FightLoopYanYu extends FightLoopOnline {
 						: unit.getExtraActions().length
 							? this.freshInputContext(action, true)
 							: this.fight.processUnit(unit, input ?? { cmd: FightCmdEnum.attack });
+					this.finishAction(action, ctx);
 					if (ctx) {
-						this.finishAction(action, ctx);
 						ctx.msgs.unshift(this.actorMessage(action));
 					} else this.syncActionOrder();
 				} else {

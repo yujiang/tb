@@ -65,7 +65,14 @@ export interface PendingHeal extends HealOptions {
 export abstract class FightUnit {
 	// 约定这个uid按照序号递增，绝不重复
 	uid: number;
-	attr: FightAttr;
+	private _attr: FightAttr;
+	/** 属性来源变化后置为 true；读取 attr 或循环行动结束时重算，默认需要首次计算。 */
+	attrDirty = true;
+	get attr(): FightAttr {
+		if (this.attrDirty) this.calcAttr();
+
+		return this._attr;
+	}
 	attrOri: FightAttr;
 	display: FightDisplay;
 
@@ -427,6 +434,7 @@ export abstract class FightUnit {
 	isMonster() {
 		return UnitType.monster == this.type;
 	}
+
 	private lastShieldBreakTurn = -1;
 	private shieldMax?: number;
 
@@ -502,7 +510,7 @@ export abstract class FightUnit {
 	}
 
 	input: FightInput;
-	// 回合前处理, buff
+	// 回合前处理, buff，盾0回盾
 	processBeforeTurn(turn: number, ctx: FightContex) {
 		if (
 			this.hasShield() &&
@@ -654,7 +662,7 @@ export abstract class FightUnit {
 		for (const skill of this.passiveSkills) {
 			skill.onInit(this);
 		}
-		if (this.attr) this.calcAttr();
+		this.attrDirty = true;
 	}
 
 	//buff status and forbid
@@ -745,7 +753,7 @@ export abstract class FightUnit {
 		} else if (buf && buf.hasAttr()) {
 			attr = true;
 		}
-		if (attr) this.calcAttr();
+		if (attr) this.attrDirty = true;
 	}
 
 	calcAttr() {
@@ -760,27 +768,30 @@ export abstract class FightUnit {
 				attrs.push(buff);
 			}
 		}
-		const oldspeed = this.attr?.speed;
-		const point = this.attr?.point;
-		const shield = this.attr?.shield;
-		this.attr = calcAttr(this.attrOri, attrs);
-		if (shield !== undefined && this.attr.shield !== undefined) {
-			this.attr.shield = shield;
+		const oldspeed = this._attr?.speed;
+		const point = this._attr?.point;
+		const shield = this._attr?.shield;
+		const attr = calcAttr(this.attrOri, attrs);
+		this._attr = attr;
+		if (shield !== undefined && attr.shield !== undefined) {
+			attr.shield = shield;
 		}
 		if (point) {
-			this.attr.point.hp = point.hp;
-			this.attr.point.mp = point.mp;
-			this.attr.point.sp = point.sp;
-			this.attr.point.jp = point.jp;
+			attr.point.hp = point.hp;
+			attr.point.mp = point.mp;
+			attr.point.sp = point.sp;
+			attr.point.jp = point.jp;
 		}
-		this.attr.point.sp ??= 0;
-		this.attr.point.spMax ??= 0;
-		this.attr.point.jp ??= 0;
-		this.attr.point.jpMax ??= 0;
-		this.modifyAttr(this.attr);
+		attr.point.sp ??= 0;
+		attr.point.spMax ??= 0;
+		attr.point.jp ??= 0;
+		attr.point.jpMax ??= 0;
+		// 扩展和事件可能读取 attr，先清标记，避免递归；回调中新置脏仍留待下次计算。
+		this.attrDirty = false;
+		this.modifyAttr(attr);
 		this.emit('attr');
-		if (oldspeed != this.attr.speed) {
-			this.emit('speed', this.attr.speed);
+		if (oldspeed != attr.speed) {
+			this.emit('speed', attr.speed);
 		}
 	}
 
@@ -805,8 +816,7 @@ export abstract class FightUnit {
 			const buf = this._addBuff(this, 'passive', id, lv, null);
 			if (buf) added.push(buf);
 		}
-		// 构造期间统一在末尾计算；已有单位添加后立即生效。
-		if (this.attr) this.onBuffChanged('passive', added);
+		this.onBuffChanged('passive', added);
 	}
 
 	addBuffs(

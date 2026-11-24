@@ -29,11 +29,9 @@ export class FightLoopWest extends FightLoopOnline {
 		// 按出手列表顺序,依次处理
 		let index = 0;
 		this.inputOrderReady = true;
+		this.flushAttrs();
 		// 指令收齐后按优先级、速度统一排序，先同步行动条，再逐个执行。
-		this.actionQueue.sort(
-			(a, b) => this.compareProcessUnits(a, b),
-			(a, b) => this.compareProcessActions(a, b),
-		);
+		this.actionQueue.sort((a, b) => this.compareProcessActions(a, b));
 		this.syncActionOrder();
 		while (this.actionQueue.length && this.canProcessTurn(turn)) {
 			const action = this.takeAction(),
@@ -43,8 +41,8 @@ export class FightLoopWest extends FightLoopOnline {
 				: u.getExtraActions().length
 					? this.freshInputContext(action)
 					: u.processOneTurn(turn);
+			this.finishAction(action, ctx);
 			if (ctx) {
-				this.finishAction(action, ctx);
 				ctx.msgs.unshift(this.actorMessage(action));
 				this.bcMsg(ctx.msgs);
 			} else this.syncActionOrder();
@@ -52,16 +50,8 @@ export class FightLoopWest extends FightLoopOnline {
 		}
 	}
 
-	override onChangeSpeed(u: FightUnit) {
-		const all = this.processUnits;
-		if (all?.includes(u)) {
-			// this.processUnits 重新排序？
-			this.actionQueue.sort(
-				(a, b) => this.compareProcessUnits(a, b, this.inputOrderReady),
-				(a, b) => this.compareProcessActions(a, b, this.inputOrderReady),
-			);
-			this.syncActionOrder();
-		}
+	protected override sortRemainingActions() {
+		this.actionQueue.sort((a, b) => this.compareProcessActions(a, b, this.inputOrderReady));
 	}
 
 	input = 0;
