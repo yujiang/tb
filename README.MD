@@ -264,7 +264,7 @@ Buff 配置 `class: "buqu"` 创建 `BuffBuqu`，省略 `class` 仍创建普通 `
 
 普通攻击、默认普攻及敌方技能的主动主目标受嘲讽影响：执行时自动把主目标变为有效嘲讽来源，即使原指令显式选择了另一个合法敌人，也接受指令并重定向，不因此禁止行动。提交和执行时仍校验原指令的基础合法性；原本不存在、阵营错误或不符合技能目标资格的显式目标仍拒绝。原始 `input.target` 保持不变，提交后新增、驱散嘲讽或来源状态变化，均以执行时状态决定是否重定向；没有有效嘲讽则按原指令执行。`getTauntTarget(unit, skill)` 查询当前强制目标，`isLegalTarget(unit, target, skill)` 只检查基础目标资格。多份嘲讽按 `prior` 从小到大选择第一个有效来源，同优先级按 Buff 实例添加顺序，替换实例重新排队。确定有效嘲讽目标不抽取随机数。
 
-来源必须是本场仍在场的同一个单位实例、存活的敌人，并符合当前技能的 canTarget 和对位等基础目标资格。来源死亡、离场、成为友方或不符合技能资格时忽略该来源，继续检查其他嘲讽；没有有效来源则恢复原选目标规则。普攻的自动对位可以被嘲讽覆盖，显式要求对位的技能仍只接受合乎对位的来源。手动守尸指令也会在有有效嘲讽时重定向到嘲讽者；没有有效嘲讽则照常守尸，目标仍死亡时跳过，不自动换人。治疗、自身技能、防御、取消不受嘲讽限制，单体加溅射只重定向主目标，副目标仍走原选取规则；num > 1 的直接群体选择不受嘲讽重定向；配置子技能若继承目标则锁定上一段实际目标，不重新嘲讽选人；重新选目标的配置子技能按其选择规则处理。普攻内置连击、追击和反击仍保留原目标规则。持续时间、驱散及死亡清理复用普通 Buff 流程，客户端和简报复用 Buff 增删及动作消息，不发送 `sync`。
+来源必须是本场仍在场的同一个单位实例、存活的敌人，并符合当前技能的 canTarget 和对位等基础目标资格。来源死亡、离场、成为友方或不符合技能资格时忽略该来源，继续检查其他嘲讽；没有有效来源则恢复原选目标规则。普攻的自动对位可以被嘲讽覆盖，显式要求对位的技能仍只接受合乎对位的来源。手动守尸指令也会在有有效嘲讽时重定向到嘲讽者；没有有效嘲讽且目标仍死亡时，按未指定目标重新选人。治疗、自身技能、防御、取消不受嘲讽限制，单体加溅射只重定向主目标，副目标仍走原选取规则；num > 1 的直接群体选择不受嘲讽重定向；配置子技能若继承目标则锁定上一段实际目标，不重新嘲讽选人；重新选目标的配置子技能按其选择规则处理。普攻内置连击、追击和反击仍保留原目标规则。持续时间、驱散及死亡清理复用普通 Buff 流程，客户端和简报复用 Buff 增删及动作消息，不发送 `sync`。
 
 反射配置 `class: "reflect"` 创建 `BuffReflect`，同时监听 `beforeHurt/beforeHeal`，默认 `prior: 0`。默认只反射魔法伤害：取消自身这次扣血，把进入该监听时的伤害值交给原攻击者的 `onHurt` 结算，伤害来源记为反射者；物理伤害照常承受。反射前不按反射者当前生命截断伤害，接收者仍按自身的防御状态、伤害修改 Buff、不屈、生命上限及死亡/自动复活流程结算，不重新计算技能伤害。取消的原受伤不产生原攻击者吸血或普通反伤；反射数值不重新施放技能。原攻击者是自身、已死亡或已离场时，不转移伤害，按原流程受伤。关键配置例如：
 
@@ -381,7 +381,7 @@ const accepted = await loop.onInput(unitId, {
 
 技能可配置 `cd: 2`，省略或 `0` 表示无冷却，只接受非负安全整数。第 1 回合施放后第 3 回合可再次施放，剩余冷却通过 `unit.getSkillCd(skillId)` 查询。冷却由每个单位按技能 ID 保存，只随全局回合推进，重复输入、重新学习、死亡与复活不会清除；新战斗开始时重置。费用检查通过、正式尝试施放时启动冷却，概率未发动或未命中也消耗 CD；非法输入、费用不足及无可用目标不启动。公共主动技能入口统一执行此规则，装配普攻及连招、追击、反击、协战等反应链不读取或启动主动 CD。
 
-宿主可覆盖单位的 `hintClient(message)` 向该单位的客户端发送操作提示，默认空实现。冷却中、生命或法力不足、目标不存在/死亡/不合要求、未学会技能、禁止行动等情况会提示；输入预检与执行复验共用这些原因，不额外广播到战斗简报。`canCost()` 费用预检失败也会提示。普攻仍允许手动守尸，若执行时目标尚未复活则提示并跳过；死亡单位在西游式输入阶段仍可正常提交指令。
+宿主可覆盖单位的 `hintClient(message)` 向该单位的客户端发送操作提示，默认空实现。冷却中、生命或法力不足、目标不存在/死亡/不合要求、未学会技能、禁止行动等情况会提示；输入预检与执行复验共用这些原因，不额外广播到战斗简报。`canCost()` 费用预检失败也会提示。普攻仍允许手动守尸，若执行时目标尚未复活则按未指定目标重新选人；死亡单位在西游式输入阶段仍可正常提交指令。
 
 开始冷却时发送 `["skillCd", uid, skillId, readyTurn]`，单位初始展示数据仅在已有冷却记录时附加 `skillCds: [[skillId, readyTurn], ...]`。`FightClient` 保存这些恢复回合并纳入 `checkSame()`；界面可用 `Math.max(0, readyTurn - client.turn)` 显示剩余冷却，无需每回合发送递减消息。过期记录可继续保留，简报不单独输出冷却消息。
 
@@ -399,7 +399,7 @@ const accepted = await loop.onInput(unitId, {
 
 多个固定行为放进 `rules`，使用 `addRule(rule, prior = 0)`、`removeRule(rule)` 管理，`rules` 返回列表副本。规则按 prior 从小到大、同优先级按添加顺序执行，彼此不争抢输入。没有 AI 但有规则时普通行动为普攻；两者都没有时沿用 `inputSkill → 技能首项 → 普攻`。原 `FightAIHp/FightAITurn/FightAIHurt`、`addAI/removeAI/ais` 已分别改名为 `FightRuleHp/FightRuleTurn/FightRuleHurt`、`addRule/removeRule/rules`。
 
-战斗中支持切换阶段：`monster.setAI(configOrInstance)` 设置唯一 AI，`setAI()` 移除；也可继续直接赋值 `ai`。`monster.setRules(configsOrInstances)` 整组替换规则，`clearRules()` 或 `setRules([])` 清空。配置与 MonsterData 中的 AIData/RuleData 相同；配置创建新实例，传入已有规则实例则保留该实例的血线阶段、计数和监听，实例形式的 prior 默认 0，数据形式读取 prior。新配置和绑定先准备完成，再移除旧规则；配置非法、重复实例、实例属于其他单位或初始化抛错时保留原列表，并清理本次新监听。替换后统一重算属性，不影响 AI、被动与 Buff。
+战斗中支持切换阶段：`monster.setAI(configOrInstance)` 设置唯一 AI，`setAI()` 移除；也可继续直接赋值 `ai`。`monster.setRules(configsOrInstances)` 整组替换规则，`clearRules()` 或 `setRules([])` 清空。配置与 MonsterData 中的 AIData/RuleData 相同；配置创建新实例，传入已有规则实例则保留该实例的血线阶段、计数和监听，实例形式的 prior 默认 0，数据形式读取 prior。新配置先验证并准备绑定，再移除旧规则并初始化新阶段；配置非法、重复实例、实例属于其他单位或绑定抛错时保留原列表，并清理本次新监听。替换后统一重算属性，不影响 AI、被动与 Buff。
 
 已经进入行动条的旧规则行动保留并照常复验、执行；切换不会取消当前完整 action。旧规则尚未执行的事件收尾回调在解绑后失效。新 AI 从下一次 waitInput 起决定普通输入，不改已提交指令；新周期规则在之后的 processBeforeTurn 边界登记行动。
 
@@ -407,8 +407,8 @@ const accepted = await loop.onInput(unitId, {
 // Boss 狂暴：用新配置创建一套规则，不再保留旧规则的计数。
 boss.setAI({ type: "target", career: "医生", pos: "back" });
 boss.setRules([
-    { type: "turn", every: 1, skill: rageSkillId },
-    { type: "hurt", every: 2 },
+    { type: "turn", everyTurn: 1, skill: rageSkillId },
+    { type: "hurt", everyHurt: 2 },
 ]);
 // boss.clearRules(); // 清空规则，已插入行动保留
 // boss.setAI();      // 移除 AI，不影响规则
@@ -416,21 +416,21 @@ boss.setRules([
 
 | 规则 | 配置 | 行为 |
 | --- | --- | --- |
-| 血轴 `FightRuleHp` | `{ type: "hp", lines: [...] }` | 每条血线每场一次，增攻比例相加；回血、复活不刷新，新战斗重置 |
-| 回合轴 `FightRuleTurn` | `{ type: "turn", every: 3, skill: skillId, pos? }` | 第 3、6、9…全局回合插入独立技能行动，保留普通行动；默认剩余队列最前 |
-| 受伤轴 `FightRuleHurt` | `{ type: "hurt", every: 3, skill?: skillId }` | 每三次有效直接受伤后，完整 action 结束时朝刚才的攻击者发动一次即时新攻击，保持不进入行动条 |
+| 血轴 `FightRuleHp` | `{ type: "hp", lines: [...] }` | 每条血线每场一次，先移除旧阶段Buff再添加新Buff；回血不回退，新战斗重置 |
+| 回合轴 `FightRuleTurn` | `{ type: "turn", everyTurn: 3, skill: skillId, pos?, speedRate? }` | 第 3、6、9…全局回合插入独立技能行动，保留普通行动；有pos按位置，否则按当前速度×speedRate（缺省1）排序 |
+| 受伤轴 `FightRuleHurt` | `{ type: "hurt", everyHurt: 3, skill?: skillId }` | 每三次有效直接受伤后，完整 action 结束时朝刚才的攻击者发动一次即时新攻击，保持不进入行动条 |
 
 ```ts
 monster.ai = new MyFightAI(); // 可选：仅负责普通行动决策
 monster.addRule(new FightRuleHp({ type: "hp", lines: [
-    { hp: 0.7, attackRate: 0.2 },
-    { hp: 0.4, attackRate: 0.3 },
+    { hp: 0.7, buff: [2101, 1] },
+    { hp: 0.4, buff: [2102, 1] },
 ] }));
-monster.addRule(new FightRuleTurn({ type: "turn", every: 3, skill: skillId, pos: InsertActionPos.first }));
-monster.addRule(new FightRuleHurt({ type: "hurt", every: 3 }));
+monster.addRule(new FightRuleTurn({ type: "turn", everyTurn: 3, skill: skillId, pos: InsertActionPos.first }));
+monster.addRule(new FightRuleHurt({ type: "hurt", everyHurt: 3 }));
 ```
 
-血轴通过属性重算应用，不修改 `attrOri`，作用于物理/魔法各攻击分组，不改变治疗和毒攻击力。监听真实 `hp` 变化，因此保护分担也会触发。受伤轴只累计实际扣血的 `source: "skill"` 直接攻击，受伤时禁止 `attack` 就不计次；Buff、反伤、反射、分担和零伤害不计。达到次数后在完整 action 结束时复查双方存活、阵营、休息和禁止攻击。默认使用装配普攻，指定技能要求已学攻击类技能，使用基础攻击属性，不走 fback，不额外支付主动费用/CD，也不推进 inputTurn。即时新攻击可触发对方受伤规则，共享原反应上限。已有表现消息 `aiHp/aiAttack` 保留兼容，含义对应血轴与受伤规则。
+血轴配置改为`{ hp, buff: [BuffID, 等级] }`，Buff需先注册，ID为正安全整数，等级为非负安全整数，0级有效。血线配置按hp严格递减填写，不做运行时排序；切换时先强制移除本规则上一阶段的Buff（不受notRemove/power限制），再添加新Buff；同ID也先移除旧实例再添加新等级。一次跨多条血线直接进入当前血量对应的最深阶段，只添加该阶段Buff；跳过的阶段不添加、不移除，也不发送阶段消息，不再累计attackRate。属性、状态、持续时间、死亡保留等全部由Buff配置；仍监听真实hp变化，因此保护分担和生命费用也会触发。回血不回退阶段，Buff到期/驱散后不会重过旧血线补加；需要复活后保留效果时配置dieNotRemove。阶段Buff走公共增删、属性重算和客户端消息，不修改attrOri。受伤轴只累计实际扣血的 `source: "skill"` 直接攻击，受伤时禁止 `attack` 就不计次；Buff、反伤、反射、分担和零伤害不计。达到次数后在完整 action 结束时复查双方存活、阵营、休息和禁止攻击。默认使用装配普攻，指定技能要求已学攻击类技能，使用基础攻击属性，不走 fback，不额外支付主动费用/CD，也不推进 inputTurn。即时新攻击可触发对方受伤规则，共享原反应上限。血轴表现消息改为`['aiHp', uid, hp血线, BuffID, 等级]`；Buff增删消息严格先removeBuff再addBuff。受伤规则aiAttack消息不变。
 
 回合规则在全局 `processBeforeTurn` 登记额外行动，每条规则每回合最多成功登记一次。多条回合规则可以分别插入，普通行动不被替换。登记时和执行前均检查状态、目标、CD、资源；施放时复用公共技能管线及怪物原有资源规则，CD 正常生效。技能应已学，且独立于全体破盾的 ultimateSkill 槽。追加行动不调用 inputStart，不重复触发输入周期 Buff 或推进 inputTurn。
 
@@ -438,7 +438,7 @@ monster.addRule(new FightRuleHurt({ type: "hurt", every: 3 }));
 
 ### 插入行动与行动条
 
-`fight.insertAction(unit, input, pos?, ctx?)` 或 `loop.insertAction(...)` 插入独立行动，返回是否接受。`InsertActionPos` 包含 `first`（默认）、`last`、`random`、`afterSelf`。随机间隙只用 `Fight.random()`；相同固定位置保持提交顺序。afterSelf 在自己当前行动或下一条普通行动后插入，自己的普通行动已完成则回退队首；不打断正在执行的完整 action。普通行动因速度变化重排时，afterSelf 项仍跟随所属普通行动，其他插入项不参与速度竞争。每回合最多接受 64 次插入，超限抛错；取消不返还上限。
+`fight.insertAction(unit, input, pos?, ctx?, speedRate?)` 或 `loop.insertAction(...)` 插入独立行动，返回是否接受。`InsertActionPos` 包含 `first`（默认）、`last`、`random`、`afterSelf`。随机间隙只用 `Fight.random()`；相同固定位置保持提交顺序。afterSelf 在自己当前行动或下一条普通行动后插入，自己的普通行动已完成则回退队首；不打断正在执行的完整 action。普通行动因速度变化重排时，afterSelf 项仍跟随所属普通行动，未带倍率的其他插入项不参与速度竞争。未指定pos且提供speedRate时，按当前速度×倍率插入并随速度重排（0有效）；显式pos优先，忽略倍率。规则通过这一入口传入倍率，仍不推进输入次数或集气。每回合最多接受 64 次插入，超限抛错；取消不返还上限。
 
 队列现为 `FightAction` 记录，包含独立 id、unit、复制保存的 input 和 inserted。`loop.actions` 可读取记录，`loop.cancelAction(id)` 可取消追加行动并同步；`processUnits` 保留单位列表的读取及整体赋值接口，直接修改读取结果不会改动内部队列。追加行动取消、状态失效或目标死亡时只移除对应记录；切换回合、结束战斗会清理剩余项。需要与当前结算消息一起发送时传 ctx，避免行动条先于本次资源变化同步。
 
@@ -450,7 +450,7 @@ monster.addRule(new FightRuleHurt({ type: "hurt", every: 3 }));
 
 `MonsterData` 保存怪物模板：`id/name/character`、`attr: FightAttr`、`skills/passiveSkills`、`attackSkill/fbackSkill/supportSkill/ultimateSkill/inputSkill`、单个 `ai: AIData` 和 `rules: RuleData[]`。`CreateMonsterSide` 一次完成 AI、规则及被动装配，不要求宿主生成后再逐只绑定。模板不保存战斗 `uid` 或站位。同一模板 ID 可以反复生成，运行单位用 `monsterId` 保留来源 ID。属性既可提供 FightAttr 实例，也可由表加载为同结构的 JSON 对象，生成时恢复为 FightAttr 并深拷贝。
 
-`AIData` 使用平铺字段 `type/skill/friend/contributions/career/pos/cond/custom`。工厂内置 `target`（FightAITarget）和 `cond`（FightAICond），旧 rearDoctor/topThreat/topHealer/lowHpHeal 类型需迁移为下述配置。target 的 skill 省略则普攻；contributions选择贡献榜，career与pos组合筛选职业和站位，friend缺省敌方。cond满足条件时对自身施放已学技能，`cond: "hpLow"`使用custom作为严格小于的血量比例阈值。完整字段和六种贡献来源见[怪物与行为字典](document/wiki/怪物与行为.md)。`RuleData` 使用一个平铺结构：`type: string` 加可选的 `prior/lines/every/skill/pos/custom`，便于XLS固定列，各规则按类型校验和读取适用字段。现有配置写法保持不变，支持 `{ type: "hp", lines, prior? }`、`{ type: "turn", every, skill, pos?, prior? }`、`{ type: "hurt", every, skill?, prior? }`，由 `createRule` 创建多条规则。每只怪物的 AI、Rule 均为独立实例。具体类创建集中在 `AI/AIFactory.ts` 和 `Rules/RuleFactory.ts`，与 Buff 工厂一致；可从 `FightAI`/`FightRule` 模块导入 `createAI`/`createRule`，原 `AIDatas`/`RuleDatas` 导入路径及包入口继续可用，数据类型使用 `import type`。技能用 `[id, level]` 明确学习，AI、Rule 或装配不会自动学习技能。生成顺序为属性/显示、学习技能、初始化被动、显式装配、绑定规则与 AI；显式装配包括 0 会覆盖被动，省略则保留被动装配。初始生命为 0 时生成死亡单位并执行普通死亡清理。
+`AIData` 使用平铺字段 `type/skill/self/contributions/friend/career/pos/cond/condData`，工厂只内置 `target`（FightAITarget）。旧cond类型合并为target配置：`self: true, cond: "hpLow", condData: 0.5, skill: healId`。条件先判断；不配置cond时直接选人，self优先于贡献和职业/站位筛选；技能省略使用普攻。条件可以和任意选人策略组合，参数通过condData提供，不再使用custom/getCustom。完整字段见[怪物与行为字典](document/wiki/怪物与行为.md)。`RuleData` 使用一个平铺结构：`type: string` 加可选的 `prior/lines/everyTurn/everyHurt/skill/pos/speedRate/custom`，便于XLS固定列，各规则按类型校验和读取适用字段。支持 `{ type: "hp", lines, prior? }`、`{ type: "turn", everyTurn, skill, pos?, speedRate?, prior? }`、`{ type: "hurt", everyHurt, skill?, prior? }`，由 `createRule` 创建多条规则。每只怪物的 AI、Rule 均为独立实例。具体类创建集中在 `AI/AIFactory.ts` 和 `Rules/RuleFactory.ts`，与 Buff 工厂一致；可从 `FightAI`/`FightRule` 模块导入 `createAI`/`createRule`，原 `AIDatas`/`RuleDatas` 导入路径及包入口继续可用，数据类型使用 `import type`。技能用 `[id, level]` 明确学习，AI、Rule 或装配不会自动学习技能。生成顺序为属性/显示、学习技能、初始化被动、显式装配、绑定规则与 AI；显式装配包括 0 会覆盖被动，省略则保留被动装配。初始生命为 0 时生成死亡单位并执行普通死亡清理。
 
 阵型独立使用 `ZhenData { id, pos: number[] }`，通过 `initZhens()` 注册。生成时传阵型 ID `zhen`，由 `getZhenPos(zhen)` 查位置，`ids[i]` 对应位置数组第 i 项；函数返回副本。模板不承载阵型，玩家的阵型加成可由宿主基于同一个阵型 ID 扩展，怪物生成当前只消费站位。
 
@@ -462,9 +462,9 @@ initMonsters([{
     passiveSkills: [[201, 1]],
     ai: { type: "target", career: "医生", pos: "back" },
     rules: [
-        { type: "hp", lines: [{ hp: 0.7, attackRate: 0.2 }] },
-        { type: "turn", every: 3, skill: 102 },
-        { type: "hurt", every: 3 },
+        { type: "hp", lines: [{ hp: 0.7, buff: [2101, 1] }] },
+        { type: "turn", everyTurn: 3, skill: 102 },
+        { type: "hurt", everyHurt: 3 },
     ],
 }]);
 initZhens([{ id: 1, pos: [4, 2, 0] }]);
@@ -487,31 +487,24 @@ unit.onContex("break", (unit, ctx, attacker, allBroken) => {
 }, prior);
 ```
 
-`FightGlobalData.allShieldBreak` 默认关闭。某一击打破敌方最后一个未破盾者时，若敌方所有存活单位均配置了盾且盾为 0，就登记一次大招事件；完整 action 的连招、反击、死亡及自动复活全部结束、确认战斗仍在继续后，才发出机会消息。当前行动动画完成后，PC、西游、烟雨均调用公共 `waitInputUtimate(turn, side)` 等待选择己方一人，合法输入后立即施放大招，再恢复原队列。每队每个全局回合最多触发一次，多个弱点或多段攻击不重复触发；这是破盾事件，回盾不会取消已经触发的输入。存在未配置盾的存活敌人时不触发，仅杀掉无盾者也不补发破盾事件。
+`FightGlobalData.allShieldBreak` 默认关闭。打破敌方最后一面盾、且该瞬间所有存活敌人都有盾并已破时，记录实际破盾者 A。完整 action 的连招、反击、受伤规则、死亡及自动复活全部结束并确认战斗仍继续后，直接施放 A 装配的 `ultimateSkill`。PC、西游和烟雨共用这一流程，不等待输入、不选其他队友。每队每个全局回合最多触发一次；回盾不取消已登记的触发，仅击杀未破盾者不补发触发。
 
-单位通过 `ultimateSkill`、`getUltimateSkill()`、`setUltimateSkill(id)` 装配大招，0 卸下；技能必须已学会。`SkillData/PassiveData.ultimateSkill` 也可装配，不学习或改动原技能等级。大招严格检查己方、存活、休息/封印、目标资格、费用和 CD，普通技能指令不能直接施放已装配的大招。大招复用技能结算及完整反应链，不推进普通输入次数，不消耗普通行动位。正式尝试时消耗整队机会，概率未发动和未命中也不返还；非法选择不消费，仍等待重选。
+单位通过 `ultimateSkill/getUltimateSkill()/setUltimateSkill(id)` 装配大招，0 卸下；技能需已学会。技能/被动也可通过 `ultimateSkill` 装配，不学习或改变等级。A 没有大招、死亡、离场、封印、休息、费用不足、冷却或无有效目标时直接跳过，不保留机会、不由队友代放。大招统一走普通技能费用、冷却及反应链；群体技能直接按自身配置选人；单体技能指定最后被破盾的单位为目标，执行时该目标已离场或死亡且不符合技能条件时，沿用公共规则按未指定目标处理。不占普通行动位、不推进输入次数；概率未发动或未命中仍消耗费用、冷却和本回合触发。
 
 ```ts
 setFightGlobalData({ allShieldBreak: true });
 hero.addSkill(ultimateId, level);
 hero.setUltimateSkill(ultimateId);
-loop.on("ultimate", (side, turn, units) => {
-    // 宿主界面从该方候选单位中选人，并提交目标。
-    showUltimatePanel(units, (id, target) => loop.onInputUltimate(id, {
-        cmd: FightCmdEnum.skill, target, turn,
-    }));
-});
+// hero 打破敌方最后一面盾后，完整动作结束自动施放，无需宿主提交大招输入。
 ```
 
-`loop.ultimateSide` 为当前独立大招窗口的阵营；`onInputUltimate()` 同步返回 boolean，技能 ID 默认取该单位装配值，显式传其他 ID 会拒绝。网游必须携带当前 `turn`，PC 可省略；控制权仍由宿主鉴权。提交 `cmd: FightCmdEnum.cancel` 可放弃本回合机会。无人装配或没有存活且未封印、未休息、未冷却的候选人时不打开窗口。独立输入无超时；`end()` 释放等待，回调错误关闭窗口并传播。
-
-消息 `["ultimateReady", side, boolean]` 表示待处理机会，`FightClient.ultimateReady` 保存并参与一致性检查。大招行动使用 `["actor", uid, speed, "ultimate"]`，不移除普通行动条中的单位，简报显示“获得一次大招机会”“施放大招”。测试在 `tests/core/skill/test_ultimate.ts`，覆盖三名敌人最后一人破盾、完整连招结束、队伍次数、三种循环与逐批客户端校验。
+旧 `waitInputUtimate/onInputUltimate/ultimateSide` 选人接口和 `ultimateReady` 消息/客户端状态已移除，Fight 不再提供共享机会的查询、取消或手动执行接口。自动大招仍发送 `["actor", uid, speed, "ultimate"]` 及正常技能/资源/伤害消息，追加到触发动作的消息批次；客户端依次表现，不移除普通行动条中的单位，简报显示“施放大招”。动画等待继续由各循环在本批动作完成后处理。测试见 `tests/core/skill/test_ultimate.ts`，包含破盾者归属、群体选人、完整动作边界、队伍次数、执行受阻及三种循环逐批同步。
 
 ## 单机逐单位输入
 
 循环运行状态统一由 `FightLoop.stopped` 管理：新建时为停止，`start()` 开启，`end()` 停止；PC、烟雨不再另设 `started`。公共 `canProcessTurn(turn)` 检查循环未停止、战斗未结束及回合一致，供主循环、子类调度及输入复用。手动调用循环分步方法前需先 `start()`；`run()` 会自行启动并在 `finally` 中结束。
 
-输入统一通过 `fight.checkInput(unit, input)` 分派：全局 `attackDie` 默认 true，调用 `checkOnline`；false 调用 `checkPC`。单位输入、PC 输入和烟雨技能输入共用此入口，烟雨仍额外检查即时施法者存活和费用，大招仍使用严格检查。另保留两个具名检测入口，均返回 boolean，直接调用时不受开关影响：`fight.checkPC(unit, input)` 严格检查立即行动的自身状态、费用及目标效果资格，`fight.checkOnline(unit, input)` 按网游收指令规则检查，保留死亡单位提交和普攻守尸。窗口、控制权与回合号仍由对应循环检查；烟雨循环另外预检即时费用。二者不扣费、不抽取自动目标；PC 校验通过后用 `preparePCInput()` 选一次并保存主目标。原 `validateInput()` 保留为基础合法性检查，供公共执行复验和已有本地调用使用。
+输入统一通过 `fight.checkInput(unit, input)` 分派：全局 `attackDie` 默认 true，调用 `checkOnline`；false 调用 `checkPC`。普通输入在此拒绝内部 `ultimate: true` 标记；自动大招由内部设置标记后复用公共执行。单位输入、PC 输入和烟雨技能输入共用此入口，烟雨仍额外检查即时施法者存活和费用，大招仍使用严格检查。另保留两个具名检测入口，均返回 boolean，直接调用时不受开关影响：`fight.checkPC(unit, input)` 严格检查立即行动的自身状态、费用及目标效果资格，`fight.checkOnline(unit, input)` 按网游收指令规则检查，保留死亡单位提交和普攻守尸。窗口、控制权与回合号仍由对应循环检查；烟雨循环另外预检即时费用。二者不扣费、不抽取自动目标；PC 校验通过后用 `preparePCInput()` 选一次并保存主目标。原 `validateInput()` 保留为基础合法性检查，供公共执行复验和已有本地调用使用。
 
 `FightLoopPC` 按速度逐个执行。玩家和受控召唤物轮到时触发 `input(unit, turn)` 事件，等本单位提交指令后立刻执行；NPC 在自己的输入边界调用原有 `inputStart()` 选择 AI 指令。没有真实时间超时，`waitInputSec` 不影响 PC。死亡单位轮到时跳过，提前被复活则照常行动；休息直接跳过输入。各单位的 `inputTurn` 周期效果仅在轮到它时推进一次，全局回合前后效果与盾恢复仍由公共边界统一处理。
 
@@ -528,7 +521,7 @@ const result = await loop.run();
 
 `loop.inputUnit` 表示当前等待输入的单位。`onInput()` 同步返回 boolean，只接受当前单位；本地可省略 `turn`，提供时必须匹配。指令检查沿用公共目标、封印、CD 和费用规则，失败通过 `hintClient` 提示，继续等输入；`cancel` 返回 true 并继续等待。接受后关闭窗口并保存副本，不接受动画期间抢先输入或重复提交，执行时再复验。输入次数效果若产生消息，先等动画完成再开放输入；每次完整行动结束也等动画，回合末不重复等待。速度变化只重排剩余队列，当前行动者已取出，不会重复入队。
 
-`attackDie: false` 时，PC 输入要求当前行动者存活且能执行所选指令，目标符合当前阵营、存活/死亡与效果资格。普通攻击和默认普攻拒绝尸体；`attackDie: true` 时使用 `checkOnline`，允许提交合法死亡敌人的普攻守尸意图，PC 指令准备也保留原目标，执行时仍死则跳过、不换人，费用由执行阶段复验；复活只接受可复活的死亡目标，禁疗、禁毒、禁复活均在提交时提示并拒绝，不扣费、不启动 CD，继续等该单位重选。没有指定目标时先过滤不可接受对应效果的对象；没有可用对象时拒绝且不抽随机数，通过全部检查后才选一次并保存主目标。执行前再次检查目标资格，已接受的目标若失效则跳过而不扣费或启动 CD。满血治疗仍可提交，不把治疗收益为零当成非法目标。
+`attackDie: false` 时，PC 输入要求当前行动者存活且能执行所选指令，目标符合当前阵营、存活/死亡与效果资格。普通攻击和默认普攻拒绝尸体；`attackDie: true` 时使用 `checkOnline`，允许提交合法死亡敌人的普攻守尸意图，PC 指令准备也保留原目标，执行时仍死亡则按未指定目标重新选人，费用由执行阶段复验；复活只接受可复活的死亡目标，禁疗、禁毒、禁复活均在提交时提示并拒绝，不扣费、不启动 CD，继续等该单位重选。没有指定目标时先过滤不可接受对应效果的对象；没有可用对象时拒绝且不抽随机数，通过全部检查后才选一次并保存主目标。执行前再次检查目标资格，已接受的目标若离场或死亡且不符合技能条件，则按未指定目标重新选人；其他资格不符仍拒绝，不扣费或启动CD。满血治疗仍可提交，不把治疗收益为零当成非法目标。
 
 保护在当前单位轮到并提交时生效，不会倒排已经执行的行动；西游整轮收齐指令后统一排保护优先的规则保持原实现。胜负在完整反应链后检查，结束后不再请求后续输入。`end()` 可释放等待并停止主循环，不改写已有战斗结果；输入回调、结算或动画异常由驱动记录并关闭输入，包括同步提交后回调再抛错的情况，仅在结果为 -1 时判攻击方失败。测试见 `tests/core/test_pc.ts`。
 
@@ -554,7 +547,7 @@ const fight = new Fight(1, row, 123);
 
 PC和西游可在普通行动位提交 `{ cmd: FightCmdEnum.runaway }`，西游仍须带当前 `turn`。`FightData.runaway` 控制开关，概率为 `clamp(1-(unit.attr.grade-runawayGrade)/100,0,1)`，通过战斗随机源判定；缠绕等禁止move、眩晕的escapse限制、休息和死亡在执行时复验。成功后整场标记逃跑、对方胜，双方均不发奖、不恢复、不惩罚；失败只消耗当前行动并继续队列，仍推动普通行动位的集气。烟雨不支持逃跑。广播 `["runaway", uid, success]` 供客户端表现。
 
-正常结束时，败方收到 `FightSide.deathPenalty(deathPenalty)`，胜方收到 `FightSide.onWin(winReward, winRecover)`，宿主负责实际效果和保存。结果回调重入不会重复结算，异常也会清理等待和队列并记录。`FightUltimate` 已集中管理破盾事件、机会发放与消费、回合限制、大招校验和执行、失败回退及状态重置；六组状态由类内部私有持有。Fight只保留转发入口和通用动作边界，等待输入与动画仍由FightLoop负责。
+正常结束时，败方收到 `FightSide.deathPenalty(deathPenalty)`，胜方收到 `FightSide.onWin(winReward, winRecover)`，宿主负责实际效果和保存。结果回调重入不会重复结算，异常也会清理等待和队列并记录。`FightUltimate` 集中管理破盾者登记、队伍回合限制和动作结束后的自动施放；Fight 只保留转发入口及通用动作边界，动画由 FightLoop 负责。
 
 ## 西游式整轮输入
 
@@ -570,7 +563,7 @@ loop.onInput(unitId, {
 
 旧回合、缺少回合号、超时后和非玩家控制单位的网络指令会被忽略。直接调用 `FightUnit.onInput()` 或 `Fight.processUnit()` 的本地逻辑可以省略 `turn`。死亡的玩家及召唤物仍收指令：轮到行动时若已经被他人复活，就执行原指令；仍死亡则跳过行动。
 
-普通攻击可以显式指定死亡敌人守尸。若目标在攻击前被复活，就攻击该目标；若仍死亡则跳过，不自动换目标。其他显式非法目标仍会被拒绝；省略目标才自动选取。目标资格统一由 `FightSkill.canTarget()` 判断：普通攻击、治疗、毒和无伤害技能选择存活目标，`func: "relife"` 选择可复活的死亡目标，治疗/毒也过滤禁疗/禁毒。受作用限制统一查询 `FightStatus` 的 beaction 表（单位入口 `isForbidBeAction`）；石化禁止接受普攻及其他非复活技能，复活独立检查 `relife`。`SelectParam.die` 与 `DiedSelectEnum` 已移除，复活技能无需额外配置死亡过滤。
+普通攻击可以显式指定死亡敌人守尸。若目标在攻击前被复活，就攻击该目标；若仍死亡且不符合技能条件则按未指定目标重新选人。执行时目标已离场也按未指定处理；提交时的非法显式目标仍拒绝。目标资格统一由 `FightSkill.canTarget()` 判断：普通攻击、治疗、毒和无伤害技能选择存活目标，`func: "relife"` 选择可复活的死亡目标，治疗/毒也过滤禁疗/禁毒。受作用限制统一查询 `FightStatus` 的 beaction 表（单位入口 `isForbidBeAction`）；石化禁止接受普攻及其他非复活技能，复活独立检查 `relife`。`SelectParam.die` 与 `DiedSelectEnum` 已移除，复活技能无需额外配置死亡过滤。
 
 `selectMainTarget`、`selectGroupTargets`、`selectSpreadTargets`、`isLegalTarget`、`getTauntTarget` 和 `FightMap.findDuiwei` 接收 `FightSkill`；阵营查询使用 `getSideUnitsBySkill`。没有具体技能时可调用公共 `getDefaultSkill(sel?)` 获取默认普攻规则，缺省选择敌方存活单位；每次返回独立实例，不依赖技能表。
 
@@ -659,12 +652,12 @@ extraAction: [[0.5, 0]], // 原行动＋一个半速行动位，每回合两次�
 
 ```ts
 monster.addSkill(healSkillId, 1); // 已注册的单体heal技能，目标为self或friend
-monster.setAI({ type: "cond", cond: "hpLow", custom: 0.5, skill: healSkillId });
+monster.setAI({ type: "target", self: true, cond: "hpLow", condData: 0.5, skill: healSkillId });
 ```
 
-上述 `FightAICond` 配置在血量严格低于50%时尝试给自己治疗；条件AI也可使用其他合法的自身技能，否则返回undefined，沿用默认普攻。技能未学会、冷却中、禁疗或当前状态不允许施放时也不强行自疗。每次出手重新判断，包含extraAction触发的AI决策；治疗仍复用公共目标检查和技能结算。
+上述 `FightAITarget` 配置在血量严格低于50%时尝试给自己治疗；也可以配置其他合法的自身技能。条件不满足时返回undefined，沿用默认普攻。技能未学会、冷却中、禁疗或当前状态不允许施放时也不强行自疗。每次出手重新判断，包含extraAction触发的AI决策；治疗仍复用公共目标检查和技能结算。
 
-AI和Rule与Buff一样接收完整xls：`new FightAITarget(aiData)`、`new FightAICond(aiData)`、`new FightRuleHp(ruleData)`、`new FightRuleTurn(ruleData)`、`new FightRuleHurt(ruleData)`。工厂原样传入配置，基类保存为protected xls，提供`getXls()`和`getCustom()`；`custom?: any`供宿主附加数据，条件AI的hpLow读取custom作为生命比例阈值，其他内置逻辑不读取。原来直接new规则时的数组/位置参数已统一改为配置对象，表配置及工厂入口保持不变。代码派生AI/Rule仍可无参调用super()，获得安全的默认配置。
+AI和Rule与Buff一样接收完整xls：`new FightAITarget(aiData)`、`new FightRuleHp(ruleData)`、`new FightRuleTurn(ruleData)`、`new FightRuleHurt(ruleData)`。工厂原样传入配置，FightBehavior保存protected xls，通过`getXls()`读取；AI使用`getXls().condData`，规则的宿主附加字段仍用`getXls().custom`。getCustom已移除。FightAI是抽象基类：代码扩展传完整配置给`super(aiData)`，实现`findTarget(unit, turn, skill)`即可复用`waitInput`中的技能选择、指令生成与公共预检；未选中返回undefined。Rule仍可无参创建，默认`{ type: "custom" }`不代表工厂注册了custom类型。
 
 `FightRule` 和 `FightAI` 同级继承公共 `FightBehavior`。公共层负责xls配置访问、单位绑定、监听注册/清理、初始化、属性修正和回合钩子；具体规则继承FightRule，普通行动决策继承FightAI。AI不再是FightRule，规则列表仍拒绝AI实例；具体类、工厂和配置写法保持不变。包入口导出FightBehavior，代码派生AI/Rule的默认super()用法继续可用。
 
@@ -678,3 +671,5 @@ loop.onInput(player.uid, { turn: fight.turn, cmd: FightCmdEnum.dismiss, target: 
 ```
 
 成功时发送`['dismiss', 操作者UID, 离场单位UID]`，从服务端和客户端阵营列表删除目标，同时取消其全部剩余行动、清空输入并解绑内部Buff/AI/规则监听，随后同步sort。离场不会扣血、触发死亡或单独驱散Buff；简报与MUD显示离场。`dismiss(unit, ctx, operator)`事件在单位移除、监听清理后发出，完整动作结束检查胜负。历史仇恨和贡献ID保留，查询不到已离场目标便跳过。每场新建FightUnit、只绑定一个Fight且不复用；UID按序递增、不重复，离场后不重用。`dismiss/cancel/protect`当前枚举值为5/6/7，宿主与客户端应同步。
+
+血轴的旧`attackRate`配置已移除，示例Buff 2101/2102需由宿主先调用initBuffs注册。运行中调用`addRule(rule, prior, ctx)`、`removeRule(rule, ctx)`、`setRules(list, ctx)`或`clearRules(ctx)`时，传入当前动作ctx并由循环广播其msgs，确保初始低血量阶段和规则移除的Buff变化也同步客户端；初始化可省略ctx，由初始单位快照携带Buff。显式移除规则只停止规则监听，已经添加的Buff保留并按自身生命周期处理；战斗结束仅解绑规则监听，Buff展示状态仍与客户端最终快照一致。

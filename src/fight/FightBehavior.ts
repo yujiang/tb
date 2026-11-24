@@ -3,10 +3,11 @@ import type { FightContex } from './Fight';
 import type { FightAttr } from './FightAttr';
 import type { FightUnit, UnitContextEventFunc } from './Unit/FightUnit';
 import type { FightUnitEvent } from './Buffs/BuffDatas';
-import { EnemySide } from './struct';
+import { getDefaultSkill } from './Skills/FightSkill';
+import { EnemySide, FightCmdEnum, FightInput } from './struct';
 
 // AI与Rule共用的配置、绑定、监听和生命周期；每个实例只能绑定一个单位。
-export class FightBehavior<T extends { type: string; custom?: any }> {
+export class FightBehavior<T extends { type: string; skill?: number }> {
 	protected xls: T;
 	constructor(xls: T) {
 		this.xls = xls;
@@ -14,8 +15,24 @@ export class FightBehavior<T extends { type: string; custom?: any }> {
 	getXls() {
 		return this.xls;
 	}
-	getCustom() {
-		return this.xls.custom;
+
+	getSkillId() {
+		return this.xls.skill;
+	}
+
+	getSkillInput(unit: FightUnit) {
+		const id = this.getSkillId();
+		// AI明确指定目标，不受全局默认普攻的对位选人限制。
+		return id !== undefined ? unit.findSkill(id) : (unit.getAttackSkill() ?? getDefaultSkill());
+	}
+
+	getSkillCmd(unit: FightUnit, target: FightUnit) {
+		const f = unit.fight;
+		const id = this.getSkillId();
+		const cmd = id !== undefined ? FightCmdEnum.skill : FightCmdEnum.attack;
+		const input: FightInput =
+			id !== undefined ? { cmd, skill: id, target: target.uid } : { cmd, target: target.uid };
+		return f.checkPC(unit, input) ? input : undefined;
 	}
 
 	private owner: FightUnit | undefined;
@@ -122,10 +139,12 @@ export class FightBehavior<T extends { type: string; custom?: any }> {
 		return doctors;
 	}
 
-	static inCond(unit: FightUnit, turn: number, cond: string, custom: number) {
+	static inCond(unit: FightUnit, turn: number, cond: string, condData: number) {
+		if (!cond) return true;
+
 		switch (cond) {
 			case 'hpLow':
-				return !unit.isDied() && unit.getHpPercent() < custom;
+				return !unit.isDied() && unit.getHpPercent() < condData;
 		}
 
 		return false;

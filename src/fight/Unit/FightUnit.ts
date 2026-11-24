@@ -186,7 +186,6 @@ export abstract class FightUnit {
 		const actual = this.applyHurt(attacker, why, hp, ctx, options, results);
 		// 同一次保护命中的双方先扣血、发送伤害，再处理受伤和死亡结果。
 		for (const finish of results) finish();
-		ctx.fight.updateUltimate(ctx);
 		return actual;
 	}
 
@@ -256,12 +255,11 @@ export abstract class FightUnit {
 
 		ctx.msgs.push(['hurt', why, this.uid, attacker.uid, actual, point.hp, ctx.effects]);
 		this.addSp(actual * this.attr.spHurtRate, ctx);
-		if (attacker.fight === ctx.fight && attacker !== this) {
+		if (attacker !== this) {
 			attacker.addSp(actual * attacker.attr.spOutputRate, ctx);
 		}
 		this.addEnemy(attacker, actual);
-		if (attacker.fight === ctx.fight)
-			ctx.fight.Sides?.[attacker.side]?.recordHurt(attacker.uid, actual);
+		ctx.fight.Sides?.[attacker.side]?.recordHurt(attacker.uid, actual);
 		results.push(() => {
 			if (point.hp !== previousHp)
 				this.emitContext('hp', ctx, attacker, previousHp, point.hp);
@@ -313,12 +311,9 @@ export abstract class FightUnit {
 		ctx.msgs.push(['heal', why, this.uid, attacker.uid, hp, point.hp, effects]);
 		const previousHp = point.hp;
 		point.hp = Math.min(point.hp + hp, point.hpMax);
-		if (attacker.fight === ctx.fight) {
-			attacker.addSp((point.hp - previousHp) * attacker.attr.spOutputRate, ctx);
-		}
+		attacker.addSp((point.hp - previousHp) * attacker.attr.spOutputRate, ctx);
 		this.addFriend(attacker, point.hp - previousHp);
-		if (attacker.fight === ctx.fight)
-			ctx.fight.Sides?.[attacker.side]?.recordHeal(attacker.uid, point.hp - previousHp);
+		ctx.fight.Sides?.[attacker.side]?.recordHeal(attacker.uid, point.hp - previousHp);
 		if (point.hp !== previousHp) this.emitContext('hp', ctx, attacker, previousHp, point.hp);
 		this.emitContext('heal', ctx, attacker, why, hp);
 	}
@@ -366,10 +361,8 @@ export abstract class FightUnit {
 	fight: Fight;
 	side: FightSideEnum;
 	setFight(fight: Fight, side: FightSideEnum) {
-		if (this.fight !== fight) {
-			this.lastAfterTurn = 0;
-			this.lastSupportTurn = -1;
-		}
+		this.lastAfterTurn = 0;
+		this.lastSupportTurn = -1;
 		this.fight = fight;
 		this.side = side;
 	}
@@ -390,7 +383,6 @@ export abstract class FightUnit {
 		this.relife();
 		ctx.msgs.push(['relife', this.uid]);
 		this.emitContext('relife', ctx, attacker, why);
-		ctx.fight.updateUltimate(ctx);
 	}
 	relife() {
 		this.dead = false;

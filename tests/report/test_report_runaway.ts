@@ -80,7 +80,7 @@ for (const Loop of [FightLoopPC, FightLoopWest]) {
 			);
 			assert.equal(result, FightResultEnum.defend);
 			assert.equal(s.fight.turn, 1);
-			assert.equal(s.fight.isRunaway(), true);
+			assert.equal(s.fight.canRunaway(), true);
 			assert.equal(s.fight.getWinSide(), FightSideEnum.defend);
 			assert.deepEqual(
 				messages.filter((msg) => msg[0] === 'runaway'),

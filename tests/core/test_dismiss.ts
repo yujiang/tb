@@ -1,3 +1,4 @@
+import { EmptyAI } from '../fixtures/empty_ai';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -13,6 +14,8 @@ import {
 	Fight,
 	FightSide,
 	FightUnitMonster,
+	FightInput,
+	fightMsg,
 	InsertActionPos,
 	initFightContex,
 	initBuffs,
@@ -173,7 +176,7 @@ test('dismiss: dead summons can leave without another death event', () => {
 // 怪物离场必须解绑规则监听，不能由保留引用继续登记反应行动。
 test('dismiss: leaving monsters unbind behavior listeners', () => {
 	const s = setup();
-	s.target.addRule(new FightRuleHurt({ type: 'hurt', every: 1 }));
+	s.target.addRule(new FightRuleHurt({ type: 'hurt', everyHurt: 1 }));
 	assert.equal(s.target.contextEmitter.listenerCount('hurt'), 1);
 	assert.ok(s.fight.processUnit(s.other, { cmd: FightCmdEnum.dismiss, target: s.target.uid }));
 	assert.equal(s.target.contextEmitter.listenerCount('hurt'), 0);
@@ -264,3 +267,96 @@ test('dismiss: YanYu network input rejects dismiss', async () => {
 	assert.equal(s.fight.getUnitById(s.summon.uid), s.summon);
 	s.loop.end();
 });
+
+for (const cmd of [FightCmdEnum.attack, FightCmdEnum.skill]) {
+	// 西游收齐指令后C先移除A：A已提交的行动取消，B原本指向A的普攻/技能按未指定目标处理并正常出手，客户端一致。
+	test(
+		`dismiss: C removes queued A before B executes command ${cmd} targeting A`,
+		{ timeout: 1000 },
+		async (t) => {
+			const s = setup(),
+				loop = s.loop as FightLoopWest;
+			t.after(() => loop.end());
+			const a = s.target,
+				b = s.actor,
+				c = s.other;
+			class CommandAI extends EmptyAI {
+				constructor(private readonly input: FightInput) {
+					super();
+				}
+				override waitInput() {
+					return { ...this.input };
+				}
+			}
+			a.ai = new CommandAI({ cmd: FightCmdEnum.attack, target: b.uid });
+			c.ai = new CommandAI({ cmd: FightCmdEnum.dismiss, target: a.uid });
+			c.attr.speed = 300;
+			b.attr.speed = 200;
+			a.attr.speed = 100;
+			s.summon.attr.speed = 50;
+			for (const unit of s.fight.getAllUnits()) unit.speedRand = 0;
+			loop.sortUnitsByProcess();
+			b.findSkill(chainIds.first).getXls().cd = 2;
+			const before = initFightContex(s.fight);
+			const waiting = loop.waitInput(s.fight.turn, before);
+			const bInput: FightInput = {
+				turn: s.fight.turn,
+				cmd,
+				target: a.uid,
+				...(cmd === FightCmdEnum.skill ? { skill: chainIds.first } : {}),
+			};
+			loop.onInput(b.uid, bInput);
+			loop.onInput(s.summon.uid, { turn: s.fight.turn, cmd: FightCmdEnum.defend });
+			await waiting;
+			loop.bcMsg(before.msgs);
+			assert.deepEqual(a.input, { cmd: FightCmdEnum.attack, target: b.uid });
+			assert.deepEqual(b.input, bInput);
+			assert.ok(loop.actions.some((action) => action.unit === a));
+			assert.ok(loop.actions.some((action) => action.unit === b));
+			const messages: fightMsg[] = [];
+			let checkedDeparture = false;
+			loop.onMsg((msgs) => {
+				const batch =
+					typeof msgs[0] === 'string' ? [msgs as fightMsg] : (msgs as fightMsg[]);
+				messages.push(...batch);
+				if (batch.some((msg) => msg[0] === 'dismiss')) {
+					checkedDeparture = true;
+					assert.equal(s.fight.getUnitById(a.uid), undefined);
+					assert.equal(
+						loop.actions.some((action) => action.unit === a),
+						false,
+					);
+					assert.equal(s.client.getUnitById(a.uid), undefined);
+					assert.equal(s.client.sort.includes(a.uid), false);
+					assert.ok(s.client.checkSame(s.fight));
+				}
+			});
+			await loop.processOneTurn(s.fight.turn);
+			assert.equal(checkedDeparture, true);
+			assert.deepEqual(
+				messages.filter((msg) => msg[0] === 'dismiss'),
+				[['dismiss', c.uid, a.uid]],
+			);
+			assert.equal(messages.find((msg) => msg[0] === 'actor')?.[1], c.uid);
+			assert.equal(
+				messages.some((msg) => msg[0] === 'actor' && msg[1] === a.uid),
+				false,
+			);
+			assert.equal(
+				messages.some((msg) => msg[0] === 'hurt' && msg[2] === c.uid && msg[3] === b.uid),
+				true,
+			);
+			assert.equal(a.getHp(), 1000);
+			assert.equal(b.getHp(), 1000);
+			assert.equal(c.getHp(), cmd === FightCmdEnum.skill ? 790 : 900);
+			assert.equal(b.attr.point.mp, cmd === FightCmdEnum.skill ? 90 : 100);
+			assert.equal(b.getSkillCd(chainIds.first), cmd === FightCmdEnum.skill ? 2 : 0);
+			assert.equal(b.input.target, a.uid);
+			assert.equal(loop.actions.length, 0);
+			assert.deepEqual(s.client.sort, []);
+			assert.deepEqual(s.client.actions, []);
+			assert.ok(s.client.checkSame(s.fight));
+			assert.equal(s.fight.isEnd(), false);
+		},
+	);
+}

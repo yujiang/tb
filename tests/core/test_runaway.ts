@@ -64,7 +64,7 @@ for (const side of [FightSideEnum.attack, FightSideEnum.defend]) {
 		assert.ok(ctx);
 		assert.deepEqual(ctx.msgs, [['runaway', unit.uid, true]]);
 		assert.equal(samples, 1);
-		assert.equal(s.fight.isRunaway(), true);
+		assert.equal(s.fight.canRunaway(), true);
 		assert.equal(s.fight.result, side === 0 ? FightResultEnum.defend : FightResultEnum.attack);
 		assert.equal(s.fight.getWinSide(), 1 - side);
 		assert.equal(s.fight.getLostSide(), side);
@@ -92,7 +92,7 @@ test('runaway: a failed attempt reports failure and leaves the battle running', 
 	assert.deepEqual(ctx.msgs, [['runaway', s.actor.uid, false]]);
 	assert.equal(ctx.actionStarted, true);
 	assert.equal(s.fight.isEnd(), false);
-	assert.equal(s.fight.isRunaway(), false);
+	assert.equal(s.fight.canRunaway(), false);
 	assert.equal(s.actor.getHp(), 1000);
 	assert.equal(s.actor.attr.point.mp, 100);
 	s.flush(ctx);
@@ -150,7 +150,7 @@ for (const status of ['缠绕', '眩晕', '休息']) {
 		assert.equal(s.fight.checkPC(s.actor, { cmd: FightCmdEnum.runaway }), false);
 		const ctx = s.fight.processUnit(s.actor, { cmd: FightCmdEnum.runaway });
 		assert.equal(ctx?.msgs.some((msg) => msg[0] === 'runaway') ?? false, false);
-		assert.equal(s.fight.isRunaway(), false);
+		assert.equal(s.fight.canRunaway(), false);
 		assert.equal(s.fight.isEnd(), false);
 	});
 }
@@ -196,7 +196,7 @@ for (const Loop of [FightLoopPC, FightLoopWest]) {
 				const result = await loop.run();
 				assert.equal(result, success ? FightResultEnum.defend : FightResultEnum.outoftime);
 				assert.equal(messages.filter((msg) => msg[0] === 'actor').length, success ? 1 : 3);
-				assert.equal(s.fight.isRunaway(), success);
+				assert.equal(s.fight.canRunaway(), success);
 				assert.equal(s.actor.attr.point.jp, success ? 1 : 3);
 				assert.deepEqual(s.rewards, success ? [] : [[1, 9, 0.5]]);
 				assert.deepEqual(s.penalties, success ? [] : [[0, 7]]);
@@ -225,7 +225,7 @@ test('runaway: dead units may submit online intent but must be alive at executio
 	s.actor.attr.grade = 0;
 	const ctx = s.fight.processUnit(s.actor, input);
 	assert.ok(ctx);
-	assert.equal(s.fight.isRunaway(), true);
+	assert.equal(s.fight.canRunaway(), true);
 });
 
 // 测试：相同种子及相同初始化过程下，逃跑结果及之后的随机状态可重复。

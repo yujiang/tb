@@ -1,12 +1,14 @@
+import { hpBuff } from '../../fixtures/hp_buff';
+import { EmptyAI } from '../../fixtures/empty_ai';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
 	FightRuleTurn,
+	setFightGlobalData,
 	FightLoopPC,
 	FightLoopWest,
 	FightLoopYanYu,
 	FightCmdEnum,
-	FightAI,
 	FightRuleHp,
 	InsertActionPos,
 	FightInput,
@@ -30,7 +32,7 @@ test('rules: two turn axes both insert actions without replacing normal input', 
 	initSkills(ids.map((id) => ({ ...s.skills[0], id, name: `周期${id}`, cost: { mp: 0 } })));
 	ids.forEach((id) => {
 		s.target.addSkill(id, 1);
-		s.target.addRule(new FightRuleTurn({ type: 'turn', every: 1, skill: id }));
+		s.target.addRule(new FightRuleTurn({ type: 'turn', everyTurn: 1, skill: id }));
 	});
 	s.target.setAttackSkill(chainIds.first);
 	s.target.addSkill(chainIds.first, 1);
@@ -203,14 +205,14 @@ test('actions: cancelling the insertion tail preserves FIFO for later requests',
 // 只有一个 AI 决定普通输入，多条规则不会争抢 waitInput，切换 AI 也不会移除规则。
 test('rules: a single AI coexists with independent rules', () => {
 	const s = setup();
-	class DefendAI extends FightAI {
+	class DefendAI extends EmptyAI {
 		override waitInput() {
 			return { cmd: FightCmdEnum.defend };
 		}
 	}
 	s.target.ai = new DefendAI();
-	s.target.addRule(new FightRuleHp({ type: 'hp', lines: [{ hp: 0.5, attackRate: 0.2 }] }));
-	s.target.addRule(new FightRuleTurn({ type: 'turn', every: 1, skill: chainIds.first }));
+	s.target.addRule(new FightRuleHp({ type: 'hp', lines: [{ hp: 0.5, buff: hpBuff(0.2) }] }));
+	s.target.addRule(new FightRuleTurn({ type: 'turn', everyTurn: 1, skill: chainIds.first }));
 	const before = initFightContex(s.fight);
 	s.loop.processBeforeTurn(1, before);
 	s.flush(before);
@@ -219,7 +221,7 @@ test('rules: a single AI coexists with independent rules', () => {
 	assert.equal(s.loop.actions.filter((action) => action.inserted).length, 1);
 	s.target.ai = undefined;
 	assert.equal(s.target.rules.length, 2);
-	assert.throws(() => s.target.addRule(new FightAI() as never), /ai|AI/);
+	assert.throws(() => s.target.addRule(new EmptyAI() as never), /ai|AI/);
 });
 
 for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
@@ -232,7 +234,7 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
 		s.target.addRule(
 			new FightRuleTurn({
 				type: 'turn',
-				every: 1,
+				everyTurn: 1,
 				skill: chainIds.first,
 				pos: InsertActionPos.afterSelf,
 			}),
@@ -373,3 +375,143 @@ test('actions: an explicit target dying before execution cancels the queued skil
 	assert.deepEqual(s.client.sort, []);
 	assert.ok(s.client.checkSame(s.fight));
 });
+
+function speedRuleSetup(data: { pos?: InsertActionPos; speedRate?: number }) {
+	const s = setup();
+	s.target.attrOri.speed = 200;
+	s.actor.attrOri.speed = 150;
+	s.other.attrOri.speed = 50;
+	for (const unit of s.fight.getAllUnits()) unit.calcAttr();
+	s.loop.processUnits = [s.target, s.actor, s.other];
+	s.target.addRule(
+		new FightRuleTurn({ type: 'turn', everyTurn: 1, skill: chainIds.first, ...data }),
+	);
+	const ctx = initFightContex(s.fight);
+	s.loop.processBeforeTurn(1, ctx);
+	s.flush(ctx);
+	return s;
+}
+
+// 未填pos时按单位当前速度乘倍率插入，速度变化后未执行行动随之重排并同步客户端。
+test('rule turn speed: inserts by effective speed and follows speed changes', () => {
+	const s = speedRuleSetup({ speedRate: 0.5 });
+	const extra = s.loop.actions.find((action) => action.inserted);
+	assert.equal(extra.speedRate, 0.5);
+	assert.deepEqual(
+		s.loop.actions.map((action) => [action.unit.uid, action.inserted]),
+		[
+			[1, false],
+			[0, false],
+			[1, true],
+			[2, false],
+		],
+	);
+	assert.equal(s.client.actions.find((action) => action.id === extra.id).speedRate, 0.5);
+	s.target.attr.speed = 80;
+	s.target.emit('speed');
+	assert.deepEqual(
+		s.loop.actions.map((action) => [action.unit.uid, action.inserted]),
+		[
+			[0, false],
+			[1, false],
+			[2, false],
+			[1, true],
+		],
+	);
+	assert.deepEqual(
+		s.client.actions.map((action) => action.id),
+		s.loop.actions.map((action) => action.id),
+	);
+});
+
+// 显式pos优先于倍率，仍按固定位置插入，后续速度变化不会移动固定插队行动。
+test('rule turn speed: explicit position overrides speed rate', () => {
+	const s = speedRuleSetup({ pos: InsertActionPos.first, speedRate: 0 });
+	const extra = s.loop.actions[0];
+	assert.equal(extra.inserted, true);
+	assert.equal(extra.speedRate, undefined);
+	s.target.attr.speed = 1;
+	s.target.emit('speed');
+	assert.equal(s.loop.actions[0].id, extra.id);
+});
+
+// 速度倍率0有效，省略时按1排序，不退回固定队首插入。
+test('rule turn speed: zero and default rates are respected', () => {
+	const zero = speedRuleSetup({ speedRate: 0 });
+	assert.equal(zero.loop.actions[zero.loop.actions.length - 1].speedRate, 0);
+	const normal = speedRuleSetup({});
+	assert.equal(normal.loop.actions.find((action) => action.inserted).speedRate, 1);
+});
+
+// 未填pos时速度倍率必须为非负有限数，避免非法行动顺序。
+test('rule turn speed: invalid effective rates are rejected', () => {
+	for (const speedRate of [-1, NaN, Infinity]) {
+		assert.throws(
+			() =>
+				new FightRuleTurn({ type: 'turn', everyTurn: 1, skill: chainIds.first, speedRate }),
+			/speedRate/,
+		);
+	}
+});
+
+for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
+	// 三种循环都按倍率执行规则技能，显示实际行动速度，不额外推进输入次数或集气。
+	test('rule turn speed integration: ' + Loop.name, async () => {
+		const s = setup();
+		setFightGlobalData({ jiqi: true });
+		for (const unit of s.fight.getAllUnits()) {
+			unit.attrOri.point.jp = 0;
+			unit.attrOri.point.jpMax = 20;
+			unit.attrOri.jpAdd = 1;
+		}
+		s.target.attrOri.speed = 200;
+		s.actor.attrOri.speed = 150;
+		s.other.attrOri.speed = 50;
+		for (const unit of s.fight.getAllUnits()) unit.calcAttr();
+		s.target.addRule(
+			new FightRuleTurn({
+				type: 'turn',
+				everyTurn: 1,
+				skill: chainIds.first,
+				speedRate: 0.5,
+			}),
+		);
+		const loop = new Loop(s.fight);
+		const messages: fightMsg[] = [];
+		loop.onMsg((msgs) => {
+			messages.push(
+				...(typeof msgs[0] === 'string' ? [msgs as fightMsg] : (msgs as fightMsg[])),
+			);
+			s.loop.bcMsg(msgs);
+		});
+		loop.on('input', (unit) => loop.onInput(unit.uid, { cmd: FightCmdEnum.defend }));
+		loop.start();
+		s.fight.turn = 0;
+		loop.nextTurn();
+		for (const unit of s.fight.getAllUnits()) unit.speedRand = 0;
+		const before = initFightContex(s.fight);
+		loop.processBeforeTurn(1, before);
+		loop.bcMsg(before.msgs);
+		if (loop instanceof FightLoopYanYu) {
+			const inputCtx = initFightContex(s.fight);
+			await loop.waitInput(1, inputCtx);
+			loop.bcMsg(inputCtx.msgs);
+		}
+		for (const unit of s.fight.getAllUnits()) unit.input = { cmd: FightCmdEnum.defend };
+		await loop.processOneTurn(1);
+		const actors = messages.filter((msg) => msg[0] === 'actor');
+		assert.deepEqual(
+			actors.map((msg) => msg[1]),
+			[s.target.uid, s.actor.uid, s.target.uid, s.other.uid],
+		);
+		assert.equal(actors[2][2], 100);
+		assert.equal(actors[2][3], 'insert');
+		assert.equal(s.target.myInputTurn, Loop === FightLoopWest ? 0 : 1);
+		assert.deepEqual(
+			s.fight.getAllUnits().map((unit) => unit.attr.point.jp),
+			[3, 3, 3],
+		);
+		assert.ok(s.client.checkSame(s.fight));
+		loop.end();
+	});
+}

@@ -198,8 +198,7 @@ function skillNext(
 			comboDamage?.interrupted ||
 			!previous ||
 			previous.isDied() ||
-			previous.fight !== f ||
-			!f.getAllUnits().includes(previous) ||
+			!f.getUnitById(previous.uid) ||
 			(skill.getSel() && !f.isLegalTarget(attacker, previous, skill))
 		) {
 			return false;

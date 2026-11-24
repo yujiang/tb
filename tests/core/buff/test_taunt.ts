@@ -412,9 +412,9 @@ test('taunt: a replacement unit with the same ID does not replace the original s
 	assert.equal(fight.validateInput(actor, { cmd: FightCmdEnum.attack, target: other.uid }), true);
 });
 
-// 测试：守尸指令在嘲讽者有效时重定向，来源死亡后仍按原守尸规则处理。
-test('taunt: corpse guarding redirects while taunter is valid and skips corpse when taunter dies', () => {
-	const { fight, actor, source, other, add } = setup();
+// 测试：守尸指令在嘲讽者有效时重定向，来源死亡且原目标仍死亡时按未指定目标选择存活敌人。
+test('taunt: corpse guarding redirects while taunter is valid and selects a living enemy when taunter dies', () => {
+	const { fight, actor, source, other, second, add } = setup();
 	add();
 	other.die();
 	const guard = { cmd: FightCmdEnum.attack, target: other.uid };
@@ -422,8 +422,9 @@ test('taunt: corpse guarding redirects while taunter is valid and skips corpse w
 	assert.equal(fight.processUnit(actor, actor.input)?.defend.uid, source.uid);
 	source.die();
 	assert.equal(actor.onInput(guard), true);
-	assert.equal(fight.processUnit(actor, actor.input), undefined);
-	assert.equal(other.getHp(), 50); // 仍死亡则跳过，不对尸体伤害或自动换人。
+	assert.equal(fight.processUnit(actor, actor.input)?.defend.uid, second.uid);
+	assert.equal(second.getHp(), 990);
+	assert.equal(other.getHp(), 50); // 尸体不重复受伤。
 });
 
 // 测试：非法显式目标仍被拒绝，不能通过嘲讽重定向变为合法指令。

@@ -11,7 +11,7 @@ test('package entry exports the current Fight implementation and has declaration
 	assert.equal(typeof api.getRunwayRate, 'function');
 	assert.equal(typeof api.Fight.prototype.getResult, 'function');
 	assert.equal(typeof api.Fight.prototype.getWinSide, 'function');
-	assert.equal(typeof api.Fight.prototype.isRunaway, 'function');
+	assert.equal(typeof api.Fight.prototype.canRunaway, 'function');
 	assert.equal(typeof api.getFightGlobalData, 'function');
 	assert.equal(typeof api.setFightGlobalData, 'function');
 	const battle = new api.Fight(10013305, {
@@ -34,8 +34,8 @@ test('package entry exports the current Fight implementation and has declaration
 	assert.equal(typeof api.FightLoopWest, 'function');
 	assert.equal(typeof api.FightLoopYanYu, 'function');
 	assert.equal(typeof api.FightLoopPC, 'function');
-	assert.equal(typeof api.FightLoop.prototype.waitInputUtimate, 'function');
-	assert.equal(typeof api.FightLoop.prototype.onInputUltimate, 'function');
+	assert.equal(typeof api.FightLoop.prototype.waitInputUtimate, 'undefined');
+	assert.equal(typeof api.FightLoop.prototype.onInputUltimate, 'undefined');
 	assert.equal(typeof api.FightLoop.prototype.onError, 'function');
 	assert.equal(typeof api.FightUnit.prototype.getUltimateSkill, 'function');
 	assert.equal(typeof api.FightUnitMonster.prototype.setAI, 'function');
@@ -48,12 +48,18 @@ test('package entry exports the current Fight implementation and has declaration
 	assert.ok(api.FightRule.prototype instanceof api.FightBehavior);
 	assert.equal(api.FightAI.prototype instanceof api.FightRule, false);
 	assert.equal(typeof api.FightAI.prototype.getXls, 'function');
-	assert.equal(typeof api.FightAI.prototype.getCustom, 'function');
 	assert.ok(api.FightAITarget.prototype instanceof api.FightAI);
-	assert.ok(api.FightAICond.prototype instanceof api.FightAI);
+	assert.equal(api.FightAICond, undefined);
+	assert.equal(api.FightBehavior.prototype.getCustom, undefined);
+	assert.throws(() => api.createAI({ type: 'cond' }), /Unknown AI type/);
 	assert.ok(
-		api.createAI({ type: 'cond', cond: 'hpLow', custom: 0.5, skill: 10012101 }) instanceof
-			api.FightAICond,
+		api.createAI({
+			type: 'target',
+			self: true,
+			cond: 'hpLow',
+			condData: 0.5,
+			skill: 10012101,
+		}) instanceof api.FightAITarget,
 	);
 	assert.equal(typeof api.createLethalSkillData, 'function');
 	assert.equal(api.createLethalSkillData(10011701).alwaysHit, true);

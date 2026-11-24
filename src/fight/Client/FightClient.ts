@@ -21,7 +21,6 @@ export class FightClient {
 	sort: number[] = [];
 	actions: FightActionDisplay[] = [];
 	actor: number | undefined;
-	ultimateReady: [boolean, boolean] = [false, false];
 	private boundLoops = new WeakMap<FightLoop, { autocheck: boolean }>();
 
 	getUnitById(id: number): FightClientUnit | undefined {
@@ -59,7 +58,6 @@ export class FightClient {
 		for (const msg of this.toBatch(msgs)) {
 			switch (msg[0]) {
 				case 'start':
-					this.ultimateReady = [false, false];
 					this.fid = msg[1];
 					this.turn = 0;
 					this.result = FightResultEnum.ongoing;
@@ -86,8 +84,6 @@ export class FightClient {
 							? FightSideEnum.defend
 							: this.result);
 					this.runaway = msg[3] ?? this.runaway;
-					if (this.result !== FightResultEnum.ongoing)
-						this.ultimateReady = [false, false];
 					this.actor = undefined;
 					this.sort = [];
 					this.actions = [];
@@ -124,9 +120,6 @@ export class FightClient {
 							this.actions.splice(index, 1);
 						}
 					}
-					break;
-				case 'ultimateReady':
-					this.ultimateReady[msg[1] as 0 | 1] = msg[2];
 					break;
 				case 'hurt': {
 					const unit = this.getUnitById(msg[2]);
@@ -208,12 +201,6 @@ export class FightClient {
 	// 检测是否跟服务器的战况完全一致，包括位置，display，point, buffs
 	checkSame(f: Fight): boolean {
 		if (this.fid !== f.fid || !f.Sides) {
-			return false;
-		}
-
-		if (
-			!isDeepStrictEqual(this.ultimateReady, [f.hasUltimateChance(0), f.hasUltimateChance(1)])
-		) {
 			return false;
 		}
 

@@ -1,3 +1,4 @@
+import { hpBuff } from '../fixtures/hp_buff';
 import { setFightGlobalData } from '../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -34,7 +35,7 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
 		s.other.attrOri.speed = 50;
 		s.actor.setAttackSkill(chainIds.first);
 		s.fight.getDefaultEnemy = () => s.target;
-		s.target.addRule(new FightRuleHp({ type: 'hp', lines: [{ hp: 0.7, attackRate: 0.2 }] }));
+		s.target.addRule(new FightRuleHp({ type: 'hp', lines: [{ hp: 0.7, buff: hpBuff(0.2) }] }));
 		for (const unit of s.fight.getAllUnits()) unit.calcAttr();
 		const failure = new Error('skill execution failed');
 		s.target.onContex('beforeHurt', () => {

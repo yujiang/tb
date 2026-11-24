@@ -8,10 +8,11 @@ export interface FightAction {
 	input?: FightInput; // 追加行动保存自己的指令，不占用 unit.input
 	inserted: boolean;
 	after?: number;
-	speedRate?: number; // 模板额外行动随单位速度参与排序；动态插队不设置此字段。
+	speedRate?: number; // 当前单位速度的倍率；配置后参与剩余行动的速度排序。
+	extraAction?: boolean; // 来自单位extraAction模板，执行后推动集气；规则插入不设置。
 }
 
-// 同一单位可以有多个独立行动；普通行动和模板额外行动按速度排序，动态插队保留指定位置。
+// 同一单位可以有多个独立行动；普通行动及带速度倍率的追加行动按速度排序，固定位置插队保留指定位置。
 export class FightActionQueue {
 	private entries: FightAction[] = [];
 	private nextId = 0;
@@ -56,6 +57,7 @@ export class FightActionQueue {
 					unit,
 					inserted: true,
 					speedRate,
+					extraAction: true,
 					...(skill !== 0 ? { input: { cmd: FightCmdEnum.skill, skill } } : {}),
 				});
 				this.insertedCount++;
@@ -87,7 +89,15 @@ export class FightActionQueue {
 		pos: InsertActionPos,
 		random: () => number,
 		current?: FightAction,
+		speedRate?: number,
 	): FightAction {
+		if (speedRate !== undefined) {
+			assert.ok(
+				Number.isFinite(speedRate) && speedRate >= 0,
+				'speedRate must be finite and nonnegative',
+			);
+		}
+
 		assert.ok(
 			[
 				InsertActionPos.first,
@@ -131,6 +141,7 @@ export class FightActionQueue {
 			unit,
 			input: { ...input },
 			inserted: true,
+			...(speedRate !== undefined ? { speedRate } : {}),
 			...(after !== undefined ? { after } : {}),
 		};
 		this.entries.splice(index, 0, action);

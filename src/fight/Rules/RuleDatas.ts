@@ -7,15 +7,19 @@ export type RuleData = {
 	type: string;
 	/** 规则执行顺序，有限数，缺省0；小的先执行，同级按添加顺序；不是事件监听器的 prior。 */
 	prior?: number;
-	/** hp必填的血线列表，允许空数组；每项hp为生命比例(0,1]，attackRate为非负增攻比例，多条相加，每条每场一次；其他规则忽略。 */
+	/** hp必填的血线列表，允许空数组；每项含hp比例(0,1]与buff:[已注册BuffID,等级]，hp必须严格递减，乱序/重复报错；跨多线直接进入最深阶段，跳过中间Buff和消息；先强制移除实际旧阶段Buff再添加最终Buff，回血不回退；其他规则忽略。 */
 	lines?: HpAxisLine[];
-	/** turn/hurt必填的正安全整数；turn为全局回合间隔，hurt为有效直接受伤次数阈值；hp忽略，无统一缺省值。 */
-	every?: number;
-	/** turn必填、hurt可选的已学技能ID，正安全整数；hurt缺省普攻/装配普攻且不额外收费/CD，turn正常校验并禁止使用独立大招槽；hp忽略。 */
+	/** turn必填的全局回合间隔，正安全整数，无缺省值；hurt/hp忽略。 */
+	everyTurn?: number;
+	/** hurt必填的有效直接受伤次数阈值，正安全整数，无缺省值；turn/hp忽略。 */
+	everyHurt?: number;
+	/** turn必填、hurt可选的已学技能ID，正安全整数；hurt缺省普攻/装配普攻；指定技能统一按普通技能校验、收费和启动冷却（费用/CD留空则不消耗），turn/hurt均禁止使用独立大招槽；hp忽略。 */
 	skill?: number;
-	/** turn的行动插入位置，缺省first；支持first/last/random/afterSelf，同步客户端行动条；hp/hurt忽略。 */
+	/** turn的固定行动插入位置；支持first/last/random/afterSelf；显式配置时优先于speedRate，省略时按speedRate排序；同步客户端行动条，hp/hurt忽略。 */
 	pos?: InsertActionPos;
-	/** 宿主自定义附加数据，缺省undefined，不参与内置规则结算；可通过getCustom读取。 */
+	/** turn的行动速度倍率，非负有限数，缺省1，0有效；仅pos省略时使用，按当前getSpeedOrder()×倍率排序，速度变化重排剩余行动；不修改单位速度，不推进额外输入或集气；hp/hurt忽略。 */
+	speedRate?: number;
+	/** 宿主自定义附加数据，缺省undefined，不参与内置规则结算；可通过getXls().custom读取。 */
 	custom?: any;
 };
 

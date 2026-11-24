@@ -1,21 +1,10 @@
 import { Fight, FightContex, initFightContex } from './Fight';
 import { FightUnit, sortByAttr } from './Unit/FightUnit';
-import {
-	FightCmdEnum,
-	FightInput,
-	fightMsg,
-	FightSideEnum,
-	InsertActionPos,
-	FightResultEnum,
-} from './struct';
+import { FightCmdEnum, FightInput, fightMsg, InsertActionPos, FightResultEnum } from './struct';
 import EventEmitter from 'node:events';
 import { FightActionQueue, FightAction } from './FightActionQueue';
 
 export type bcMsgFunc = (msgs: fightMsg | fightMsg[]) => void;
-export interface UltimateInput {
-	unit: FightUnit;
-	input: FightInput;
-}
 export interface FightErrorContext {
 	/** 本场战斗ID，用于关联宿主日志。 */
 	fid: number;
@@ -49,25 +38,36 @@ export abstract class FightLoop {
 	private actionInserter = (
 		unit: FightUnit,
 		input: FightInput,
-		pos: InsertActionPos,
+		pos: InsertActionPos | undefined,
 		ctx?: FightContex,
-	) => this.insertAction(unit, input, pos, ctx);
+		speedRate?: number,
+	) => this.insertAction(unit, input, pos, ctx, speedRate);
 	insertAction(
 		unit: FightUnit,
 		input: FightInput,
-		pos = InsertActionPos.first,
+		pos?: InsertActionPos,
 		ctx?: FightContex,
+		speedRate?: number,
 	): boolean {
-		if (
-			!this.canProcessTurn(this.queueTurn) ||
-			unit.fight !== this.fight ||
-			!this.fight.getAllUnits().includes(unit) ||
-			!this.fight.checkPC(unit, input)
-		) {
+		if (!this.canProcessTurn(this.queueTurn) || !this.fight.checkPC(unit, input)) {
 			return false;
 		}
 
-		this.actionQueue.insert(unit, input, pos, () => this.fight.random(), this.currentAction);
+		const rate = pos === undefined ? speedRate : undefined;
+		this.actionQueue.insert(
+			unit,
+			input,
+			rate !== undefined ? InsertActionPos.last : (pos ?? InsertActionPos.first),
+			() => this.fight.random(),
+			this.currentAction,
+			rate,
+		);
+		if (rate !== undefined) {
+			this.actionQueue.sort(
+				(a, b) => this.compareProcessUnits(a, b, false),
+				(a, b) => this.compareProcessActions(a, b, false),
+			);
+		}
 		this.syncActionOrder(ctx);
 		return true;
 	}
@@ -95,7 +95,7 @@ export abstract class FightLoop {
 		if (
 			!this.fight.globalData.jiqi ||
 			!ctx?.actionStarted ||
-			(action.inserted && action.speedRate === undefined)
+			(action.inserted && !action.extraAction)
 		) {
 			return;
 		}
@@ -105,13 +105,14 @@ export abstract class FightLoop {
 		}
 	}
 	protected insertedContext(action: FightAction): FightContex | undefined {
-		if (action.speedRate !== undefined) {
+		if (action.extraAction) {
 			return this.freshInputContext(action, true);
 		}
 
-		if (!this.fight.checkPC(action.unit, action.input)) return undefined;
+		const input = this.fight.prepareActionInput(action.unit, action.input);
+		if (!this.fight.checkPC(action.unit, input)) return undefined;
 
-		return this.fight.processUnit(action.unit, action.input);
+		return this.fight.processUnit(action.unit, input);
 	}
 	// 模板普通行动/额外AI行动在实际出手时决策，不重复推进输入周期Buff。
 	protected freshInputContext(action: FightAction, automatic = false): FightContex | undefined {
@@ -127,8 +128,9 @@ export abstract class FightLoop {
 			action.input ??
 			this.fight.resolveAction(() => unit.getActionInput(this.fight.turn, before, automatic));
 		action.input = { ...input };
-		const ctx = this.fight.checkPC(unit, input)
-			? this.fight.processUnit(unit, input)
+		const executionInput = this.fight.prepareActionInput(unit, input);
+		const ctx = this.fight.checkPC(unit, executionInput)
+			? this.fight.processUnit(unit, executionInput)
 			: undefined;
 		if (ctx) ctx.msgs.unshift(...before.msgs);
 		else this.bcMsg(before.msgs);
@@ -185,12 +187,6 @@ export abstract class FightLoop {
 		this.reportFailure(error, unit, input);
 		this.end();
 	}
-	private ultimateInput:
-		| { side: FightSideEnum; turn: number; resolve: (choice?: UltimateInput) => void }
-		| undefined;
-	get ultimateSide(): FightSideEnum | undefined {
-		return this.ultimateInput?.side;
-	}
 	fight: Fight;
 	constructor(fight: Fight) {
 		this.fight = fight;
@@ -199,7 +195,6 @@ export abstract class FightLoop {
 	processBeforeTurn(turn: number, ctx: FightContex) {
 		this.fight.resolveAction(() => {
 			for (const unit of this.fight.getAllUnits()) unit.processBeforeTurn(turn, ctx);
-			this.fight.updateUltimate(ctx);
 		});
 	}
 
@@ -241,19 +236,10 @@ export abstract class FightLoop {
 			if (!this.canProcessTurn(turn)) {
 				break;
 			}
-
-			if (f.globalData.allShieldBreak) await this.processUltimate(turn, true);
-			if (!this.canProcessTurn(turn)) {
-				break;
-			}
 			const f2 = initFightContex(f);
 			await this.waitInput(turn, f2);
 			this.bcMsg(f2.msgs);
 			f.checkOutcome();
-			if (!this.canProcessTurn(turn)) {
-				break;
-			}
-			if (f.globalData.allShieldBreak) await this.processUltimate(turn, true);
 			if (!this.canProcessTurn(turn)) {
 				break;
 			}
@@ -267,7 +253,6 @@ export abstract class FightLoop {
 			const f3 = initFightContex(f);
 			this.processAfterTurn(turn, f3); //回合后主要处理死亡等
 			this.bcMsg(f3.msgs);
-			if (f.globalData.allShieldBreak) await this.processUltimate(turn, true);
 			if (this.stopped) break;
 
 			f.finishTurn();
@@ -281,7 +266,6 @@ export abstract class FightLoop {
 		this.queueTurn = -1;
 		this.currentAction = undefined;
 		this.fight.setActionInserter(this.actionInserter);
-		this.closeUltimateInput();
 		this.fight.resetUltimate();
 		const all = this.fight.getAllUnits();
 		for (const u of all) {
@@ -311,7 +295,6 @@ export abstract class FightLoop {
 		this.actionQueue.clear();
 		this.queueTurn = -1;
 		this.currentAction = undefined;
-		this.closeUltimateInput();
 		this.fight.offUnitEvent('speed', this.speedListener);
 		for (const unit of this.fight.getAllUnits()) {
 			try {
@@ -332,14 +315,18 @@ export abstract class FightLoop {
 			this.reportFailure(error);
 		}
 		try {
-			this.bcMsg(['end', this.fight.result, this.fight.getWinSide(), this.fight.isRunaway()]);
+			this.bcMsg([
+				'end',
+				this.fight.result,
+				this.fight.getWinSide(),
+				this.fight.canRunaway(),
+			]);
 		} catch (error) {
 			this.reportFailure(error);
 		}
 	}
 
 	nextTurn() {
-		this.closeUltimateInput();
 		const turn = this.fight.nextTurn();
 		this.emitEvent('turn');
 		this.bcMsg(['turn', turn]);
@@ -365,116 +352,6 @@ export abstract class FightLoop {
 		return 1;
 	}
 
-	// 全体破盾后的独立输入窗口，不占普通行动；宿主选择同阵营一人，或取消本轮机会。
-	waitInputUtimate(turn: number, side: FightSideEnum): Promise<UltimateInput | undefined> {
-		const waiting = new Promise<UltimateInput | undefined>((resolve) => {
-			this.ultimateInput = { side, turn, resolve };
-		});
-		this.emitEvent('ultimate', side, turn, this.getUltimateUnits(side));
-		return waiting;
-	}
-
-	private getUltimateUnits(side: FightSideEnum): FightUnit[] {
-		return this.fight
-			.getSideUnits(side)
-			.filter(
-				(unit) =>
-					!unit.isDied() &&
-					!unit.isForbid('action') &&
-					!unit.isForbid('skill') &&
-					unit.getUltimateSkill() &&
-					unit.getSkillCd(unit.ultimateSkill) === 0,
-			);
-	}
-
-	onInputUltimate(id: number, input: FightInput): boolean {
-		try {
-			return this.acceptUltimateInput(id, input);
-		} catch (error) {
-			this.fail(error, this.fight.getUnitById(id), input);
-			return false;
-		}
-	}
-
-	private acceptUltimateInput(id: number, input: FightInput): boolean {
-		const pending = this.ultimateInput;
-		if (
-			!pending ||
-			!this.canProcessTurn(pending.turn) ||
-			!input ||
-			(input.turn !== undefined && input.turn !== pending.turn)
-		) {
-			return false;
-		}
-
-		const unit = this.fight.getUnitById(id);
-		if (!unit || unit.side !== pending.side) {
-			return false;
-		}
-
-		if (input.cmd === FightCmdEnum.cancel) {
-			this.closeUltimateInput();
-			return true;
-		}
-
-		if (!this.fight.checkUltimate(unit, input)) return false;
-
-		const prepared = this.fight.preparePCInput(unit, { ...input, skill: unit.ultimateSkill });
-		if (!prepared) return false;
-
-		this.closeUltimateInput({ unit, input: prepared });
-		return true;
-	}
-
-	private closeUltimateInput(choice?: UltimateInput) {
-		const pending = this.ultimateInput;
-		this.ultimateInput = undefined;
-		pending?.resolve(choice);
-	}
-
-	protected async processUltimate(turn: number, waitBefore = false) {
-		try {
-			await this.processUltimateActions(turn, waitBefore);
-		} catch (error) {
-			this.fail(error);
-		}
-	}
-
-	private async processUltimateActions(turn: number, waitBefore: boolean) {
-		for (const side of [FightSideEnum.attack, FightSideEnum.defend]) {
-			if (!this.fight.hasUltimateChance(side) || !this.getUltimateUnits(side).length) {
-				continue;
-			}
-			if (waitBefore) await this.waitDrawOver();
-			while (this.canProcessTurn(turn) && this.fight.hasUltimateChance(side)) {
-				let choice: UltimateInput | undefined;
-				try {
-					choice = await this.waitInputUtimate(turn, side);
-				} finally {
-					this.closeUltimateInput();
-				}
-				if (!this.canProcessTurn(turn)) {
-					return;
-				}
-
-				if (!choice) {
-					const ctx = initFightContex(this.fight);
-					this.fight.skipUltimate(side, ctx);
-					this.bcMsg(ctx.msgs);
-					break;
-				}
-				const ctx = this.fight.processUltimate(choice.unit, choice.input);
-				if (!ctx) {
-					if (!this.getUltimateUnits(side).length) break;
-					continue;
-				}
-				ctx.msgs.unshift(['actor', choice.unit.uid, choice.unit.getSpeed(), 'ultimate']);
-				this.bcMsg(ctx.msgs);
-				await this.waitDrawOver();
-				break;
-			}
-		}
-	}
 	abstract onInput(id: number, input: FightInput): void;
 
 	async waitDrawOver() {}

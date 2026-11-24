@@ -1,7 +1,7 @@
+import { EmptyAI } from '../../fixtures/empty_ai';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
-	FightAI,
 	FightClient,
 	FightCmdEnum,
 	FightLoopPC,
@@ -34,7 +34,7 @@ function setup(
 	boss.addSkill(ids.kill, 1);
 	boss.setExtraActions(actions);
 	const decisions: number[] = [];
-	class BossAI extends FightAI {
+	class BossAI extends EmptyAI {
 		override waitInput() {
 			decisions.push(s.actor.getHp());
 			return { cmd: FightCmdEnum.skill, skill: ids.first, target: s.actor.uid };
@@ -89,7 +89,7 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
 				},
 			]);
 			s.other.addSkill(revive, 1);
-			s.other.ai = new (class extends FightAI {
+			s.other.ai = new (class extends EmptyAI {
 				override waitInput() {
 					return { cmd: FightCmdEnum.skill, skill: revive, target: s.boss.uid };
 				}
@@ -169,7 +169,7 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
 			},
 		]);
 		s.other.addSkill(revive, 1);
-		s.other.ai = new (class extends FightAI {
+		s.other.ai = new (class extends EmptyAI {
 			override waitInput() {
 				return { cmd: FightCmdEnum.skill, skill: revive, target: s.boss.uid };
 			}

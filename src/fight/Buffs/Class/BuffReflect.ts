@@ -53,8 +53,7 @@ export class BuffReflect extends FightBuff {
 			Math.floor(pending.damage) <= 0 ||
 			attacker === unit ||
 			attacker.isDied() ||
-			attacker.fight !== ctx.fight ||
-			!ctx.fight.getAllUnits().includes(attacker)
+			!ctx.fight.getUnitById(attacker.uid)
 		) {
 			return;
 		}

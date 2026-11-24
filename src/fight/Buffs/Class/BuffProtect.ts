@@ -32,8 +32,7 @@ export class BuffProtect extends FightBuff {
 			protector === unit ||
 			protector.isDied() ||
 			protector.side !== unit.side ||
-			protector.fight !== ctx.fight ||
-			!ctx.fight.getAllUnits().includes(protector)
+			!ctx.fight.getUnitById(protector.uid)
 		) {
 			return;
 		}

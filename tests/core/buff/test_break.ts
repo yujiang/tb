@@ -1,7 +1,14 @@
 import { setFightGlobalData } from '../../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { FightUnitEvent, PropEnum, initBuffs, getBuffData, initFightContex } from '../../../src';
+import {
+	FightUnitEvent,
+	PropEnum,
+	initSkills,
+	initBuffs,
+	getBuffData,
+	initFightContex,
+} from '../../../src';
 import { setupChain, chainIds } from '../../fixtures/skill_chain';
 
 const event: FightUnitEvent = 'break';
@@ -126,6 +133,10 @@ test('break: failed, missed and cancelled attacks do not emit', () => {
 // 测试：最后一面盾破碎的事件已发生，即使 break 监听者立刻回盾，也不取消全体破盾的大招触发。
 test('break: buff reactions cannot erase the last-shield-break event', () => {
 	const s = setup();
+	const ultimateId = 1001750;
+	initSkills([{ ...s.skills[0], id: ultimateId, combo: undefined }]);
+	s.actor.addSkill(ultimateId, 1);
+	s.actor.setUltimateSkill(ultimateId);
 	setFightGlobalData({ allShieldBreak: true });
 	const initial = initFightContex(s.fight);
 	s.other.onHurt(s.actor, 'test', 1000, initial);
@@ -134,8 +145,8 @@ test('break: buff reactions cannot erase the last-shield-break event', () => {
 		unit.attr.shield = 1;
 		ctx.msgs.push(['shield', unit.uid, 1, 'recover']);
 	});
-	s.cast();
+	const ctx = s.cast();
 	assert.equal(s.target.attr.shield, 1);
-	assert.equal(s.fight.hasUltimateChance(0), true);
+	assert.equal(ctx.msgs.filter((msg) => msg[0] === 'actor' && msg[3] === 'ultimate').length, 1);
 	assert.ok(s.client.checkSame(s.fight));
 });

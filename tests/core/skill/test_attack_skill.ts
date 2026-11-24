@@ -96,22 +96,22 @@ test('attack skill: silence alone does not block an attack command', () => {
 	assert.equal(s.target.getHp(), 940);
 });
 
-// 测试：替代普攻同样守尸，目标仍死则跳过，执行前已复活则攻击原目标，不换另一敌人。
+// 测试：替代普攻同样守尸，目标仍死则按未指定目标选人，执行前复活则攻击原目标。
 test('attack skill: corpse guarding keeps its target through revival', () => {
 	const s = setup();
 	s.actor.setAttackSkill(attackId);
 	const dead = initFightContex(s.fight);
 	s.fight.resolveAction(() => s.target.onHurt(s.actor, 'test', 1000, dead));
 	s.flush(dead);
-	assert.equal(s.attack(), undefined);
-	assert.equal(s.other.getHp(), 1000);
+	assert.equal(s.attack()?.defend.uid, s.other.uid);
+	assert.equal(s.other.getHp(), 940);
 	const revive = initFightContex(s.fight);
 	s.target.onRelife(s.actor, 'test', revive);
 	s.target.onHeal(s.actor, 'test', 100, revive, { revive: true });
 	s.flush(revive);
 	assert.ok(s.attack());
 	assert.equal(s.target.getHp(), 40);
-	assert.equal(s.other.getHp(), 1000);
+	assert.equal(s.other.getHp(), 940);
 });
 
 // 测试：被动仅装配替代普攻 ID，不学习或覆盖已有技能等级，技能随后加载也可生效。

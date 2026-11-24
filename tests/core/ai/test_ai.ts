@@ -1,7 +1,8 @@
+import { hpBuff } from '../../fixtures/hp_buff';
+import { EmptyAI } from '../../fixtures/empty_ai';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
-	FightAI,
 	FightRuleHp,
 	FightRuleTurn,
 	FightRuleHurt,
@@ -93,7 +94,7 @@ test('AI: no configured AI preserves legacy monster input', () => {
 test('AI: waitInput owns command choice without duplicating the input boundary', () => {
 	const s = setup();
 	let calls = 0;
-	class TestAI extends FightAI {
+	class TestAI extends EmptyAI {
 		override waitInput(unit: FightUnit, turn: number): FightInput {
 			assert.equal(unit, s.target);
 			assert.equal(turn, 3);
@@ -112,15 +113,15 @@ test('AI: waitInput owns command choice without duplicating the input boundary',
 	assert.equal(s.target.input.skill, cycle);
 });
 
-// 测试：血轴在跨线时增攻，各比例相加且每条只触发一次，回血后再次跨线不重复触发。
-test('Rule HP: thresholds stack once and do not retrigger after healing', () => {
+// 测试：血轴在跨线时切换属性Buff，先移除上一阶段且每条只触发一次，回血后再次跨线不重复触发。
+test('Rule HP: thresholds replace phase buffs once and do not retrigger after healing', () => {
 	const s = setup();
 	s.target.addRule(
 		new FightRuleHp({
 			type: 'hp',
 			lines: [
-				{ hp: 0.7, attackRate: 0.2 },
-				{ hp: 0.4, attackRate: 0.3 },
+				{ hp: 0.7, buff: hpBuff(0.2) },
+				{ hp: 0.4, buff: hpBuff(0.5) },
 			],
 		}),
 	);
@@ -133,29 +134,30 @@ test('Rule HP: thresholds stack once and do not retrigger after healing', () => 
 	assert.ok(!again.msgs.some((msg) => msg[0] === 'aiHp'));
 	s.hurt(300);
 	assert.equal(s.target.attr.magic.base.attack, 150);
-	assert.equal(s.target.attr.physic.base.attack, 150);
-	assert.equal(s.target.attr.magic.fback.attack, 30);
+	assert.equal(s.target.attr.physic.base.attack, 100);
+	assert.equal(s.target.attr.magic.fback.attack, 20);
 	assert.equal(s.target.attrOri.magic.base.attack, 100);
 	assert.doesNotMatch(s.report.toString(), /未识别消息/);
 });
 
-// 测试：单次跨过多条血线全部生效，属性重算不累计叠乘，正常属性修正后再应用血轴比例。
-test('Rule HP: large hits and attribute recalculation preserve additive threshold bonuses', () => {
+// 测试：单次跨过多条血线只添加最终阶段Buff，属性重算不累加，和普通被动加成共存。
+test('Rule HP: large hits and attribute recalculation preserve only the latest phase buff', () => {
 	const s = setup();
 	s.target.addRule(
 		new FightRuleHp({
 			type: 'hp',
 			lines: [
-				{ hp: 0.8, attackRate: 0.2 },
-				{ hp: 0.5, attackRate: 0.3 },
+				{ hp: 0.8, buff: hpBuff(0.2) },
+				{ hp: 0.5, buff: hpBuff(0.5) },
 			],
 		}),
 	);
 	const ctx = s.hurt(600);
-	assert.equal(ctx.msgs.filter((msg) => msg[0] === 'aiHp').length, 2);
+	assert.equal(ctx.msgs.filter((msg) => msg[0] === 'aiHp').length, 1);
 	s.target.calcAttr();
 	s.target.calcAttr();
-	assert.equal(s.target.attr.physic.base.attack, 150);
+	assert.equal(s.target.attr.physic.base.attack, 100);
+	assert.equal(s.target.attr.magic.base.attack, 150);
 	initPassives([
 		{
 			id: 1001102,
@@ -170,16 +172,19 @@ test('Rule HP: large hits and attribute recalculation preserve additive threshol
 		},
 	]);
 	s.target.setPassiveSkills([[1001102, 1]]);
-	assert.equal(s.target.attr.physic.base.attack, 165);
+	assert.equal(s.target.attr.physic.base.attack, 110);
+	assert.equal(s.target.attr.magic.base.attack, 150);
 	assert.equal(s.target.attrOri.physic.base.attack, 100);
-	s.target.removeRule(s.target.rules[0]);
+	const removed = initFightContex(s.fight);
+	s.target.removeRule(s.target.rules[0], removed);
+	s.flush(removed);
 	assert.equal(s.target.attr.physic.base.attack, 110);
 });
 
 // 测试：保护分担扣血也触发血轴，但仍不发普通 hurt 反应事件。
 test('Rule HP: shared damage changes health phases without ordinary hurt reactions', () => {
 	const s = setup();
-	s.target.addRule(new FightRuleHp({ type: 'hp', lines: [{ hp: 0.7, attackRate: 0.5 }] }));
+	s.target.addRule(new FightRuleHp({ type: 'hp', lines: [{ hp: 0.7, buff: hpBuff(0.5) }] }));
 	let hurts = 0;
 	s.target.onContex('hurt', () => {
 		hurts++;
@@ -192,7 +197,7 @@ test('Rule HP: shared damage changes health phases without ordinary hurt reactio
 // 测试：死亡复活不刷新血轴阶段，新战斗重置阶段且不重复注册监听，结束后解绑。
 test('Rule HP: revival preserves phases while a new fight resets and rebinds once', () => {
 	const s = setup();
-	s.target.addRule(new FightRuleHp({ type: 'hp', lines: [{ hp: 0.7, attackRate: 0.5 }] }));
+	s.target.addRule(new FightRuleHp({ type: 'hp', lines: [{ hp: 0.7, buff: hpBuff(0.5) }] }));
 	s.hurt(1000);
 	const ctx = initFightContex(s.fight);
 	s.target.onRelife(s.actor, 'test', ctx);
@@ -211,7 +216,7 @@ test('Rule HP: revival preserves phases while a new fight resets and rebinds onc
 // 测试：周期按全局回合 N、2N 插入大招，普通输入不被替换，同一回合不重复插入。
 test('rule turn: periodic skills insert once without replacing ordinary input', () => {
 	const s = setup();
-	s.target.addRule(new FightRuleTurn({ type: 'turn', every: 3, skill: cycle }));
+	s.target.addRule(new FightRuleTurn({ type: 'turn', everyTurn: 3, skill: cycle }));
 	s.fight.turn = 0;
 	for (let turn = 1; turn <= 6; turn++) {
 		s.loop.nextTurn();
@@ -248,7 +253,7 @@ test('rule turn: periodic skills insert once without replacing ordinary input', 
 test('rule turn: cooldown and skill prohibition prevent insertion', () => {
 	const s = setup();
 	s.target.findSkill(cycle).getXls().cd = 2;
-	s.target.addRule(new FightRuleTurn({ type: 'turn', every: 1, skill: cycle }));
+	s.target.addRule(new FightRuleTurn({ type: 'turn', everyTurn: 1, skill: cycle }));
 	s.flush(
 		s.fight.processUnit(s.target, {
 			cmd: FightCmdEnum.skill,
@@ -277,7 +282,7 @@ test('rule turn: cooldown and skill prohibition prevent insertion', () => {
 // 测试：每两次直接攻击扣血后发动新攻击，使用普通攻击属性、不受 nofback 限制、不改变行动条。
 test('Rule hurt: every N hits trigger a new normal attack without changing the action bar', () => {
 	const s = setup();
-	s.target.addRule(new FightRuleHurt({ type: 'hurt', every: 2, skill: counter }));
+	s.target.addRule(new FightRuleHurt({ type: 'hurt', everyHurt: 2, skill: counter }));
 	s.cast();
 	assert.equal(s.actor.getHp(), 1000);
 	const bar = [...s.client.sort],
@@ -301,7 +306,7 @@ test('Rule hurt: every N hits trigger a new normal attack without changing the a
 // 测试：Buff、反伤、反射、分担和零伤害不累计直接攻击次数。
 test('Rule hurt: nonattack sources and zero damage do not count', () => {
 	const s = setup();
-	s.target.addRule(new FightRuleHurt({ type: 'hurt', every: 2, skill: counter }));
+	s.target.addRule(new FightRuleHurt({ type: 'hurt', everyHurt: 2, skill: counter }));
 	for (const source of ['buff', 'dback', 'reflect', 'share'] as const) s.hurt(1, { source });
 	s.hurt(0);
 	s.cast();
@@ -313,7 +318,7 @@ test('Rule hurt: nonattack sources and zero damage do not count', () => {
 // 测试：三段连招的受伤计次新攻击在整条 action 结束后执行，不插到连招中间。
 test('Rule hurt: the new attack runs only after the complete combo action', () => {
 	const s = setup();
-	s.target.addRule(new FightRuleHurt({ type: 'hurt', every: 2, skill: counter }));
+	s.target.addRule(new FightRuleHurt({ type: 'hurt', everyHurt: 2, skill: counter }));
 	s.skills[0].combo = chainIds.second;
 	const during: number[] = [];
 	s.target.onContex('hurt', () => during.push(s.actor.getHp()));
@@ -330,7 +335,7 @@ test('Rule hurt: the new attack runs only after the complete combo action', () =
 // 测试：禁止攻击时不出手，解除后按有效受伤计次出手，致死伤害不产生死者攻击。
 test('Rule hurt: attack prohibition and death prevent the deferred new attack', () => {
 	const s = setup();
-	s.target.addRule(new FightRuleHurt({ type: 'hurt', every: 2, skill: counter }));
+	s.target.addRule(new FightRuleHurt({ type: 'hurt', everyHurt: 2, skill: counter }));
 	s.target.isForbid = (action) => action === 'attack';
 	s.cast();
 	s.cast();
@@ -348,9 +353,9 @@ test('Rule hurt: attack prohibition and death prevent the deferred new attack', 
 // 测试：AI 新攻击仍属于直接攻击，可以累计对方受伤轴，任一方死亡后停止后续攻击。
 test('Rule hurt: new attacks can trigger the opposing axis and stop when a unit dies', () => {
 	const s = setup();
-	s.target.addRule(new FightRuleHurt({ type: 'hurt', every: 1, skill: counter }));
+	s.target.addRule(new FightRuleHurt({ type: 'hurt', everyHurt: 1, skill: counter }));
 	s.actor.addSkill(counter, 1);
-	const otherAI = new FightRuleHurt({ type: 'hurt', every: 1, skill: counter });
+	const otherAI = new FightRuleHurt({ type: 'hurt', everyHurt: 1, skill: counter });
 	otherAI.bind(s.actor);
 	const ctx = s.cast();
 	assert.equal(ctx.msgs.filter((msg) => msg[0] === 'aiAttack').length, 18);
@@ -363,7 +368,7 @@ test('Rule hurt: new attacks can trigger the opposing axis and stop when a unit 
 // 测试：移除规则会解绑监听并取消旧规则已登记的新攻击，不在动作结束后继续执行旧行为。
 test('Rule: removing a rule cancels its listeners and deferred reactions', () => {
 	const s = setup();
-	s.target.addRule(new FightRuleHurt({ type: 'hurt', every: 1, skill: counter }));
+	s.target.addRule(new FightRuleHurt({ type: 'hurt', everyHurt: 1, skill: counter }));
 	s.target.onContex(
 		'hurt',
 		() => {
@@ -383,7 +388,7 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
 		const s = setup(),
 			loop = new Loop(s.fight),
 			messages: fightMsg[] = [];
-		s.target.addRule(new FightRuleTurn({ type: 'turn', every: 1, skill: cycle }));
+		s.target.addRule(new FightRuleTurn({ type: 'turn', everyTurn: 1, skill: cycle }));
 		loop.onMsg((msgs) => {
 			const batch = typeof msgs[0] === 'string' ? [msgs as fightMsg] : (msgs as fightMsg[]);
 			messages.push(...batch);
@@ -418,7 +423,7 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
 // 测试：禁止 attack 期间受伤完全不累计，解除后的第 N 次有效受伤才发动新攻击。
 test('Rule hurt: damage received while attack is forbidden does not advance the axis', () => {
 	const s = setup();
-	s.target.addRule(new FightRuleHurt({ type: 'hurt', every: 3, skill: counter }));
+	s.target.addRule(new FightRuleHurt({ type: 'hurt', everyHurt: 3, skill: counter }));
 	s.target.isForbid = (action) => action === 'attack';
 	s.hurt(1);
 	s.hurt(1);
@@ -434,7 +439,7 @@ test('Rule hurt: damage received while attack is forbidden does not advance the 
 test('Rule hurt: default response uses the equipped normal attack rather than counter attributes', () => {
 	const s = setup();
 	s.target.setAttackSkill(cycle);
-	s.target.addRule(new FightRuleHurt({ type: 'hurt', every: 1 }));
+	s.target.addRule(new FightRuleHurt({ type: 'hurt', everyHurt: 1 }));
 	s.target.isForbid = (action) => action === 'fback';
 	const ctx = s.cast();
 	assert.equal(s.actor.getHp(), 800);
@@ -472,9 +477,9 @@ test('Rule hurt: repeated new attacks share the existing reaction limit', () => 
 		unit.calcAttr();
 	}
 	s.loop.start();
-	s.target.addRule(new FightRuleHurt({ type: 'hurt', every: 1, skill: counter }));
+	s.target.addRule(new FightRuleHurt({ type: 'hurt', everyHurt: 1, skill: counter }));
 	s.actor.addSkill(counter, 1);
-	const attackerAI = new FightRuleHurt({ type: 'hurt', every: 1, skill: counter });
+	const attackerAI = new FightRuleHurt({ type: 'hurt', everyHurt: 1, skill: counter });
 	attackerAI.bind(s.actor);
 	assert.throws(() => s.cast(), /Reaction limit/);
 	attackerAI.unbind(s.actor);
@@ -484,9 +489,9 @@ test('Rule hurt: repeated new attacks share the existing reaction limit', () => 
 // 测试：血轴、回合轴和受伤轴同时存在，周期规则插入独立行动，其他事件和属性修正仍然生效。
 test('Rule coexistence: all three axes contribute without replacing each other', () => {
 	const s = setup(),
-		hp = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.7, attackRate: 0.5 }] }),
-		turn = new FightRuleTurn({ type: 'turn', every: 3, skill: cycle }),
-		hurt = new FightRuleHurt({ type: 'hurt', every: 2, skill: counter });
+		hp = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.7, buff: hpBuff(0.5) }] }),
+		turn = new FightRuleTurn({ type: 'turn', everyTurn: 3, skill: cycle }),
+		hurt = new FightRuleHurt({ type: 'hurt', everyHurt: 2, skill: counter });
 	s.target.addRule(hp, 10);
 	s.target.addRule(hurt, 5);
 	s.target.addRule(turn);
@@ -507,7 +512,7 @@ test('Rule coexistence: all three axes contribute without replacing each other',
 	assert.equal(s.target.contextEmitter.listenerCount('hp'), 1);
 	assert.equal(s.target.contextEmitter.listenerCount('hurt'), 1);
 	assert.equal(s.target.removeRule(hp), true);
-	assert.equal(s.target.attr.magic.base.attack, 100);
+	assert.equal(s.target.attr.magic.base.attack, 150);
 	assert.equal(s.target.contextEmitter.listenerCount('hp'), 0);
 	assert.equal(s.target.contextEmitter.listenerCount('hurt'), 1);
 });
@@ -517,7 +522,7 @@ test('AI: only the currently assigned decision maker provides input', () => {
 	const s = setup(),
 		calls: string[] = [],
 		decision: FightInput = { cmd: FightCmdEnum.defend };
-	class DecisionAI extends FightAI {
+	class DecisionAI extends EmptyAI {
 		constructor(
 			private label: string,
 			private input?: FightInput,
@@ -547,7 +552,7 @@ test('AI: only the currently assigned decision maker provides input', () => {
 // 测试：只有规则时回退普攻；全部移除后恢复无 AI、无规则时的旧技能选择。
 test('Rules: removing all rules restores legacy input', () => {
 	const s = setup(),
-		hp = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.5, attackRate: 0.2 }] });
+		hp = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.5, buff: hpBuff(0.2) }] });
 	s.target.inputSkill = cycle;
 	s.target.addRule(hp);
 	assert.equal(s.target.addRule(hp), false);
@@ -566,15 +571,15 @@ test('Rules: removing all rules restores legacy input', () => {
 // 测试：切换或清空唯一 AI 不影响共存规则，错误复用其他单位的 AI 时保留原实例。
 test('AI: replacing the single AI preserves independent rules', () => {
 	const s = setup(),
-		hp = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.7, attackRate: 0.5 }] }),
-		hurt = new FightRuleHurt({ type: 'hurt', every: 2 });
+		hp = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.7, buff: hpBuff(0.5) }] }),
+		hurt = new FightRuleHurt({ type: 'hurt', everyHurt: 2 });
 	s.target.addRule(hp);
 	s.target.addRule(hurt);
-	const first = new FightAI();
+	const first = new EmptyAI();
 	s.target.ai = first;
 	assert.deepEqual(s.target.rules, [hp, hurt]);
 	assert.equal(s.target.contextEmitter.listenerCount('hurt'), 1);
-	const other = new FightAI();
+	const other = new EmptyAI();
 	s.other.ai = other;
 	assert.throws(() => {
 		s.target.ai = other;
@@ -584,4 +589,60 @@ test('AI: replacing the single AI preserves independent rules', () => {
 	s.target.ai = undefined;
 	assert.equal(s.target.rules.length, 2);
 	assert.equal(s.target.contextEmitter.listenerCount('hp'), 1);
+});
+
+// 受伤阈值和指定技能必须为正安全整数，避免取模静默失效。
+test('Rule hurt: invalid thresholds and skill ids are rejected', () => {
+	for (const everyHurt of [undefined, 0, -1, 1.5, NaN]) {
+		assert.throws(() => new FightRuleHurt({ type: 'hurt', everyHurt }), /positive/);
+	}
+	for (const skill of [0, -1, 1.5, NaN]) {
+		assert.throws(() => new FightRuleHurt({ type: 'hurt', everyHurt: 1, skill }), /positive/);
+	}
+});
+
+// 指定技能的受伤轴复用普通冷却，冷却期间不出手，结束后可再次触发且客户端同步。
+test('Rule hurt: configured skill uses normal cooldown and shared messages', () => {
+	const s = setup();
+	s.target.findSkill(counter).getXls().cd = 2;
+	s.target.addRule(new FightRuleHurt({ type: 'hurt', everyHurt: 1, skill: counter }));
+	const first = s.cast();
+	assert.equal(s.actor.getHp(), 900);
+	assert.ok(first.msgs.some((msg) => msg[0] === 'aiAttack'));
+	s.cast();
+	assert.equal(s.actor.getHp(), 900);
+	s.loop.nextTurn();
+	s.loop.nextTurn();
+	s.cast();
+	assert.equal(s.actor.getHp(), 800);
+});
+
+// 受伤规则指定技能时统一收费并启动冷却，实际资源变化随原上下文同步给客户端。
+test('Rule hurt: configured skill pays normal costs in the original context', () => {
+	const s = setup();
+	s.actor.addSkill(counter, 1);
+	const data = s.actor.findSkill(counter).getXls();
+	data.cost = { mp: 3 };
+	data.cd = 2;
+	const rule = new FightRuleHurt({ type: 'hurt', everyHurt: 1, skill: counter });
+	rule.bind(s.actor);
+	const hurt = () => {
+		const ctx = initFightContex(s.fight);
+		s.fight.resolveAction(() => s.actor.onHurt(s.target, 'test', 1, ctx, { source: 'skill' }));
+		s.flush(ctx);
+		return ctx;
+	};
+	const ctx = hurt();
+	assert.equal(s.actor.attr.point.mp, 97);
+	assert.equal(s.target.getHp(), 900);
+	assert.ok(ctx.msgs.some((msg) => msg[0] === 'costMp' && msg[1] === s.actor.uid));
+	hurt();
+	assert.equal(s.actor.attr.point.mp, 97);
+	assert.equal(s.target.getHp(), 900);
+	s.loop.nextTurn();
+	s.loop.nextTurn();
+	hurt();
+	assert.equal(s.actor.attr.point.mp, 94);
+	assert.equal(s.target.getHp(), 800);
+	rule.unbind(s.actor);
 });

@@ -71,7 +71,7 @@ export class FightLoopYanYu extends FightLoopOnline {
 		}
 	}
 
-	private canCast(id: number, input: FightInput): boolean {
+	private canCast(id: number, input: FightInput, execution = false): boolean {
 		const fight = this.fight;
 		if (
 			!this.canProcessTurn() ||
@@ -96,7 +96,8 @@ export class FightLoopYanYu extends FightLoopOnline {
 			return false;
 		}
 
-		if (!fight.checkInput(unit, input)) return false;
+		const checkedInput = execution ? fight.prepareActionInput(unit, input) : input;
+		if (!fight.checkInput(unit, checkedInput)) return false;
 
 		const cost = unit.findSkill(input.skill).getCost();
 		return !cost || unit.canCost(cost);
@@ -121,7 +122,7 @@ export class FightLoopYanYu extends FightLoopOnline {
 				if (queued) {
 					activeUnit = this.fight.getUnitById(queued.id);
 					activeInput = queued.input;
-					if (!this.canCast(queued.id, queued.input)) continue;
+					if (!this.canCast(queued.id, queued.input, true)) continue;
 					const unit = this.fight.getUnitById(queued.id);
 					ctx = this.fight.processUnit(unit, queued.input);
 					if (ctx) ctx.msgs.unshift(['actor', unit.uid, unit.getSpeed(), 'skill']);
@@ -146,7 +147,6 @@ export class FightLoopYanYu extends FightLoopOnline {
 				if (ctx) {
 					this.bcMsg(ctx.msgs);
 					await this.waitDrawOver();
-					await this.processUltimate(turn);
 				}
 			}
 			if (this.automaticTurn === turn || this.fight.isEnd()) {

@@ -52,7 +52,6 @@ export class FightLoopPC extends FightLoop {
 						ctx.msgs.unshift(this.actorMessage(action));
 						this.bcMsg(ctx.msgs);
 						await this.waitDrawOver();
-						await this.processUltimate(turn);
 					} else this.syncActionOrder();
 					continue;
 				}
@@ -66,7 +65,6 @@ export class FightLoopPC extends FightLoop {
 				this.bcMsg(before.msgs);
 				if (before.msgs.length) {
 					await this.waitDrawOver();
-					await this.processUltimate(turn);
 				}
 				if (!this.canProcessTurn(turn)) {
 					break;
@@ -80,13 +78,14 @@ export class FightLoopPC extends FightLoop {
 						break;
 					}
 					if (!input) continue;
+
+					input = this.fight.prepareActionInput(unit, input);
 					if (!this.fight.checkInput(unit, input)) continue;
 				}
 				const ctx = this.fight.processUnit(unit, input);
 				this.finishAction(action, ctx);
 				if (ctx) this.bcMsg(ctx.msgs);
 				await this.waitDrawOver();
-				await this.processUltimate(turn);
 			}
 		} catch (error) {
 			this.fail(error);

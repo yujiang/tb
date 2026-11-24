@@ -243,14 +243,9 @@ export class FightReport {
 									: `${name(msg[1])} 行动（速度 ${msg[2]}）`,
 					);
 					break;
-				case 'ultimateReady':
-					this.write(
-						`${msg[1] === 0 ? '攻击方' : '防守方'}${msg[2] ? '获得一次大招机会' : '的大招机会结束'}`,
-					);
-					break;
 				case 'aiHp':
 					this.write(
-						`${name(msg[1])} 触发 ${Math.round(msg[2] * 100)}% 血线，攻击力累计提高 ${Math.round(msg[3] * 100)}%`,
+						`${name(msg[1])} 触发 ${Math.round(msg[2] * 100)}% 血线，进入${this.buffName(msg[3])}阶段（等级 ${msg[4]}）`,
 					);
 					break;
 				case 'aiAttack':

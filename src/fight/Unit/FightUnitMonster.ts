@@ -1,12 +1,13 @@
 import { Fight, FightContex } from '../Fight';
 import { FightCmdEnum, FightInput, SkillCost, SpeedSkill } from '../struct';
 import { FightUnit } from './FightUnit';
-import { FightAI, createAI } from '../AI/FightAI';
+import { FightAI } from '../AI/FightAI';
 import { FightRule, createRule } from '../Rules/FightRule';
 import { FightAttr } from '../FightAttr';
 import { strict as assert } from 'node:assert';
 import type { AIData } from '../AI/AIDatas';
 import type { RuleData } from '../Rules/RuleDatas';
+import { createAI } from '../AI/AIFactory';
 
 export class FightUnitMonster extends FightUnit {
 	monsterId?: number;
@@ -55,7 +56,7 @@ export class FightUnitMonster extends FightUnit {
 		return this.ruleEntries.map((entry) => entry.rule);
 	}
 	// 可直接使用表里的规则配置；传入已有实例时保留其计数、阶段和监听。
-	setRules(values: readonly (FightRule | RuleData)[]) {
+	setRules(values: readonly (FightRule | RuleData)[], ctx?: FightContex) {
 		const entries = values.map((value, index) => {
 			assert.ok(!(value instanceof FightAI), 'Assign decision AI through ai, not setRules');
 			return {
@@ -76,15 +77,17 @@ export class FightUnitMonster extends FightUnit {
 			for (const rule of bound.reverse()) rule.unbind(this);
 			throw error;
 		}
-		for (const entry of this.ruleEntries) if (!next.has(entry.rule)) entry.rule.unbind(this);
+		for (const entry of this.ruleEntries)
+			if (!next.has(entry.rule)) entry.rule.remove(this, ctx);
 		this.ruleEntries = entries.sort((a, b) => a.prior - b.prior || a.order - b.order);
 		this.nextRuleOrder += entries.length;
+		for (const rule of bound) rule.startFight(this, ctx);
 		this.calcAttr();
 	}
-	clearRules() {
-		this.setRules([]);
+	clearRules(ctx?: FightContex) {
+		this.setRules([], ctx);
 	}
-	addRule(rule: FightRule, prior = 0): boolean {
+	addRule(rule: FightRule, prior = 0, ctx?: FightContex): boolean {
 		assert.ok(
 			rule instanceof FightRule,
 			'rule must be a FightRule; assign AI through ai, not addRule',
@@ -97,15 +100,16 @@ export class FightUnitMonster extends FightUnit {
 		rule.bind(this);
 		this.ruleEntries.push({ rule, prior, order: this.nextRuleOrder++ });
 		this.ruleEntries.sort((a, b) => a.prior - b.prior || a.order - b.order);
+		rule.startFight(this, ctx);
 		this.calcAttr();
 		return true;
 	}
-	removeRule(rule: FightRule): boolean {
+	removeRule(rule: FightRule, ctx?: FightContex): boolean {
 		const index = this.ruleEntries.findIndex((entry) => entry.rule === rule);
 		if (index < 0) return false;
 
 		this.ruleEntries.splice(index, 1);
-		rule.unbind(this);
+		rule.remove(this, ctx);
 		this.calcAttr();
 		return true;
 	}

@@ -1,86 +1,73 @@
 import { strict as assert } from 'node:assert';
 import { FightRule } from './FightRule';
 import type { FightUnit, HurtOptions } from '../Unit/FightUnit';
-import { skillAttackFunc } from '../Skills/Funcs/NomalSkill';
-import { attackFunc } from '../Skills/Funcs/NormalAttack';
 import type { RuleData } from './RuleDatas';
+import { FightContex } from '../Fight';
 
-// 只在允许攻击时计次；完整 action 结束后，对伤害来源发动普通攻击，不走 fback。
+// 只在允许攻击时计次；完整 action 结束后，对伤害来源发动普通攻击，不走 fback, 不进入行动条。
 export class FightRuleHurt extends FightRule {
 	private hits = 0;
-	get every() {
-		return this.xls.every;
+	get everyHurt() {
+		return this.xls.everyHurt;
 	}
 	get skill() {
 		return this.xls.skill;
 	}
+
 	constructor(xls: RuleData) {
 		super(xls);
-		const { every, skill } = xls;
 		assert.ok(
-			Number.isSafeInteger(every) && every > 0,
-			'every must be a positive safe integer',
+			Number.isSafeInteger(xls.everyHurt) && xls.everyHurt > 0,
+			'everyHurt must be a positive safe integer',
 		);
-		assert.ok(
-			skill === undefined || (Number.isSafeInteger(skill) && skill > 0),
-			'skill must be a positive safe integer',
-		);
+		if (xls.skill !== undefined) {
+			assert.ok(
+				Number.isSafeInteger(xls.skill) && xls.skill > 0,
+				'skill must be a positive safe integer',
+			);
+		}
 	}
+
 	override startFight(unit: FightUnit) {
 		this.hits = 0;
 	}
 	protected override onAdded(unit: FightUnit) {
 		this.hits = 0;
-		this.listen(
-			unit,
-			'hurt',
-			(owner, ctx, attacker: FightUnit, hp: number, source?: HurtOptions) => {
-				if (owner.isForbid('attack')) return;
+		this.listen(unit, 'hurt', this.onHurt.bind(this));
+	}
 
-				if (
-					hp <= 0 ||
-					source?.source !== 'skill' ||
-					attacker === owner ||
-					attacker.side === owner.side
-				) {
-					return;
-				}
+	onHurt(
+		owner: FightUnit,
+		ctx: FightContex,
+		attacker: FightUnit,
+		hp: number,
+		source?: HurtOptions,
+	) {
+		if (owner.isForbid('attack')) return;
 
-				if (++this.hits % this.every !== 0) return;
+		if (
+			hp <= 0 ||
+			source?.source !== 'skill' ||
+			attacker === owner ||
+			attacker.side === owner.side
+		) {
+			return;
+		}
 
-				ctx.fight.afterAction(() => {
-					if (
-						!this.isBoundTo(owner) ||
-						owner.isDied() ||
-						owner.getHp() <= 0 ||
-						attacker.isDied() ||
-						owner.fight !== ctx.fight ||
-						attacker.fight !== ctx.fight ||
-						!ctx.fight.getAllUnits().includes(owner) ||
-						!ctx.fight.getAllUnits().includes(attacker) ||
-						owner.side === attacker.side ||
-						owner.isForbid('action') ||
-						owner.isForbid('attack')
-					) {
-						return;
-					}
+		if (++this.hits % this.everyHurt !== 0) return;
 
-					const skill =
-						this.skill === undefined ? undefined : owner.findSkill(this.skill);
-					if (this.skill !== undefined && (!skill || skill.getFunc() !== 'normal')) {
-						return;
-					}
+		ctx.fight.afterAction(() => {
+			if (!this.isBoundTo(owner)) return;
 
-					if (owner.isForbid('move') && !(skill ?? owner.getAttackSkill())?.getNoMove()) {
-						return;
-					}
+			const skill = this.getSkillInput(owner);
+			if (!skill) return;
 
-					// 新攻击沿用普通攻击属性与反应预算，不走反击属性，也不进入行动条。
-					ctx.msgs.push(['aiAttack', owner.uid, attacker.uid]);
-					if (skill) skillAttackFunc(owner, attacker, skill, ctx);
-					else attackFunc(owner, attacker, ctx);
-				});
-			},
-		);
+			const cmd = this.getSkillCmd(owner, attacker);
+			if (!cmd) return;
+
+			// 新攻击沿用普通攻击属性与反应预算，不走反击属性，也不进入行动条。
+			ctx.msgs.push(['aiAttack', owner.uid, attacker.uid]);
+			ctx.fight.exeSkillAttackContext(owner, cmd, attacker, ctx);
+		});
 	}
 }

@@ -47,7 +47,6 @@ export class FightLoopWest extends FightLoopOnline {
 				this.finishAction(action, ctx);
 				ctx.msgs.unshift(this.actorMessage(action));
 				this.bcMsg(ctx.msgs);
-				if (this.fight.globalData.allShieldBreak) await this.processUltimate(turn, true);
 			} else this.syncActionOrder();
 			index++;
 		}

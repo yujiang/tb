@@ -1,3 +1,4 @@
+import { hpBuff } from '../fixtures/hp_buff';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -141,7 +142,7 @@ test('HP cost: the shared HP rule observes costs without hurt events', (t) => {
 	unit.setFight(s.fight, s.actor.side);
 	unit.setPos(s.actor.pos);
 	s.fight.getSide(s.actor.side).units[0] = unit;
-	unit.rule = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.5, attackRate: 0.5 }] });
+	unit.rule = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.5, buff: hpBuff(0.5) }] });
 	unit.rule.bind(unit);
 	t.after(() => unit.rule.unbind(unit));
 	unit.calcAttr();

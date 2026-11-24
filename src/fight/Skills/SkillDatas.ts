@@ -82,7 +82,7 @@ export interface SkillData {
 	fbackSkill?: number;
 	/** 效果处理时给施放者装配已学协战技能；缺省不变，当前此入口忽略 0。 */
 	supportSkill?: number;
-	/** 效果处理时给施放者装配已学破盾大招；缺省不变，0 卸下，仍需独立大招输入机会。 */
+	/** 效果处理时给施放者装配已学破盾大招；缺省不变，0 卸下，仍需自身打破敌方最后一面盾后自动触发。 */
 	ultimateSkill?: number;
 
 	// 类型集合

@@ -1,3 +1,4 @@
+import { hpBuff } from '../fixtures/hp_buff';
 import { setFightGlobalData } from '../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -142,9 +143,9 @@ function setup() {
 		supportSkill: skillId,
 		fbackSkill: 0,
 		rules: [
-			{ type: 'hp', lines: [{ hp: 0.7, attackRate: 0.2 }], prior: 10 },
-			{ type: 'hurt', every: 2, prior: 5 },
-			{ type: 'turn', every: 3, skill: cycleId },
+			{ type: 'hp', lines: [{ hp: 0.7, buff: hpBuff(0.2) }], prior: 10 },
+			{ type: 'hurt', everyHurt: 2, prior: 5 },
+			{ type: 'turn', everyTurn: 3, skill: cycleId },
 		],
 	};
 	initMonsters([data]);
@@ -243,7 +244,11 @@ test('monster side: extraAction configuration belongs to each generated unit', (
 // 怪物模板一次装配单个 AI、多条规则与被动，重复模板生成的实例互不共享。
 test('monster side: one template assembles AI rules and passives together', () => {
 	const { data, allocateUid } = setup();
-	const configured = { ...data, id: monsterId + 24, ai: { type: 'target' as const, career: '医生', pos: 'back' } };
+	const configured = {
+		...data,
+		id: monsterId + 24,
+		ai: { type: 'target' as const, career: '医生', pos: 'back' },
+	};
 	const original = structuredClone(configured);
 	initMonsters([configured]);
 	const [first, second] = CreateMonsterSide(
@@ -333,7 +338,7 @@ test('monster side: attributes, passive buffs and rule state are independent for
 	fight.createSide(side, enemy);
 	const ctx = initFightContex(fight);
 	fight.resolveAction(() => a.onHurt(enemy.units[0], 'test', 400, ctx, { source: 'buff' }));
-	assert.equal(a.attr.magic.base.attack, 144);
+	assert.equal(a.attr.magic.base.attack, 140);
 	assert.equal(b.attr.magic.base.attack, 120);
 	a.attrOri.physic.base.attack = 1;
 	assert.equal(b.attrOri.physic.base.attack, 100);

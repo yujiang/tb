@@ -1,9 +1,10 @@
+import { hpBuff } from '../../fixtures/hp_buff';
+import { EmptyAI } from '../../fixtures/empty_ai';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
 	FightRule,
 	FightUnit,
-	FightAI,
 	FightAITarget,
 	FightRuleHp,
 	FightRuleHurt,
@@ -35,7 +36,13 @@ function setup() {
 		s.flush(ctx);
 		return ctx;
 	};
-	return { ...s, hurt };
+	const setRules = (values: Parameters<typeof s.target.setRules>[0]) => {
+		const ctx = initFightContex(s.fight);
+		s.target.setRules(values, ctx);
+		s.flush(ctx);
+	};
+	const clearRules = () => setRules([]);
+	return { ...s, hurt, setRules, clearRules };
 }
 
 // 测试：同一组XLS平铺字段可配置三种规则，各类型只读取适用字段，装配不修改原表行。
@@ -44,21 +51,22 @@ test('rule data: a single flat row schema configures all rule types', () => {
 	const rows: RuleData[] = ['hp', 'turn', 'hurt'].map((type) => ({
 		type,
 		prior: 1,
-		lines: [{ hp: 0.5, attackRate: 0.2 }],
-		every: 2,
+		lines: [{ hp: 0.5, buff: hpBuff(0.2) }],
+		everyTurn: 2,
+		everyHurt: 2,
 		skill: chainIds.first,
 		pos: InsertActionPos.last,
 	}));
 	const data: RuleData[] = JSON.parse(JSON.stringify(rows));
-	s.target.setRules(data);
+	s.setRules(data);
 	const [hp, turn, hurt] = s.target.rules;
 	assert.ok(hp instanceof FightRuleHp);
 	assert.ok(turn instanceof FightRuleTurn);
 	assert.ok(hurt instanceof FightRuleHurt);
-	assert.equal(turn.every, 2);
+	assert.equal(turn.everyTurn, 2);
 	assert.equal(turn.skill, chainIds.first);
 	assert.equal(turn.pos, InsertActionPos.last);
-	assert.equal(hurt.every, 2);
+	assert.equal(hurt.everyHurt, 2);
 	assert.equal(hurt.skill, chainIds.first);
 	assert.deepEqual(data, rows);
 });
@@ -79,36 +87,36 @@ test('rule replacement: a failed bind cleans up its partial listeners', () => {
 	assert.equal(s.target.contextEmitter.listenerCount('hp'), before);
 });
 
-// 狂暴时从数据整体切换规则，旧增攻消失、新增攻立即重算，旧监听不再残留且 AI 不变。
+// 狂暴时从数据整体切换规则，旧规则的Buff保留，新规则Buff按普通规则叠加，旧监听不再残留且 AI 不变。
 test('rule replacement: a new phase replaces all rules and recalculates attributes', () => {
 	const s = setup(),
-		ai = new FightAI();
+		ai = new EmptyAI();
 	s.target.setAI(ai);
-	s.target.setRules([
-		{ type: 'hp', lines: [{ hp: 0.7, attackRate: 0.2 }] },
-		{ type: 'hurt', every: 5 },
+	s.setRules([
+		{ type: 'hp', lines: [{ hp: 0.7, buff: hpBuff(0.2) }] },
+		{ type: 'hurt', everyHurt: 5 },
 	]);
 	const old = s.target.rules;
 	s.hurt(400);
 	assert.equal(s.target.attr.magic.base.attack, 120);
 	const phase: RuleData[] = [
-		{ type: 'hp', lines: [{ hp: 0.8, attackRate: 0.5 }], prior: 10 },
-		{ type: 'hurt', every: 3, prior: -1 },
+		{ type: 'hp', lines: [{ hp: 0.8, buff: hpBuff(0.5) }], prior: 10 },
+		{ type: 'hurt', everyHurt: 3, prior: -1 },
 	];
 	const original = structuredClone(phase);
-	s.target.setRules(phase);
+	s.setRules(phase);
 	assert.ok(s.target.rules[0] instanceof FightRuleHurt);
 	assert.ok(s.target.rules[1] instanceof FightRuleHp);
 	assert.ok(s.target.rules.every((rule) => !old.includes(rule)));
-	assert.equal(s.target.attr.magic.base.attack, 150);
+	assert.equal(s.target.attr.magic.base.attack, 170);
 	assert.equal(s.target.attrOri.magic.base.attack, 100);
 	assert.equal(s.target.contextEmitter.listenerCount('hp'), 1);
 	assert.equal(s.target.contextEmitter.listenerCount('hurt'), 1);
 	assert.equal(s.target.ai, ai);
 	assert.deepEqual(phase, original);
-	s.target.clearRules();
+	s.clearRules();
 	assert.equal(s.target.rules.length, 0);
-	assert.equal(s.target.attr.magic.base.attack, 100);
+	assert.equal(s.target.attr.magic.base.attack, 170);
 	assert.equal(s.target.contextEmitter.listenerCount('hp'), 0);
 	assert.equal(s.target.contextEmitter.listenerCount('hurt'), 0);
 	assert.equal(s.target.ai, ai);
@@ -117,14 +125,14 @@ test('rule replacement: a new phase replaces all rules and recalculates attribut
 // 重用规则实例时保留计数与血线阶段，不因整组设置而重复绑定或重置。
 test('rule replacement: retained instances preserve phase and listeners', () => {
 	const s = setup(),
-		hp = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.7, attackRate: 0.3 }] });
-	s.target.setRules([hp]);
+		hp = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.7, buff: hpBuff(0.3) }] });
+	s.setRules([hp]);
 	s.hurt(400);
 	const healed = initFightContex(s.fight);
 	s.target.onHeal(s.actor, 'test', 400, healed);
 	s.flush(healed);
 	assert.equal(s.target.getHp(), 1000);
-	s.target.setRules([hp]);
+	s.setRules([hp]);
 	assert.equal(s.target.attr.magic.base.attack, 130);
 	assert.equal(s.target.contextEmitter.listenerCount('hp'), 1);
 	assert.deepEqual(s.target.rules, [hp]);
@@ -133,17 +141,17 @@ test('rule replacement: retained instances preserve phase and listeners', () => 
 // 新配置非法或包含重复实例时不拆掉旧规则，也不泄漏新监听。
 test('rule replacement: invalid definitions leave the original rules intact', () => {
 	const s = setup(),
-		hp = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.8, attackRate: 0.2 }] });
-	s.target.setRules([hp]);
-	assert.throws(() => s.target.setRules([{ type: 'hurt', every: 0 }]), /positive/);
-	assert.throws(() => s.target.setRules([{ type: 'hurt', every: 2, prior: NaN }]), /finite/);
-	assert.throws(() => s.target.setRules([{ type: 'hp' }]), /lines.*array/);
-	assert.throws(() => s.target.setRules([{ type: 'turn', skill: chainIds.first }]), /positive/);
-	assert.throws(() => s.target.setRules([{ type: 'turn', every: 1 }]), /positive/);
-	assert.throws(() => s.target.setRules([{ type: 'hurt' }]), /positive/);
-	assert.throws(() => s.target.setRules([{ type: 'unregistered' }]), /Unknown rule type/);
-	assert.throws(() => s.target.setRules([hp, hp]), /duplicate/);
-	assert.throws(() => s.target.setRules([new FightAI() as never]), /AI/);
+		hp = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.8, buff: hpBuff(0.2) }] });
+	s.setRules([hp]);
+	assert.throws(() => s.setRules([{ type: 'hurt', everyHurt: 0 }]), /positive/);
+	assert.throws(() => s.setRules([{ type: 'hurt', everyHurt: 2, prior: NaN }]), /finite/);
+	assert.throws(() => s.setRules([{ type: 'hp' }]), /lines.*array/);
+	assert.throws(() => s.setRules([{ type: 'turn', skill: chainIds.first }]), /positive/);
+	assert.throws(() => s.setRules([{ type: 'turn', everyTurn: 1 }]), /positive/);
+	assert.throws(() => s.setRules([{ type: 'hurt' }]), /positive/);
+	assert.throws(() => s.setRules([{ type: 'unregistered' }]), /Unknown rule type/);
+	assert.throws(() => s.setRules([hp, hp]), /duplicate/);
+	assert.throws(() => s.setRules([new EmptyAI() as never]), /AI/);
 	assert.deepEqual(s.target.rules, [hp]);
 	assert.equal(s.target.contextEmitter.listenerCount('hp'), 1);
 	assert.equal(s.target.contextEmitter.listenerCount('hurt'), 0);
@@ -152,12 +160,12 @@ test('rule replacement: invalid definitions leave the original rules intact', ()
 // 新列表中后面的实例属于别的单位时，回滚前面已绑定的新规则，旧规则继续生效。
 test('rule replacement: a foreign instance rolls back newly bound rules', () => {
 	const s = setup(),
-		old = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.8, attackRate: 0.2 }] });
-	s.target.setRules([old]);
-	const foreign = new FightRuleHurt({ type: 'hurt', every: 2 });
+		old = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.8, buff: hpBuff(0.2) }] });
+	s.setRules([old]);
+	const foreign = new FightRuleHurt({ type: 'hurt', everyHurt: 2 });
 	s.other.addRule(foreign);
-	const next = new FightRuleHurt({ type: 'hurt', every: 3 });
-	assert.throws(() => s.target.setRules([next, foreign]), /cannot be shared/);
+	const next = new FightRuleHurt({ type: 'hurt', everyHurt: 3 });
+	assert.throws(() => s.setRules([next, foreign]), /cannot be shared/);
 	assert.deepEqual(s.target.rules, [old]);
 	assert.equal(s.target.contextEmitter.listenerCount('hp'), 1);
 	assert.equal(s.target.contextEmitter.listenerCount('hurt'), 0);
@@ -169,8 +177,8 @@ test('rule replacement: a foreign instance rolls back newly bound rules', () => 
 // 新规则初始化中抛错时整组替换失败，清理本次新监听并保持原列表。
 test('rule replacement: initialization failures roll back the entire new set', () => {
 	const s = setup(),
-		old = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.7, attackRate: 0.2 }] });
-	s.target.setRules([old]);
+		old = new FightRuleHp({ type: 'hp', lines: [{ hp: 0.7, buff: hpBuff(0.2) }] });
+	s.setRules([old]);
 	class Broken extends FightRule {
 		protected override onAdded(unit: FightUnit) {
 			this.listen(unit, 'die', () => {});
@@ -178,7 +186,7 @@ test('rule replacement: initialization failures roll back the entire new set', (
 		}
 	}
 	assert.throws(
-		() => s.target.setRules([new FightRuleHurt({ type: 'hurt', every: 2 }), new Broken()]),
+		() => s.setRules([new FightRuleHurt({ type: 'hurt', everyHurt: 2 }), new Broken()]),
 		/phase setup failed/,
 	);
 	assert.deepEqual(s.target.rules, [old]);
@@ -191,10 +199,10 @@ test('rule replacement: initialization failures roll back the entire new set', (
 // AI 支持实例、数据和清空，替换失败时旧 AI 与独立规则均保留。
 test('AI replacement: configure replace and clear without changing rules', () => {
 	const s = setup();
-	s.target.setRules([{ type: 'hurt', every: 2 }]);
+	s.setRules([{ type: 'hurt', everyHurt: 2 }]);
 	s.target.setAI({ type: 'target', career: '医生', pos: 'back' });
 	assert.ok(s.target.ai instanceof FightAITarget);
-	class DefendAI extends FightAI {
+	class DefendAI extends EmptyAI {
 		override waitInput() {
 			return { cmd: FightCmdEnum.defend };
 		}
@@ -203,7 +211,7 @@ test('AI replacement: configure replace and clear without changing rules', () =>
 	s.target.setAI(ai);
 	s.target.inputStart(1, initFightContex(s.fight));
 	assert.equal(s.target.input.cmd, FightCmdEnum.defend);
-	class BrokenAI extends FightAI {
+	class BrokenAI extends EmptyAI {
 		protected override onAdded(unit: FightUnit) {
 			this.listen(unit, 'hp', () => {});
 			throw new Error('AI setup failed');
@@ -224,10 +232,10 @@ test('rule replacement: already inserted actions survive a phase switch', async 
 		rage = 1001600;
 	initSkills([{ ...s.skills[0], id: rage, name: '狂暴攻击', attack: { attack: 50 } }]);
 	s.target.addSkill(rage, 1);
-	s.target.setRules([
+	s.setRules([
 		new FightRuleTurn({
 			type: 'turn',
-			every: 1,
+			everyTurn: 1,
 			skill: chainIds.first,
 			pos: InsertActionPos.first,
 		}),
@@ -237,7 +245,7 @@ test('rule replacement: already inserted actions survive a phase switch', async 
 	s.flush(before);
 	const old = s.loop.actions.find((action) => action.inserted);
 	const bar = structuredClone(s.client.actions);
-	s.target.setRules([{ type: 'turn', every: 1, skill: rage }]);
+	s.setRules([{ type: 'turn', everyTurn: 1, skill: rage }]);
 	assert.ok(s.loop.actions.includes(old));
 	assert.deepEqual(s.client.actions, bar);
 	const messages: fightMsg[] = [];
@@ -265,8 +273,8 @@ test('rule replacement: already inserted actions survive a phase switch', async 
 // 清空规则会终止旧受伤规则尚未执行的即时回调，不影响已经独立进入行动条的行动。
 test('rule replacement: clearing rules cancels their deferred event callbacks', () => {
 	const s = setup();
-	s.target.setRules([{ type: 'hurt', every: 1, skill: chainIds.first }]);
-	s.target.onContex('hurt', () => s.target.clearRules(), 1);
+	s.setRules([{ type: 'hurt', everyHurt: 1, skill: chainIds.first }]);
+	s.target.onContex('hurt', (_unit, ctx) => s.target.clearRules(ctx), 1);
 	const ctx = s.hurt(100);
 	assert.ok(!ctx.msgs.some((msg) => msg[0] === 'aiAttack'));
 	assert.equal(s.actor.getHp(), 1000);

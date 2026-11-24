@@ -1,3 +1,4 @@
+import { hpBuff } from '../../fixtures/hp_buff';
 import { setFightGlobalData } from '../../../src/fight/Fight';
 import { strict as assert } from 'node:assert';
 import {
@@ -96,12 +97,12 @@ export async function runAIReport(
 				{
 					type: 'hp',
 					lines: [
-						{ hp: 0.7, attackRate: 0.2 },
-						{ hp: 0.4, attackRate: 0.3 },
+						{ hp: 0.7, buff: hpBuff(0.16) },
+						{ hp: 0.4, buff: hpBuff(0.4) },
 					],
 				},
-				{ type: 'turn', every: 3, skill: bossSkill },
-				{ type: 'hurt', every: 2 },
+				{ type: 'turn', everyTurn: 3, skill: bossSkill },
+				{ type: 'hurt', everyHurt: 2 },
 			],
 		},
 	]);

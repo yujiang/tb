@@ -45,7 +45,7 @@ export interface FightGlobalData {
 	/** 保护指令施加的已注册 Buff ID，必须 class:protect；缺省保护指令不可用。 */
 	protectBuff?: number;
 
-	/** 缺省false；敌方最后一面盾打破且全体存活单位均破盾后，action 结束开放队伍共享一次大招，每回合最多一次。 */
+	/** 缺省false；敌方最后一面盾打破且全体存活单位均破盾后，完整动作结束后由实际破盾者自动施放装配大招，每队每回合最多一次；无大招或无法施放直接跳过。 */
 	allShieldBreak?: boolean;
 }
 
@@ -136,8 +136,9 @@ export class Fight {
 	private actionInserter?: (
 		unit: FightUnit,
 		input: FightInput,
-		pos: InsertActionPos,
+		pos: InsertActionPos | undefined,
 		ctx?: FightContex,
+		speedRate?: number,
 	) => boolean;
 	setActionInserter(handler: NonNullable<typeof this.actionInserter>) {
 		this.actionInserter = handler;
@@ -148,10 +149,11 @@ export class Fight {
 	insertAction(
 		unit: FightUnit,
 		input: FightInput,
-		pos = InsertActionPos.first,
+		pos?: InsertActionPos,
 		ctx?: FightContex,
+		speedRate?: number,
 	): boolean {
-		return this.actionInserter?.(unit, { ...input }, pos, ctx) ?? false;
+		return this.actionInserter?.(unit, { ...input }, pos, ctx, speedRate) ?? false;
 	}
 	fid: number;
 	// seed为随机数种子
@@ -168,8 +170,8 @@ export class Fight {
 		this.seed = seed;
 		assert.ok(Number.isSafeInteger(seed), 'seed must be a safe integer');
 		this.randomState = seed >>> 0;
-		this.onUnitEvent('break', (unit, ctx, _attacker, allBroken) =>
-			this.onShieldBreak(unit, ctx, allBroken),
+		this.onUnitEvent('break', (unit, ctx, attacker, allBroken) =>
+			this.onShieldBreak(unit, ctx, attacker, allBroken),
 		);
 	}
 
@@ -202,7 +204,7 @@ export class Fight {
 		return this.winSide === FightSideEnum.attack ? FightSideEnum.defend : FightSideEnum.attack;
 	}
 	runaway = false;
-	isRunaway() {
+	canRunaway() {
 		return this.runaway;
 	}
 
@@ -250,32 +252,12 @@ export class Fight {
 		this.ultimate.reset();
 	}
 
-	hasUltimateChance(side: FightSideEnum): boolean {
-		return this.ultimate.hasChance(side);
-	}
-
 	isAllShieldBroken(side: FightSideEnum): boolean {
 		return this.ultimate.isAllShieldBroken(side);
 	}
 
-	onShieldBreak(unit: FightUnit, ctx: FightContex, allBroken?: boolean) {
-		this.ultimate.onShieldBreak(unit, ctx, allBroken);
-	}
-
-	updateUltimate(ctx: FightContex) {
-		this.ultimate.update(ctx);
-	}
-
-	checkUltimate(unit: FightUnit, input: FightInput): boolean {
-		return this.ultimate.check(unit, input);
-	}
-
-	skipUltimate(side: FightSideEnum, ctx: FightContex) {
-		this.ultimate.skip(side, ctx);
-	}
-
-	processUltimate(unit: FightUnit, input: FightInput): FightContex | undefined {
-		return this.ultimate.process(unit, input);
+	onShieldBreak(unit: FightUnit, ctx: FightContex, attacker: FightUnit, allBroken: boolean) {
+		this.ultimate.onShieldBreak(unit, ctx, attacker, allBroken);
 	}
 
 	// 完整动作的反应链结束后、胜负检查前执行；不在动作中时直接执行。
@@ -321,7 +303,9 @@ export class Fight {
 	}
 
 	AllUnits: AllUnitType;
+	private readonly dismissedUids = new Set<number>();
 	createSide(attack: FightSide, des: FightSide) {
+		this.dismissedUids.clear();
 		attack.clearContributions();
 		des.clearContributions();
 		this.Sides = [attack, des];
@@ -508,8 +492,7 @@ export class Fight {
 			if (
 				target &&
 				!target.isDied() &&
-				target.fight === this &&
-				this.getAllUnits().includes(target) &&
+				this.getUnitById(target.uid) &&
 				this.isLegalTarget(unit, target, targetSkill)
 			) {
 				return buff;
@@ -521,6 +504,11 @@ export class Fight {
 
 	// 输入入口按共享配置选择检查模式，显式调用checkOnline/checkPC仍保留各自规则。
 	checkInput(unit: FightUnit, input: FightInput): boolean {
+		if (input?.ultimate) {
+			unit.hintClient('大招由破盾后自动施放');
+			return false;
+		}
+
 		return this.globalData.attackDie
 			? this.checkOnline(unit, input)
 			: this.checkPC(unit, input);
@@ -532,7 +520,7 @@ export class Fight {
 	}
 
 	// PC 立即行动：自身可行动、费用足够、目标能接受效果；检查不抽样、不扣费。
-	checkPC(unit: FightUnit, input: FightInput, ultimate = false): boolean {
+	checkPC(unit: FightUnit, input: FightInput): boolean {
 		if (unit.isDied()) {
 			unit.hintClient('自身已死亡，无法行动');
 			return false;
@@ -543,7 +531,7 @@ export class Fight {
 			return false;
 		}
 
-		if (!this.validateInput(unit, input, ultimate)) return false;
+		if (!this.validateInput(unit, input)) return false;
 
 		const skill = input.cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) : undefined;
 		const cost = skill?.getCost();
@@ -572,7 +560,7 @@ export class Fight {
 			input.target !== undefined &&
 			this.getUnitById(input.target)?.isDied()
 		) {
-			// 只保留通过守尸校验的原始意图，不自动换人；嘲讽和目标复活由执行阶段处理。
+			// 提交阶段保留原始意图；执行前已复活则保留，仍死亡则按未指定目标处理。
 			return this.checkOnline(unit, input) ? { ...input } : undefined;
 		}
 
@@ -643,8 +631,8 @@ export class Fight {
 	}
 
 	// 两种输入共用的基础合法性检查，保留原接口供本地调用及执行复验使用。
-	validateInput(unit: FightUnit, input: FightInput, ultimate = false): boolean {
-		if (!input || this.isEnd() || !this.getAllUnits().includes(unit)) {
+	validateInput(unit: FightUnit, input: FightInput): boolean {
+		if (!input || this.isEnd() || !this.getUnitById(unit.uid)) {
 			return false;
 		}
 
@@ -709,8 +697,8 @@ export class Fight {
 				return false;
 			}
 
-			if (input.skill === unit.ultimateSkill && !ultimate) {
-				unit.hintClient('大招需要通过独立大招输入施放');
+			if (input.skill === unit.ultimateSkill && !input.ultimate) {
+				unit.hintClient('大招由破盾后自动施放');
 				return false;
 			}
 
@@ -773,10 +761,46 @@ export class Fight {
 		return true;
 	}
 
+	// 执行时将已离场、或死亡且不符合技能资格的目标视为未指定，保留原提交指令。
+	prepareActionInput(unit: FightUnit, input: FightInput): FightInput {
+		if (
+			!input ||
+			input.target === undefined ||
+			!Number.isSafeInteger(input.target) ||
+			![FightCmdEnum.none, FightCmdEnum.attack, FightCmdEnum.skill].includes(input.cmd)
+		) {
+			return input;
+		}
+
+		const target = this.getUnitById(input.target);
+		if (!target) {
+			// 只接受确实离场的UID；从未存在的显式ID仍由输入校验拒绝。
+			return this.dismissedUids.has(input.target) ? { ...input, target: undefined } : input;
+		}
+
+		if (!target.isDied()) return input;
+
+		const skill =
+			input.cmd === FightCmdEnum.skill
+				? unit.findSkill(input.skill)
+				: (unit.getAttackSkill() ?? getDefaultSkill());
+		if (!skill || skill.canTarget(target)) {
+			return input;
+		}
+
+		const sel = skill.getSel();
+		const correctSide =
+			sel?.target === TargetSelectEnum.self
+				? target === unit
+				: target.side ===
+					(sel?.target === TargetSelectEnum.friend ? unit.side : EnemySide(unit.side));
+		return correctSide ? { ...input, target: undefined } : input;
+	}
+
 	// 提交后阵营、生命状态和封印都可能变化，执行时重新校验。
 	processUnit(unit: FightUnit, input: FightInput): FightContex {
 		// 收指令时允许死亡，真正轮到行动时必须已经复活。
-		if (this.isEnd() || !this.getAllUnits().includes(unit)) {
+		if (this.isEnd() || !this.getUnitById(unit.uid)) {
 			return;
 		}
 
@@ -801,27 +825,84 @@ export class Fight {
 			};
 		}
 
-		if (!this.validateInput(unit, input, this.ultimate.isCaster(unit))) {
+		input = this.prepareActionInput(unit, input);
+		if (!this.validateInput(unit, input)) {
 			return;
 		}
 
-		return this.resolveAction(() => this.executeUnit(unit, input));
+		return this.executeUnit(unit, input);
 	}
 
-	private executeUnit(unit: FightUnit, input: FightInput): FightContex {
+	executeUnit(unit: FightUnit, input: FightInput): FightContex {
+		return this.resolveAction(() => this._executeUnit(unit, input));
+	}
+
+	exeDismiss(unit: FightUnit, tid: number): FightContex {
+		const target = this.getUnitById(tid);
+		if (!target) return;
+
+		const ctx = { ...initFightContex(this), attack: unit, actionStarted: true };
+		const units = this.getSideUnits(target.side);
+		units.splice(units.indexOf(target), 1);
+		this.dismissedUids.add(target.uid);
+		target.leaveFight();
+		ctx.msgs.push(['dismiss', unit.uid, target.uid]);
+		target.emitContext('dismiss', ctx, unit);
+		return ctx;
+	}
+
+	exeDefend(unit: FightUnit) {
+		unit.doDefend();
+		return { ...initFightContex(this), attack: unit, actionStarted: true };
+	}
+
+	exeRunaway(unit: FightUnit): FightContex {
+		const ctx = { ...initFightContex(this), attack: unit, actionStarted: true };
+		const success = this.randomLess(getRunwayRate(unit.attr.grade ?? 0, this.xls.runawayGrade));
+		ctx.msgs.push(['runaway', unit.uid, success]);
+		if (success) {
+			this.runaway = true;
+			this.setWin(
+				unit.side === FightSideEnum.attack
+					? FightResultEnum.defend
+					: FightResultEnum.attack,
+			);
+		}
+		return ctx;
+	}
+
+	exeProtect(unit: FightUnit, tid: number): FightContex {
+		const des = this.getUnitById(tid);
+		if (!des) return;
+
+		const ctx: FightContex = { fight: this, attack: unit, defend: des, msgs: [], effects: [] };
+		ctx.actionStarted = true;
+		ctx.msgs.push(['protect', unit.uid, des.uid]);
+		des.addBuff(unit, 'protect', this.globalData.protectBuff, 1, ctx);
+		return ctx;
+	}
+
+	_executeUnit(unit: FightUnit, input: FightInput): FightContex {
 		let cmd = input.cmd;
 		let tid = input.target;
-		if (cmd === FightCmdEnum.dismiss) {
-			const target = this.getUnitById(tid);
-			const ctx = { ...initFightContex(this), attack: unit, actionStarted: true };
-			const units = this.getSideUnits(target.side);
-			units.splice(units.indexOf(target), 1);
-			target.leaveFight();
-			ctx.msgs.push(['dismiss', unit.uid, target.uid]);
-			target.emitContext('dismiss', ctx, unit);
-			this.updateUltimate(ctx);
-			return ctx;
+
+		switch (cmd) {
+			case FightCmdEnum.dismiss:
+				return this.exeDismiss(unit, tid);
+			case FightCmdEnum.protect:
+				return this.exeProtect(unit, tid);
+			case FightCmdEnum.defend:
+				return this.exeDefend(unit);
+			case FightCmdEnum.runaway:
+				return this.exeRunaway(unit);
 		}
+		return this.exeSkillAttack(unit, input);
+	}
+
+	//only none, attack, skill below
+	exeSkillAttack(unit: FightUnit, input: FightInput): FightContex {
+		let cmd = input.cmd;
+		let tid = input.target;
 
 		let des = tid !== undefined ? this.getUnitById(tid) : undefined;
 		// 预处理,没有来得及发指令的单位.
@@ -829,30 +910,6 @@ export class Fight {
 			cmd = FightCmdEnum.attack;
 			// des = this.getDefaultEnemy(unit)
 		}
-
-		if (cmd === FightCmdEnum.defend) {
-			unit.doDefend();
-			return { ...initFightContex(this), attack: unit, actionStarted: true };
-		}
-
-		if (cmd === FightCmdEnum.runaway) {
-			const ctx = { ...initFightContex(this), attack: unit, actionStarted: true };
-			const success = this.randomLess(
-				getRunwayRate(unit.attr.grade ?? 0, this.xls.runawayGrade),
-			);
-			ctx.msgs.push(['runaway', unit.uid, success]);
-			if (success) {
-				this.runaway = true;
-				this.setWin(
-					unit.side === FightSideEnum.attack
-						? FightResultEnum.defend
-						: FightResultEnum.attack,
-				);
-				this.updateUltimate(ctx);
-			}
-			return ctx;
-		}
-
 		const actionSkill =
 			cmd === FightCmdEnum.skill
 				? unit.findSkill(input.skill)
@@ -896,35 +953,28 @@ export class Fight {
 			unit.hintClient('没有可用目标');
 			return;
 		}
-
 		const ctx: FightContex = { fight: this, attack: unit, defend: des, msgs: [], effects: [] };
+		return this.exeSkillAttackContext(unit, input, des, ctx);
+	}
 
-		if (cmd === FightCmdEnum.protect) {
-			ctx.actionStarted = true;
-			ctx.msgs.push(['protect', unit.uid, des.uid]);
-			des.addBuff(unit, 'protect', this.globalData.protectBuff, 1, ctx);
+	exeSkillAttackContext(
+		unit: FightUnit,
+		input: FightInput,
+		des: FightUnit,
+		ctx: FightContex,
+	): FightContex {
+		const cmd = input.cmd;
+		if (!this.checkPC(unit, input)) {
 			return ctx;
 		}
 
-		if (cmd == FightCmdEnum.attack) {
-			if (des.isDied()) {
-				unit.hintClient('目标已死亡');
-				return;
-			}
-
-			if (unit.isForbid('attack')) {
-				unit.hintClient('当前无法普通攻击');
-				return;
-			}
-
+		if (cmd == FightCmdEnum.attack || cmd == FightCmdEnum.none) {
 			ctx.actionStarted = true;
 			attackFunc(unit, des, ctx);
 			return ctx;
 		}
 
 		if (cmd == FightCmdEnum.skill) {
-			if (unit.isForbid('skill')) return;
-
 			skillFunc(unit, des, input.skill, ctx);
 			return ctx;
 		}
@@ -982,7 +1032,7 @@ export class Fight {
 	}
 
 	onEnd() {
-		if (!this.isEnd() || this.isRunaway()) {
+		if (!this.isEnd() || this.canRunaway()) {
 			return; //逃跑没有奖励和惩罚。
 		}
 

@@ -20,7 +20,6 @@ export function trySupport(attacker: FightUnit, defender: FightUnit, ctx: FightC
 			(unit) =>
 				unit !== attacker &&
 				unit.side === attacker.side &&
-				unit.fight === fight &&
 				!unit.isDied() &&
 				!unit.isForbid('attack') &&
 				!unit.isForbid('action') &&

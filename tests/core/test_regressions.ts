@@ -619,8 +619,8 @@ test('regression: corpse guarding locks a dead enemy and attacks it if revived b
 	assert.equal(healer.getHp(), 100);
 });
 
-// 测试：守尸目标仍死亡时跳过攻击，不伤害尸体或改选其他目标。
-test('regression: corpse guarding accepts the command but does not damage or retarget a still-dead enemy', () => {
+// 测试：守尸目标仍死亡时按未指定目标选人，不伤害尸体，唯一合法候选不抽样。
+test('regression: corpse guarding retargets a still-dead enemy as if no target was supplied', () => {
 	const { f, u, v } = pair(true, true);
 	v.attr.point.hp = 0;
 	v.die();
@@ -630,8 +630,8 @@ test('regression: corpse guarding accepts the command but does not damage or ret
 		return 0.5;
 	};
 	assert.equal(u.onInput({ cmd: FightCmdEnum.attack, target: v.uid }), true);
-	assert.equal(u.processOneTurn(u.fight.turn), undefined);
+	assert.equal(u.processOneTurn(u.fight.turn)?.defend.uid, 3);
 	assert.equal(v.getHp(), 0);
-	assert.equal(f.getUnitById(3).getHp(), 100);
+	assert.equal(f.getUnitById(3).getHp(), 80);
 	assert.equal(draws, 0);
 });

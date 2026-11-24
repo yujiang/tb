@@ -460,8 +460,8 @@ test('yanyu: an actor sealed while waiting cannot cast the queued skill', async 
 	assert.deepEqual(hints, ['当前无法施放技能']);
 });
 
-// 测试：显式目标在排队期间死亡时丢弃技能，不扣费、不改选其他目标，自动普攻仍可转找敌人。
-test('yanyu: an explicitly targeted corpse invalidates the queued skill without retargeting', async () => {
+// 测试：显式目标在排队期间死亡且不符合技能条件时，出队技能按未指定目标选人并正常扣费。
+test('yanyu: a queued skill treats its now-dead target as unset', async () => {
 	const s = await setup(),
 		gate = barrier(),
 		entered = barrier();
@@ -484,12 +484,23 @@ test('yanyu: an explicitly targeted corpse invalidates the queued skill without 
 	gate.release();
 	await running;
 	assert.equal(await queued, true);
-	assert.equal(s.b.attr.point.mp, 100);
-	assert.ok(!s.messages.some((msg) => msg[0] === 'actor' && msg[3] === 'skill'));
+	assert.equal(s.b.attr.point.mp, 90);
+	assert.ok(
+		s.messages.some((msg) => msg[0] === 'actor' && msg[1] === s.b.uid && msg[3] === 'skill'),
+	);
+	assert.ok(
+		s.messages.some(
+			(msg) =>
+				msg[0] === 'skill' &&
+				msg[1] === skillId &&
+				msg[2] === s.b.uid &&
+				msg[3] === s.d.uid,
+		),
+	);
 	assert.ok(
 		s.messages.some((msg) => msg[0] === 'skill' && msg[2] === s.b.uid && msg[3] === s.d.uid),
 	);
-	assert.deepEqual(hints, ['目标已死亡']);
+	assert.deepEqual(hints, []);
 });
 
 // 测试：技能输入费用不足时提示具体资源，拒绝不扣费、不启动冷却、不广播提示。
@@ -535,9 +546,9 @@ test('yanyu: invalid skill inputs hint reasons while corpse guarding stays legal
 	hints.length = 0;
 	assert.equal(s.a.onInput({ cmd: FightCmdEnum.attack, target: s.c.uid }), true);
 	assert.deepEqual(hints, []);
-	const skipped = s.fight.processUnit(s.a, s.a.input);
-	assert.equal(skipped, undefined);
-	assert.deepEqual(hints, ['目标已死亡']);
+	const retargeted = s.fight.processUnit(s.a, s.a.input);
+	assert.equal(retargeted?.defend.uid, s.d.uid);
+	assert.deepEqual(hints, []);
 });
 
 // 测试：公共主动技能执行时费用不足也提示，避免仅烟雨输入预检有提示。

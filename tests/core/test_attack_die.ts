@@ -51,7 +51,7 @@ for (const [enabled, revive] of [
 	[true, false],
 	[true, true],
 ]) {
-	// 测试：PC按attackDie接受或拒绝守尸，接受后仍锁定原目标；执行前复活则攻击，仍死亡则跳过且不换人。
+	// 测试：PC按attackDie接受或拒绝守尸，执行前复活则攻击原目标，仍死亡则按未指定目标选人。
 	test(`attackDie: PC corpse input enabled=${enabled}, revived=${revive}`, async (t) => {
 		const original = { ...getFightGlobalData() };
 		t.after(() => setFightGlobalData(original));
@@ -99,7 +99,7 @@ for (const [enabled, revive] of [
 		if (!enabled) assert.equal(keptWindow, true);
 
 		assert.equal(s.target.getHp(), revive ? 50 : 0);
-		assert.equal(s.other.getHp(), 1000);
+		assert.equal(s.other.getHp(), enabled && !revive ? 900 : 1000);
 		if (!revive) assert.equal(samples, 0);
 
 		assert.equal(loop.inputUnit, undefined);

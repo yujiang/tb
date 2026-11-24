@@ -71,7 +71,7 @@ export interface FightActionDisplay {
 	skill?: number;
 	/** true表示独立追加行动，缺省表示普通行动；供客户端行动条标注。 */
 	inserted?: boolean;
-	/** 怪物模板额外行动的速度倍率；缺省不是模板额外行动，0有效；实际速度随单位速度变化。 */
+	/** 按速度排序的追加行动倍率（模板extraAction或规则）；非负有限数，0有效；省略则按固定插入位置，实际速度随单位速度变化。 */
 	speedRate?: number;
 }
 
@@ -93,10 +93,12 @@ export interface FightInput {
 	turn?: number;
 	/** 指令枚举：none默认普攻、attack、defend、skill、runaway逃跑、dismiss移除、cancel、protect；runaway/dismiss为普通行动，PC/西游支持，烟雨网络入口不接受；必须由宿主先鉴权。 */
 	cmd: FightCmdEnum;
-	/** cmd=skill时的已学技能ID；独立大招入口可省略，按装备的ultimateSkill推导。 */
+	/** cmd=skill时的已学技能ID；自动大招由内部按装配的ultimateSkill填写，无独立输入入口。 */
 	skill?: number;
-	/** 明确目标的运行uid，0有效；dismiss必填且只接受在场怪物或自己的召唤物；其他指令省略才自动选择，非法明确目标不自动换人。 */
+	/** 明确目标的运行uid，0有效；dismiss必填；普攻/技能执行时未指定、已离场或死亡且不符合技能条件的目标统一按未指定处理，复活技能保留合法尸体；提交时非法明确目标仍拒绝。 */
 	target?: number;
+	/** 内部自动大招执行标记，默认false；普通输入入口拒绝true，宿主不可用此字段申请机会。 */
+	ultimate?: boolean;
 }
 
 /** [配置ID, 等级]；等级0有效，按对应表查找。 */
