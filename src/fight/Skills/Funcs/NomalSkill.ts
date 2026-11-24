@@ -1,6 +1,6 @@
 import { BaseAttack, FightTypeAttr } from '../../FightAttr';
 import { FightUnit } from '../../Unit/FightUnit';
-import { afterHurt, afterSelfBuff } from './Buff';
+import { afterHurt, afterSelfBuff } from './NoHurt';
 import { tryBlood, tryDBack, tryFBack } from '../FightBack';
 import { FightSkill } from '../FightSkill';
 import { FightContex } from '../../Fight';
@@ -8,6 +8,7 @@ import { getSkillData } from '../SkillDatas';
 import { trySupport } from '../FightSupport';
 import { multiFunc } from './Multi';
 import { isDebugReaction } from '../../FightDebug';
+import { canAttack, canUseAttackMovement } from '../AttackChecks';
 
 export type AttackReaction = 'next' | 'combo' | 'kill' | 'fback' | 'support';
 
@@ -70,11 +71,10 @@ export function skillAttack(
 	// assert(skill);
 	const f = ctx.fight;
 	if (
-		attacker.isDied() ||
+		!canAttack(attacker) ||
 		defender.isDied() ||
 		!skill.canTarget(defender) ||
-		attacker.isForbid('attack') ||
-		(!skill.getNoMove() && attacker.isForbid('move'))
+		!canUseAttackMovement(attacker, skill)
 	) {
 		return false;
 	}
@@ -117,10 +117,8 @@ export function skillAttack(
 		magic: ismagic,
 		source: 'skill',
 		noprotect: !skill.canProtect(),
-		weakPoint: defender.isWeakPoint(
-			skill.getXls().skillProp ?? attacker.attr.weaponProp,
-			attacker.attr.weapon,
-		),
+		attackProp: skill.getXls().skillProp ?? attacker.attr.weaponProp,
+		attackWeapon: attacker.attr.weapon,
 	});
 	if (combo && defender === combo.target) {
 		combo.damage += damage;
@@ -261,53 +259,62 @@ export function magicAttackFunc(
 			isDebugReaction(reaction),
 		);
 	}
+	return ctx.fight.resolveAction(() => magicAttack(attacker, defender, magic, ctx, reaction, combo));
+}
 
-	return ctx.fight.resolveAction(() => {
-		const chain = combo ?? (usesCombo(magic) ? { target: defender, damage: 0 } : undefined);
-		const ownsChain = !combo && !!chain;
-		const onDeath = () => {
-			chain.interrupted = true;
-		};
+function magicAttack(
+	attacker: FightUnit,
+	defender: FightUnit,
+	magic: FightSkill,
+	ctx: FightContex,
+	reaction?: AttackReaction,
+	combo?: ComboDamage,
+): boolean
+{
+	const chain = combo ?? (usesCombo(magic) ? { target: defender, damage: 0 } : undefined);
+	const ownsChain = !combo && !!chain;
+	const onDeath = () => {
+		chain.interrupted = true;
+	};
+	if (ownsChain) {
+		attacker.onContex('die', onDeath);
+		defender.onContex('die', onDeath);
+	}
+	try {
+		const rt = skillAttack(attacker, defender, magic, ctx, reaction, chain);
+		if (!rt) return false;
+
+		// 协战、溅射会复用 ctx，先保存本次主目标的实际伤害；连招读取累计伤害。
+		const damage = chain?.damage ?? ctx.damage;
+		if (!attacker.isDied()) {
+			if (!usesCombo(magic) && !chain?.interrupted && magic.canSupport()) {
+				trySupport(attacker, defender, ctx);
+			}
+		}
+		if (!attacker.isDied()) {
+			spread(attacker, defender, magic, ctx, chain);
+			// 只有成功执行到最后一段且双方未死亡，才按末段配置结算整招反伤。
+			if (
+				chain &&
+				!chain.interrupted &&
+				!usesCombo(magic) &&
+				!attacker.isDied() &&
+				!defender.isDied() &&
+				chain.damage > 1 &&
+				magic.canDBack()
+			) {
+				tryDBack(attacker, defender, magic.isMagic(), chain.damage, ctx);
+			}
+			afterSkillAttack(attacker, defender, magic, ctx, chain, damage);
+		}
+		afterSelfBuff(attacker, magic, ctx);
+		return true;
+	} finally {
 		if (ownsChain) {
-			attacker.onContex('die', onDeath);
-			defender.onContex('die', onDeath);
+			attacker.offContex('die', onDeath);
+			defender.offContex('die', onDeath);
 		}
-		try {
-			const rt = skillAttack(attacker, defender, magic, ctx, reaction, chain);
-			if (!rt) return false;
-
-			// 协战、溅射会复用 ctx，先保存本次主目标的实际伤害；连招读取累计伤害。
-			const damage = chain?.damage ?? ctx.damage;
-			if (!attacker.isDied()) {
-				if (!usesCombo(magic) && !chain?.interrupted && magic.canSupport()) {
-					trySupport(attacker, defender, ctx);
-				}
-			}
-			if (!attacker.isDied()) {
-				spread(attacker, defender, magic, ctx, chain);
-				// 只有成功执行到最后一段且双方未死亡，才按末段配置结算整招反伤。
-				if (
-					chain &&
-					!chain.interrupted &&
-					!usesCombo(magic) &&
-					!attacker.isDied() &&
-					!defender.isDied() &&
-					chain.damage > 1 &&
-					magic.canDBack()
-				) {
-					tryDBack(attacker, defender, magic.isMagic(), chain.damage, ctx);
-				}
-				afterSkillAttack(attacker, defender, magic, ctx, chain, damage);
-			}
-			afterSelfBuff(attacker, magic, ctx);
-			return true;
-		} finally {
-			if (ownsChain) {
-				attacker.offContex('die', onDeath);
-				defender.offContex('die', onDeath);
-			}
-		}
-	});
+	}
 }
 
 function spread(

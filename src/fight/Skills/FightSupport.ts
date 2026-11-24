@@ -1,6 +1,21 @@
 import { FightContex } from '../Fight';
 import { FightUnit } from '../Unit/FightUnit';
 import { skillAttackFunc } from './Funcs/NomalSkill';
+import { canAttack, canUseAttackMovement } from './AttackChecks';
+
+function canSupport(unit: FightUnit, attacker: FightUnit, turn: number): boolean {
+	if (
+		unit === attacker ||
+		!canAttack(unit) ||
+		unit.isForbid('action') ||
+		unit.lastSupportTurn === turn
+	) {
+		return false;
+	}
+
+	const skill = unit.getSupportSkill();
+	return skill?.getFunc() === 'normal' && canUseAttackMovement(unit, skill);
+}
 
 // 先选一名队友，再由公共技能流程判定 rand；失败不改选、不多抽一次概率。
 export function trySupport(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
@@ -15,18 +30,8 @@ export function trySupport(attacker: FightUnit, defender: FightUnit, ctx: FightC
 	}
 
 	const candidates = fight
-		.getAllUnits()
-		.filter(
-			(unit) =>
-				unit !== attacker &&
-				unit.side === attacker.side &&
-				!unit.isDied() &&
-				!unit.isForbid('attack') &&
-				!unit.isForbid('action') &&
-				(!unit.isForbid('move') || unit.getSupportSkill()?.getNoMove() === 1) &&
-				unit.lastSupportTurn !== fight.turn &&
-				unit.getSupportSkill()?.getFunc() === 'normal',
-		);
+		.getSideUnits(attacker.side)
+		.filter((unit) => canSupport(unit, attacker, fight.turn));
 	if (!candidates.length) return false;
 
 	const supporter = candidates.length === 1 ? candidates[0] : fight.randArray(candidates);

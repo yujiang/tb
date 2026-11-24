@@ -15,13 +15,9 @@ export class BuffProtect extends FightBuff {
 	}
 
 	override onEvent(unit: FightUnit, ctx: FightContex, attacker: FightUnit, pending: PendingHurt) {
-		if (
-			unit.findBuff(this.getId()) !== this ||
-			unit.isDied() ||
-			pending.cancelled ||
-			pending.shared ||
+		if (this.isHpPendingInvalid(unit,pending) || 
 			pending.source !== 'skill' ||
-			pending.noprotect
+			pending.noprotect  //禁止分担
 		) {
 			return;
 		}
@@ -32,7 +28,7 @@ export class BuffProtect extends FightBuff {
 			protector === unit ||
 			protector.isDied() ||
 			protector.side !== unit.side ||
-			!ctx.fight.getUnitById(protector.uid)
+			!ctx.fight.hasUnit(protector.uid)
 		) {
 			return;
 		}

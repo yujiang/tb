@@ -32,20 +32,20 @@ for (const xls of [
 }
 
 for (const xls of [
-	{ type: 'hp', lines: [], custom: { phase: 1 } },
-	{ type: 'turn', everyTurn: 2, skill: 1, pos: InsertActionPos.last, prior: 5, custom: false },
-	{ type: 'hurt', everyHurt: 3, custom: 0 },
+	{ type: 'hp', lines: [] },
+	{ type: 'turn', everyTurn: 2, skill: 1, pos: InsertActionPos.last, prior: 5 },
+	{ type: 'hurt', everyHurt: 3 },
+	{ type: 'shieldAdd', shieldAdd: 3 },
 ] as RuleData[]) {
-	// 测试：各规则由工厂接收完整平铺xls，公共字段和宿主custom不因拆分构造参数而丢失。
+	// 测试：规则工厂接收完整平铺配置并保留各规则的显式字段。
 	test(`Rule xls: ${xls.type} retains its complete flat configuration`, () => {
 		const rule = createRule(xls);
 		assert.equal(rule.getXls(), xls);
-		assert.equal(rule.getXls().custom, xls.custom);
 	});
 }
 
-// 测试：自定义AI由具体测试类提供默认配置，Rule仍可无参创建；没有配置时读取结果为undefined。
+// 测试：自定义AI的条件参数默认省略，Rule无参构造时保留默认类型。
 test('xls: programmatic base classes have safe default configuration', () => {
 	assert.equal(new EmptyAI().getXls().condData, undefined);
-	assert.equal(new FightRule().getXls().custom, undefined);
+	assert.deepEqual(new FightRule().getXls(), { type: 'custom' });
 });

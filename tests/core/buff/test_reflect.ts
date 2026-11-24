@@ -346,7 +346,7 @@ test('reflect: receiving a heal at full HP still transfers the heal before cappi
 
 // 测试：显式关闭仅反射魔法的限制后，物理伤害也能被反射。
 test('reflect: magic-only can be disabled explicitly for physical damage', () => {
-	const { caster, holder, cast } = setup({ classParam: { magicOnly: false } });
+	const { caster, holder, cast } = setup({ reflectMagicOnly: false });
 	cast(physicalId);
 	assert.equal(holder.getHp(), 150);
 	assert.equal(caster.getHp(), 70);
@@ -412,7 +412,7 @@ test("reflect: retained reflection does not transfer automatic revival's HP rest
 			id: 97904,
 			name: '自动复活',
 			class: 'relife',
-			classParam: 0.5,
+			relifeRatio: 0.5,
 			event: 'die',
 			times: 1,
 			prior: 1000,

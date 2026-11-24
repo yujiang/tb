@@ -39,6 +39,8 @@ export interface HurtOptions {
 	reflected?: boolean; // 已反射的伤害不再次反射
 	source?: HurtSource; // 默认 skill（含普攻）；其他伤害来源不能触发保护
 	noprotect?: boolean; // 禁止本次伤害被保护分担，省略为 false
+	attackProp?: PropEnum; // 本次生效的攻击五行
+	attackWeapon?: WeaponEnum; // 本次生效的攻击兵器
 	weakPoint?: boolean; // 本次公式命中了受伤者的弱点，供破盾使用，不从 ctx 的展示标记推断
 }
 
@@ -103,8 +105,11 @@ export abstract class FightUnit {
 
 	startFight(f: Fight) {
 		this.skillCds.clear();
+		this.revealedWeakProp.length = 0;
+		this.revealedWeakWeapon.length = 0;
 		this.attr.shield = this.attrOri.shield;
 		this.lastShieldBreakTurn = -1;
+		this.shieldMax = undefined;
 		this.speedRand = this.getSpeed() * (f.random() * 0.2 - 0.1);
 	}
 	endFight() {}
@@ -202,10 +207,11 @@ export abstract class FightUnit {
 		if (this.isDefend()) {
 			hp *= 0.5;
 		}
-		// 扣掉最后一格的这一击已按破盾处理；先算半伤，让保护、不屈等看到正确的伤害。
+		// 有盾时仅非弱点伤害减半，保护、不屈等读取减伤后的数值。
 		const shield = this.hasShield() ? this.attr.shield : undefined;
-		const breaksShield = options.weakPoint && shield === 1;
-		if (shield > 0 && !breaksShield) {
+		const weakPoint =
+			options.weakPoint ?? this.isWeakPoint(options.attackProp, options.attackWeapon);
+		if (shield > 0 && !weakPoint) {
 			hp *= 0.5;
 		}
 		// 来源单位的伤害上限与调试限伤取较小值，受伤前效果也应看到限伤后的伤害。
@@ -216,10 +222,19 @@ export abstract class FightUnit {
 		}
 		if (hurtLimit > 0) hp = Math.min(hp, hurtLimit);
 
-		const pending: PendingHurt = { ...options, source: options.source ?? 'skill', damage: hp };
+		const pending: PendingHurt = {
+			...options,
+			source: options.source ?? 'skill',
+			weakPoint,
+			damage: hp,
+		};
 		this.emitContext('beforeHurt', ctx, attacker, pending);
 		if (pending.cancelled || this.isDied()) {
 			return 0;
+		}
+
+		if (pending.weakPoint && pending.damage >= 1) {
+			this.revealWeakness(options.attackProp, options.attackWeapon, ctx);
 		}
 
 		if (shield > 0 && pending.weakPoint && pending.damage >= 1) {
@@ -227,9 +242,13 @@ export abstract class FightUnit {
 			if (this.attr.shield === 0) {
 				this.lastShieldBreakTurn = ctx.fight.turn;
 			}
-			ctx.msgs.push(['shield', this.uid, this.attr.shield]);
-			if (this.attr.shield === 0)
+			const shieldMsg: FightContex['msgs'][number] = ['shield', this.uid, this.attr.shield];
+			ctx.msgs.push(shieldMsg);
+			if (this.attr.shield === 0) {
+				const max = this.shieldMax;
 				this.emitContext('break', ctx, attacker, ctx.fight.isAllShieldBroken(this.side));
+				if (this.shieldMax !== max) shieldMsg.push(null, this.shieldMax);
+			}
 		}
 		if (pending.share) {
 			const share = pending.share;
@@ -409,9 +428,53 @@ export abstract class FightUnit {
 		return UnitType.monster == this.type;
 	}
 	private lastShieldBreakTurn = -1;
+	private shieldMax?: number;
+
+	/** 在破盾事件中更新回盾上限，当前盾仍保持破盾状态。 */
+	setShieldMax(layers: number) {
+		this.shieldMax = layers;
+	}
 	private hasShield() {
 		return this.isMonster() && this.attr.shield !== undefined;
 	}
+	private revealedWeakProp: PropEnum[] = [];
+	private revealedWeakWeapon: WeaponEnum[] = [];
+
+	/** 一次同步本单位当前的完整弱点列表，包括已揭示项。 */
+	revealAllWeaknesses(ctx: FightContex) {
+		this.revealedWeakProp = this.isMonster()
+			? [...new Set(this.attr.weakProp)].filter((prop) => prop !== PropEnum.none)
+			: [];
+		this.revealedWeakWeapon = this.isMonster()
+			? [...new Set(this.attr.weakWeapon)].filter((weapon) => weapon !== WeaponEnum.none)
+			: [];
+		ctx.msgs.push([
+			'weaknessAll',
+			this.uid,
+			[...this.revealedWeakProp],
+			[...this.revealedWeakWeapon],
+		]);
+	}
+
+	private revealWeakness(
+		prop: PropEnum | undefined,
+		weapon: WeaponEnum | undefined,
+		ctx: FightContex,
+	) {
+		if (prop !== undefined && this.isWeakPoint(prop) && !this.revealedWeakProp.includes(prop)) {
+			this.revealedWeakProp.push(prop);
+			ctx.msgs.push(['weakness', this.uid, 'prop', prop]);
+		}
+		if (
+			weapon !== undefined &&
+			this.isWeakPoint(PropEnum.none, weapon) &&
+			!this.revealedWeakWeapon.includes(weapon)
+		) {
+			this.revealedWeakWeapon.push(weapon);
+			ctx.msgs.push(['weakness', this.uid, 'weapon', weapon]);
+		}
+	}
+
 	isWeakPoint(property: PropEnum, weapon: WeaponEnum = WeaponEnum.none): boolean {
 		if (!this.isMonster()) return false;
 
@@ -422,10 +485,12 @@ export abstract class FightUnit {
 		const weaponMatch = weapon !== WeaponEnum.none && this.attr.weakWeapon?.includes(weapon);
 		return !!(propMatch || weaponMatch);
 	}
-	// NPC 配置弱点后直接匹配，不与人物相克叠加；未配置弱点仍沿用原规则。
+	// 带弱点盾的 NPC 通过护盾减伤体现弱点；无盾 NPC 保留原有弱点倍率。
 	getHurtMul(property: PropEnum, weapon: WeaponEnum = WeaponEnum.none): number {
 		const { weakProp, weakWeapon } = this.attr;
 		if (this.isMonster() && (weakProp !== undefined || weakWeapon !== undefined)) {
+			if (this.hasShield()) return 1;
+
 			return this.isWeakPoint(property, weapon) ? 1.5 : 1;
 		}
 
@@ -443,9 +508,9 @@ export abstract class FightUnit {
 			this.hasShield() &&
 			this.attr.shield === 0 &&
 			this.lastShieldBreakTurn < turn &&
-			this.attrOri.shield > 0
+			(this.shieldMax ?? this.attrOri.shield) > 0
 		) {
-			this.attr.shield = this.attrOri.shield;
+			this.attr.shield = this.shieldMax ?? this.attrOri.shield;
 			ctx.msgs.push(['shield', this.uid, this.attr.shield, 'recover']);
 		}
 		this.onBuffTurn(turn, BuffTurnEnum.thisTurn, ctx);
@@ -915,7 +980,13 @@ export abstract class FightUnit {
 			// 被动技能不传输，但是buff要传
 			buffs,
 			...(this.hasShield()
-				? { shield: this.attr.shield, shieldMax: this.attrOri.shield }
+				? { shield: this.attr.shield, shieldMax: this.shieldMax ?? this.attrOri.shield }
+				: {}),
+			...(this.revealedWeakProp.length
+				? { revealedWeakProp: [...this.revealedWeakProp] }
+				: {}),
+			...(this.revealedWeakWeapon.length
+				? { revealedWeakWeapon: [...this.revealedWeakWeapon] }
 				: {}),
 			...(this.skillCds.size ? { skillCds: [...this.skillCds] } : {}),
 		};

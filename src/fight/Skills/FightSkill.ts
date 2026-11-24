@@ -91,6 +91,9 @@ export class FightSkill {
 	getNoMove() {
 		return this.xls.nomove ?? 0;
 	}
+	isMove() {
+		return !this.getNoMove();
+	}
 	isMagic() {
 		return this.xls.magic;
 	}

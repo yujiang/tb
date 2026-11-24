@@ -41,9 +41,9 @@ tb = turnbase 回合制
 
 属性相克与相生使用 `PropEnum.none/金/木/水/火/土`，单位的 `FightAttr.charProp` 和 `weaponProp` 默认无属性，技能用 `skillProp` 覆盖。攻击及毒伤取 `skillProp ?? 施放者.weaponProp`，治疗取 `skillProp ?? 施放者.charProp`，默认目标取 `charProp`；NPC 配置弱点后，受伤改用下述弱点规则，治疗仍取 `charProp`；显式 `none` 不回退。相克采用传统五行“金→木→土→水→火→金”，相生按“金→水→木→火→土→金”，关系函数命中时返回 1.5，其余为 1。攻击伤害将相克加成与 damageRate 加法合并：基础公式伤害（含免伤）× (damageRate + 相克倍率 - 1 + 暴击加成)，相克固定加 0.5；治疗合并 healRate、相生与暴击加成，毒伤合并 poisonRate 与相克加成，毒伤不判暴击。均在资源实际变化之前应用。普通攻击、各类子技能及周期效果均使用真实施放者，复活、吸血及已经计算好的反伤/反射/分担数值不重复乘属性倍率。旧 `BaseAttack.property` 已移除。详细规则见 `document/技能.md`，回归测试为 `tests/core/skill/test_properties.ts`。
 
-NPC 的弱点分为 `weakProp?: PropEnum[]`（五行）和 `weakWeapon?: WeaponEnum[]`（兵器）。例如 `weakProp: [PropEnum.火]`、`weakWeapon: [WeaponEnum.刀]` 表示怕火或怕刀，直接匹配攻击属性或真实施放者的兵器，命中任一弱点给伤害或毒伤倍率加 0.5，多个命中不叠加，沿用 `克` 效果标记。任一列表已配置时替代该 NPC 的受伤相克；空列表没有弱点，两者都未配置时仍使用人物相克。玩家、召唤物及治疗相生的规则不变。旧混合 `WeakPoint` 类型和 `weakPoint` 字段已替换，枚举数值未调整。
+NPC 的弱点分为 `weakProp?: PropEnum[]`（五行）和 `weakWeapon?: WeaponEnum[]`（兵器）。例如 `weakProp: [PropEnum.火]`、`weakWeapon: [WeaponEnum.刀]` 表示怕火或怕刀，直接匹配攻击属性或真实施放者的兵器，无弱点盾的 NPC 命中任一弱点时给伤害或毒伤倍率加 0.5，多个命中不叠加。启用弱点盾的 NPC 通过盾减伤体现弱点。任一列表已配置时替代该 NPC 的受伤相克；空列表没有弱点，两者都未配置时仍使用人物相克。玩家、召唤物及治疗相生的规则不变。旧混合 `WeakPoint` 类型和 `weakPoint` 字段已替换，枚举数值未调整。
 
-NPC 可配置 `FightAttr.shield` 开启弱点盾，`undefined` 不启用，`0` 表示已破盾。`attrOri.shield` 是初始及回满格数，`attr.shield` 是当前格数。一次有效弱点命中只扣一格，五行、兵器同时命中不重复扣；攻击及主动/周期毒伤使用真实施放者判断弱点，未命中、未发动、被取消的伤害不扣盾。盾仍大于 0 时伤害减半；扣到 0 的这一击按全伤结算，立即进入眩晕，连招后续段也读取破盾状态。反伤、反射、分担不扣盾，但仍受其实际受伤者的盾减伤；吸血、反伤使用半伤后的实际扣血。
+NPC 可配置 `FightAttr.shield` 开启弱点盾，`undefined` 不启用，`0` 表示已破盾。`attrOri.shield` 是初始上限，破盾成长可提高本场回满格数，`attr.shield` 是当前格数。一次有效弱点命中只扣一格，五行、兵器同时命中不重复扣；攻击及主动/周期毒伤使用真实施放者判断弱点，未命中、未发动、被取消的伤害不扣盾。盾大于 0 时，非弱点伤害减半，弱点命中按原伤结算。扣到 0 时立即眩晕，破盾期间所有命中都按原伤结算。反伤、反射、分担不扣盾，但仍受其实际受伤者的盾减伤；吸血、反伤使用半伤后的实际扣血。
 
 只有破盾后才在下个全局回合的 `processBeforeTurn()` 回满，未破的盾保留剩余格数，同回合重复处理不恢复；回盾解除盾造成的眩晕，其他 Buff 的眩晕仍有效。属性重算和死亡不补盾，新战斗初始化重置。单位展示数据增加可选 `shield/shieldMax`，变化通过 `["shield", uid, current, "recover"?]` 发送，恢复时才带 `"recover"`；客户端校验包含盾状态，简报显示扣盾、破盾和回盾。测试见 `tests/core/skill/test_shield.ts`。
 
@@ -172,9 +172,9 @@ const result = await loop.run();
 
 为保持场面清晰，建议填表时仅让单一主目标触发协战和保护：群攻技能及溅射子技能填写 `nosupport: true, noprotect: true`，单体主技能按需配置。这是填表建议，程序不因群攻或溅射身份强制关闭能力；禁止字段省略或 `false` 时不额外禁止。群攻拆成逐目标结算时保留原配置，溅射子技能独立读取自己的配置，后续链接的子技能也应逐个检查。溅射仍保留原来的单次攻击结算流程。
 
-`initSkills` 在整批注册后用中文 `console.warn` 提醒填表问题，包含技能名称、ID 和具体字段，只告警、不改配置、不阻止注册。检查 `num > 1` 时 `sel.target` 是否为 `friend/enemy`（群体仅支持这两种目标类型），群攻/溅射的 `nosupport/noprotect`，协战及后续攻击链的 `nofback/nodback`，协战根技能的攻击类 `func`，大招的 `noprotect`，主攻击及 `heal/poison/relife/nohurt` 一般建议的 `rand: 1`，以及同时填写 `next/combo` 的歧义。角色从已注册技能表的引用识别；未被引用为子技能、协战或反击的攻击类技能按主攻击建议检查。跨批次可识别已有引用，不报告无关旧行；被动、怪物表或运行时才装配的技能角色，单靠 `initSkills` 无法识别。
+`initSkills` 在整批注册后用中文 `console.warn` 提醒填表问题，包含技能名称、ID 和具体字段，只告警、不改配置、不阻止注册。检查 `num > 1` 时 `sel.target` 是否为 `friend/enemy`（群体仅支持这两种目标类型），群攻/溅射的 `nosupport/noprotect`，协战及后续攻击链的 `nofback/nodback`，协战根技能的攻击类 `func`，大招的 `noprotect`，主攻击及 `heal/poison/relife/nohurt/observe` 一般建议的 `rand: 1`，以及同时填写 `next/combo` 的歧义。角色从已注册技能表的引用识别；未被引用为子技能、协战或反击的攻击类技能按主攻击建议检查。跨批次可识别已有引用，不报告无关旧行；被动、怪物表或运行时才装配的技能角色，单靠 `initSkills` 无法识别。
 
-单体 `heal/poison/relife/nohurt` 在扣费及启动 CD 后、执行效果前判一次发动概率；群体仍整组判一次，不按目标重复判定。`rand: 0` 必定不发动，`rand: 1` 必定发动，两者不抽取概率随机数。失败发送 `skillFailed`，仍消耗费用/CD，不执行效果、溅射或施放后自身 Buff；受有效嘲讽约束时仍消耗该次嘲讽。周期 Buff 的治疗/毒伤不走主动技能概率判定。此前单体非攻击技能遗漏此判定，修正后配置 `0 < rand < 1` 会增加一次随机抽样，相同旧种子的后续结果可能变化；一般技能建议填 1。
+单体 `heal/poison/relife/nohurt/observe` 在扣费及启动 CD 后、执行效果前判一次发动概率；群体仍整组判一次，不按目标重复判定。`rand: 0` 必定不发动，`rand: 1` 必定发动，两者不抽取概率随机数。失败发送 `skillFailed`，仍消耗费用/CD，不执行效果、溅射或施放后自身 Buff；受有效嘲讽约束时仍消耗该次嘲讽。周期 Buff 的治疗/毒伤不走主动技能概率判定。此前单体非攻击技能遗漏此判定，修正后配置 `0 < rand < 1` 会增加一次随机抽样，相同旧种子的后续结果可能变化；一般技能建议填 1。
 
 - 两个敌对阵营、固定站位、对位及数量/横线/竖线/十字选目标。
 - 普通攻击、防御、技能费用、治疗、中毒伤害、复活、状态和属性 Buff。
@@ -225,12 +225,12 @@ Buff 配置 `class: "buqu"` 创建 `BuffBuqu`，省略 `class` 仍创建普通 `
 
 不屈触发发送 `["buffTrigger", unitId, buffId, "buqu"]`，然后发送 `removeBuff` 和实际扣血的 `hurt` 消息；客户端据此增量更新，简报显示 `[不屈]触发（保留 1 点生命）`。不发送死亡或治疗消息，吸血、反伤和贡献统计都使用实际扣血值。楚楚可怜的性别条件效果尚未实现，可通过同一 `beforeHurt` 扩展点接入。
 
-自动复活配置 `class: "relife"` 创建 `BuffRelife`。它固定监听 `die`，默认 `prior: 1000`、每场成功触发一次；`classParam` 为自身最大生命的恢复比例，省略默认 `0.2`，合法范围为数值 `(0, 1]`，恢复量向下取整且至少 1 血。必须设置 `dieNotRemove: true`，否则该 Buff 会按正常规则在死亡清理阶段移除，无法收到死亡事件。配置要点如下（其他通用字段照常填写）：
+自动复活配置 `class: "relife"` 创建 `BuffRelife`。它固定监听 `die`，默认 `prior: 1000`、每场成功触发一次；`relifeRatio` 为自身最大生命的恢复比例，省略默认 `0.2`，合法范围为数值 `(0, 1]`，恢复量向下取整且至少 1 血。必须设置 `dieNotRemove: true`，否则该 Buff 会按正常规则在死亡清理阶段移除，无法收到死亡事件。配置要点如下（其他通用字段照常填写）：
 
 ```ts
 {
     class: "relife",
-    classParam: 0.3, // 复活到自身最大生命的 30%
+    relifeRatio: 0.3, // 复活到自身最大生命的 30%
     event: "die",
     prior: 1000,
     times: 1,
@@ -271,14 +271,14 @@ Buff 配置 `class: "buqu"` 创建 `BuffBuqu`，省略 `class` 仍创建普通 `
 ```ts
 {
     class: "reflect",
-    classParam: { magicOnly: true }, // 默认 true；false 时魔法、物理均反射
+    reflectMagicOnly: true, // 默认 true；false 时魔法、物理均反射
     prior: 0,                      // 应在不屈等最终致命伤害拦截之前
     times: 0,                      // 不限次数；正数按实际拦截次数消耗
     lastTurn: 2,
 }
 ```
 
-收到普通治疗时，反射者不回血，治疗量在自身满血截断之前转交给随机一个存活敌人，归因于反射者；接收者仍受自身生命上限及禁疗状态约束。随机选择统一使用 `Fight.random()`，只选择一次；无存活敌人时保留原治疗，不抽样。`magicOnly` 只限制伤害，治疗始终参与转移。复活恢复生命使用 `onHeal(..., {revive: true})`，技能复活和自动复活已传递此标记，该恢复不参与转移，避免出现已经复活却仍为零血的单位。
+收到普通治疗时，反射者不回血，治疗量在自身满血截断之前转交给随机一个存活敌人，归因于反射者；接收者仍受自身生命上限及禁疗状态约束。随机选择统一使用 `Fight.random()`，只选择一次；无存活敌人时保留原治疗，不抽样。`reflectMagicOnly` 只限制伤害，治疗始终参与转移。复活恢复生命使用 `onHeal(..., {revive: true})`，技能复活和自动复活已传递此标记，该恢复不参与转移，避免出现已经复活却仍为零血的单位。
 
 已反射的伤害或治疗携带本次效果的 `reflected: true`，不会被接收者再次反射；没有新建战斗上下文，转移使用原动作上下文并经过 `resolveAction`，仍受全局嵌套反应上限约束。`times` 为正时，伤害和治疗共用次数，物理伤害在仅反射魔法模式下不消耗；被转移到禁疗或满血目标也算一次拦截。替换、驱散、到期、次数耗尽和死亡清理都会解绑两个监听，`dieNotRemove` 等字段仍按原规则处理。客户端接收最终目标的 `hurt/heal`、Buff 增删与 `buffTimes` 次数消息；简报用 `buffTrigger` 说明转移去向，并显示反射伤害/反射治疗，不使用 `sync`。
 
@@ -430,7 +430,7 @@ monster.addRule(new FightRuleTurn({ type: "turn", everyTurn: 3, skill: skillId, 
 monster.addRule(new FightRuleHurt({ type: "hurt", everyHurt: 3 }));
 ```
 
-血轴配置改为`{ hp, buff: [BuffID, 等级] }`，Buff需先注册，ID为正安全整数，等级为非负安全整数，0级有效。血线配置按hp严格递减填写，不做运行时排序；切换时先强制移除本规则上一阶段的Buff（不受notRemove/power限制），再添加新Buff；同ID也先移除旧实例再添加新等级。一次跨多条血线直接进入当前血量对应的最深阶段，只添加该阶段Buff；跳过的阶段不添加、不移除，也不发送阶段消息，不再累计attackRate。属性、状态、持续时间、死亡保留等全部由Buff配置；仍监听真实hp变化，因此保护分担和生命费用也会触发。回血不回退阶段，Buff到期/驱散后不会重过旧血线补加；需要复活后保留效果时配置dieNotRemove。阶段Buff走公共增删、属性重算和客户端消息，不修改attrOri。受伤轴只累计实际扣血的 `source: "skill"` 直接攻击，受伤时禁止 `attack` 就不计次；Buff、反伤、反射、分担和零伤害不计。达到次数后在完整 action 结束时复查双方存活、阵营、休息和禁止攻击。默认使用装配普攻，指定技能要求已学攻击类技能，使用基础攻击属性，不走 fback，不额外支付主动费用/CD，也不推进 inputTurn。即时新攻击可触发对方受伤规则，共享原反应上限。血轴表现消息改为`['aiHp', uid, hp血线, BuffID, 等级]`；Buff增删消息严格先removeBuff再addBuff。受伤规则aiAttack消息不变。
+血轴配置改为`{ hp, buff: [BuffID, 等级] }`，Buff需先注册，ID为正安全整数，等级为非负安全整数，0级有效。血线配置按hp严格递减填写，不做运行时排序；切换时先强制移除本规则上一阶段的Buff（不受notRemove/power限制），再添加新Buff；同ID也先移除旧实例再添加新等级。一次跨多条血线直接进入当前血量对应的最深阶段，只添加该阶段Buff；跳过的阶段不添加、不移除，也不发送阶段消息，不再累计attackRate。属性、状态、持续时间、死亡保留等全部由Buff配置；仍监听真实hp变化，因此保护分担和生命费用也会触发。回血不回退阶段，Buff到期/驱散后不会重过旧血线补加；需要复活后保留效果时配置dieNotRemove。阶段Buff走公共增删、属性重算和客户端消息，不修改attrOri。受伤轴只累计实际扣血的 `source: "skill"` 直接攻击，受伤时禁止 `attack` 就不计次；Buff、反伤、反射、分担和零伤害不计。达到次数后在完整 action 结束时复查双方存活、阵营、休息和禁止攻击。默认使用装配普攻，指定技能需已学，按普通技能规则校验和执行费用、冷却；填表省略费用和冷却则不消耗。受伤规则不走 fback，也不推进 inputTurn。即时新攻击可触发对方受伤规则，共享原反应上限。血轴表现消息改为`['aiHp', uid, hp血线, BuffID, 等级]`；Buff增删消息严格先removeBuff再addBuff。受伤规则aiAttack消息不变。
 
 回合规则在全局 `processBeforeTurn` 登记额外行动，每条规则每回合最多成功登记一次。多条回合规则可以分别插入，普通行动不被替换。登记时和执行前均检查状态、目标、CD、资源；施放时复用公共技能管线及怪物原有资源规则，CD 正常生效。技能应已学，且独立于全体破盾的 ultimateSkill 槽。追加行动不调用 inputStart，不重复触发输入周期 Buff 或推进 inputTurn。
 
@@ -438,7 +438,7 @@ monster.addRule(new FightRuleHurt({ type: "hurt", everyHurt: 3 }));
 
 ### 插入行动与行动条
 
-`fight.insertAction(unit, input, pos?, ctx?, speedRate?)` 或 `loop.insertAction(...)` 插入独立行动，返回是否接受。`InsertActionPos` 包含 `first`（默认）、`last`、`random`、`afterSelf`。随机间隙只用 `Fight.random()`；相同固定位置保持提交顺序。afterSelf 在自己当前行动或下一条普通行动后插入，自己的普通行动已完成则回退队首；不打断正在执行的完整 action。普通行动因速度变化重排时，afterSelf 项仍跟随所属普通行动，未带倍率的其他插入项不参与速度竞争。未指定pos且提供speedRate时，按当前速度×倍率插入并随速度重排（0有效）；显式pos优先，忽略倍率。规则通过这一入口传入倍率，仍不推进输入次数或集气。每回合最多接受 64 次插入，超限抛错；取消不返还上限。
+`fight.insertAction(unit, input, pos?, speedRate?, ctx?)` 或 `loop.insertAction(unit, input, pos?, ctx?, speedRate?)` 插入独立行动，返回是否接受。`InsertActionPos` 包含 `first`（默认）、`last`、`random`、`afterSelf`。随机间隙只用 `Fight.random()`；相同固定位置保持提交顺序。afterSelf 在自己当前行动或下一条普通行动后插入，自己的普通行动已完成则回退队首；不打断正在执行的完整 action。普通行动因速度变化重排时，afterSelf 项仍跟随所属普通行动，未带倍率的其他插入项不参与速度竞争。未指定pos且提供speedRate时，按当前速度×倍率插入并随速度重排（0有效）；显式pos优先，忽略倍率。规则通过这一入口传入倍率，仍不推进输入次数或集气。每回合最多接受 64 次插入，超限抛错；取消不返还上限。
 
 队列现为 `FightAction` 记录，包含独立 id、unit、复制保存的 input 和 inserted。`loop.actions` 可读取记录，`loop.cancelAction(id)` 可取消追加行动并同步；`processUnits` 保留单位列表的读取及整体赋值接口，直接修改读取结果不会改动内部队列。追加行动取消、状态失效或目标死亡时只移除对应记录；切换回合、结束战斗会清理剩余项。需要与当前结算消息一起发送时传 ctx，避免行动条先于本次资源变化同步。
 
@@ -450,7 +450,7 @@ monster.addRule(new FightRuleHurt({ type: "hurt", everyHurt: 3 }));
 
 `MonsterData` 保存怪物模板：`id/name/character`、`attr: FightAttr`、`skills/passiveSkills`、`attackSkill/fbackSkill/supportSkill/ultimateSkill/inputSkill`、单个 `ai: AIData` 和 `rules: RuleData[]`。`CreateMonsterSide` 一次完成 AI、规则及被动装配，不要求宿主生成后再逐只绑定。模板不保存战斗 `uid` 或站位。同一模板 ID 可以反复生成，运行单位用 `monsterId` 保留来源 ID。属性既可提供 FightAttr 实例，也可由表加载为同结构的 JSON 对象，生成时恢复为 FightAttr 并深拷贝。
 
-`AIData` 使用平铺字段 `type/skill/self/contributions/friend/career/pos/cond/condData`，工厂只内置 `target`（FightAITarget）。旧cond类型合并为target配置：`self: true, cond: "hpLow", condData: 0.5, skill: healId`。条件先判断；不配置cond时直接选人，self优先于贡献和职业/站位筛选；技能省略使用普攻。条件可以和任意选人策略组合，参数通过condData提供，不再使用custom/getCustom。完整字段见[怪物与行为字典](document/wiki/怪物与行为.md)。`RuleData` 使用一个平铺结构：`type: string` 加可选的 `prior/lines/everyTurn/everyHurt/skill/pos/speedRate/custom`，便于XLS固定列，各规则按类型校验和读取适用字段。支持 `{ type: "hp", lines, prior? }`、`{ type: "turn", everyTurn, skill, pos?, speedRate?, prior? }`、`{ type: "hurt", everyHurt, skill?, prior? }`，由 `createRule` 创建多条规则。每只怪物的 AI、Rule 均为独立实例。具体类创建集中在 `AI/AIFactory.ts` 和 `Rules/RuleFactory.ts`，与 Buff 工厂一致；可从 `FightAI`/`FightRule` 模块导入 `createAI`/`createRule`，原 `AIDatas`/`RuleDatas` 导入路径及包入口继续可用，数据类型使用 `import type`。技能用 `[id, level]` 明确学习，AI、Rule 或装配不会自动学习技能。生成顺序为属性/显示、学习技能、初始化被动、显式装配、绑定规则与 AI；显式装配包括 0 会覆盖被动，省略则保留被动装配。初始生命为 0 时生成死亡单位并执行普通死亡清理。
+`AIData` 使用平铺字段 `type/skill/self/contributions/friend/career/pos/cond/condData`，工厂只内置 `target`（FightAITarget）。旧cond类型合并为target配置：`self: true, cond: "hpLow", condData: 0.5, skill: healId`。条件先判断；不配置cond时直接选人，self优先于贡献和职业/站位筛选；技能省略使用普攻。条件可以和任意选人策略组合，参数通过condData提供，不再使用custom/getCustom。完整字段见[怪物与行为字典](document/wiki/怪物与行为.md)。`RuleData` 使用一个平铺结构：`type: string` 加可选的 `prior/lines/everyTurn/everyHurt/skill/pos/speedRate/shieldAdd`，便于XLS固定列，各规则按类型校验和读取适用字段。支持 `{ type: "hp", lines, prior? }`、`{ type: "turn", everyTurn, skill, pos?, speedRate?, prior? }`、`{ type: "hurt", everyHurt, skill?, prior? }`，由 `createRule` 创建多条规则。每只怪物的 AI、Rule 均为独立实例。具体类创建集中在 `AI/AIFactory.ts` 和 `Rules/RuleFactory.ts`，与 Buff 工厂一致；可从 `FightAI`/`FightRule` 模块导入 `createAI`/`createRule`，原 `AIDatas`/`RuleDatas` 导入路径及包入口继续可用，数据类型使用 `import type`。技能用 `[id, level]` 明确学习，AI、Rule 或装配不会自动学习技能。生成顺序为属性/显示、学习技能、初始化被动、显式装配、绑定规则与 AI；显式装配包括 0 会覆盖被动，省略则保留被动装配。初始生命为 0 时生成死亡单位并执行普通死亡清理。
 
 阵型独立使用 `ZhenData { id, pos: number[] }`，通过 `initZhens()` 注册。生成时传阵型 ID `zhen`，由 `getZhenPos(zhen)` 查位置，`ids[i]` 对应位置数组第 i 项；函数返回副本。模板不承载阵型，玩家的阵型加成可由宿主基于同一个阵型 ID 扩展，怪物生成当前只消费站位。
 
@@ -478,6 +478,10 @@ fight.createSide(playerSide, monsters);
 `MonsterSide` 继承 FightSide，可以直接交给 `Fight.createSide()`。`CreateMonsterSide(ids, zhen, allocateUid)` 也可写成 `new MonsterSide(...)`；UID 分配由宿主负责，两方共享分配器可避免冲突，0 是有效模板 ID、UID、阵型 ID 和位置。阵型可多留位置，取前 N 个；位置不足、已用位置重复或为负数、未知模板/阵型、重复或非安全整数 UID 均报错。位置的地图上界由宿主按地图配置保证，生成过程不消耗战斗随机数。属性、显示、被动 Buff、技能及 AI 运行实例互相独立，不改动模板。测试见 `tests/core/test_monster_side.ts`。
 
 ## 全体破盾大招
+
+怪物的弱点初始对客户端隐藏。有效命中时，只同步本次匹配的五行和兵器弱点。每项首次揭示发送 `["weakness", uid, "prop" 或 "weapon", 枚举值]`，客户端单位用 `revealedWeakProp` 和 `revealedWeakWeapon` 保存已揭示的弱点。命中弱点即可揭示，即使盾还没破。观察技能配置 `func: "observe"` 和 `sel: { target: TargetSelectEnum.enemy }`，成功施放时发送 `["weaknessAll", uid, 五行弱点数组, 兵器弱点数组]`，客户端用完整列表刷新目标弱点；没有弱点时使用空数组。观察不扣血或扣盾。
+
+Boss 可配置 `{ type: 'shieldAdd', shieldAdd: 3 }`。初始盾为 3 层时，每次破盾当前盾归零，下回合回满依次为 6、9、12 层。`shieldAdd` 为必填的正安全整数，上限按初始盾层数 + shieldAdd × 破盾次数计算，随破盾消息同步。
 
 破盾通过单位上下文事件 `break(unit, ctx, attacker, allBroken)` 发布，也会传给普通单位监听和战斗全局监听。盾从正数降到 0 时，先加入 `shield` 消息再发事件，随后继续本次伤害结算；已破盾、回盾、未命中或取消的伤害均不重复触发。`allBroken` 保存事件瞬间本阵营是否全体破盾，后续 Buff 立即回盾也不会抹掉这个事实。Buff 可以用 `event: "break"` 按现有次数规则消耗、到期解绑；派生 Buff 通过 `onEvent()` 实现破盾效果，`onContex()` 的优先级规则保持不变。全体破盾大招改为监听这个事件，不增加网络消息。
 
@@ -617,7 +621,7 @@ Buff 的 `notRemove` 字段禁止驱散，`dieNotRemove` 字段使其在死亡�
 
 ```ts
 initSkills([
-    createLethalSkillData(11001),       // 物理致死，固定攻击力99999，必中
+    createLethalSkillData(11001),       // 物理致死，固定攻击力999999，必中
     createLethalSkillData(11002, true), // 魔法致死
 ]);
 monster.addSkill(11001, 1);
@@ -657,7 +661,7 @@ monster.setAI({ type: "target", self: true, cond: "hpLow", condData: 0.5, skill:
 
 上述 `FightAITarget` 配置在血量严格低于50%时尝试给自己治疗；也可以配置其他合法的自身技能。条件不满足时返回undefined，沿用默认普攻。技能未学会、冷却中、禁疗或当前状态不允许施放时也不强行自疗。每次出手重新判断，包含extraAction触发的AI决策；治疗仍复用公共目标检查和技能结算。
 
-AI和Rule与Buff一样接收完整xls：`new FightAITarget(aiData)`、`new FightRuleHp(ruleData)`、`new FightRuleTurn(ruleData)`、`new FightRuleHurt(ruleData)`。工厂原样传入配置，FightBehavior保存protected xls，通过`getXls()`读取；AI使用`getXls().condData`，规则的宿主附加字段仍用`getXls().custom`。getCustom已移除。FightAI是抽象基类：代码扩展传完整配置给`super(aiData)`，实现`findTarget(unit, turn, skill)`即可复用`waitInput`中的技能选择、指令生成与公共预检；未选中返回undefined。Rule仍可无参创建，默认`{ type: "custom" }`不代表工厂注册了custom类型。
+AI和Rule与Buff一样接收完整xls：`new FightAITarget(aiData)`、`new FightRuleHp(ruleData)`、`new FightRuleTurn(ruleData)`、`new FightRuleHurt(ruleData)`。工厂原样传入配置，FightBehavior保存protected xls，通过`getXls()`读取；AI使用`getXls().condData`，各规则使用对应的显式字段。FightAI是抽象基类：代码扩展传完整配置给`super(aiData)`，实现`findTarget(unit, turn, skill)`即可复用`waitInput`中的技能选择、指令生成与公共预检；未选中返回undefined。Rule仍可无参创建，默认`{ type: "custom" }`不代表工厂注册了custom类型。
 
 `FightRule` 和 `FightAI` 同级继承公共 `FightBehavior`。公共层负责xls配置访问、单位绑定、监听注册/清理、初始化、属性修正和回合钩子；具体规则继承FightRule，普通行动决策继承FightAI。AI不再是FightRule，规则列表仍拒绝AI实例；具体类、工厂和配置写法保持不变。包入口导出FightBehavior，代码派生AI/Rule的默认super()用法继续可用。
 

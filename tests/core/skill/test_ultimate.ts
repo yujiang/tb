@@ -19,7 +19,7 @@ import {
 } from '../../../src';
 import { setupChain, chainIds } from '../../fixtures/skill_chain';
 
-import { equipSkill } from '../../../src/fight/Skills/Funcs/Buff';
+import { equipSkill } from '../../../src/fight/Skills/Funcs/NoHurt';
 
 const ultimateId = 1001070;
 function setup(enabled = true) {
@@ -125,8 +125,8 @@ test('ultimate auto: area skill needs no explicit target', () => {
 	s.actor.getUltimateSkill().getXls().sel = { ...s.skills[0].sel, num: 99 };
 	const ctx = s.breakAll();
 	assert.equal(ultimates(ctx).length, 1);
-	assert.equal(s.target.getHp(), 550);
-	assert.equal(s.other.getHp(), 550);
+	assert.equal(s.target.getHp(), 700);
+	assert.equal(s.other.getHp(), 700);
 	assert.ok(s.client.checkSame(s.fight));
 });
 
@@ -415,7 +415,7 @@ test('ultimate auto target: single skill hits the final broken unit', () => {
 	assert.equal(hits.length, 1);
 	assert.equal(hits[0][3], s.other.uid);
 	assert.equal(s.target.getHp(), firstHp);
-	assert.equal(s.other.getHp(), 550);
+	assert.equal(s.other.getHp(), 700);
 	assert.ok(s.client.checkSame(s.fight));
 });
 

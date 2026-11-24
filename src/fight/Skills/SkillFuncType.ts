@@ -1,5 +1,5 @@
 import { FightUnit } from '../Unit/FightUnit';
-import { afterSelfBuff, nohurtFunc } from './Funcs/Buff';
+import { afterSelfBuff, nohurtFunc } from './Funcs/NoHurt';
 import { FightSkill } from './FightSkill';
 import { healFunc } from './Funcs/Heal';
 import { skillAttackFunc } from './Funcs/NomalSkill';
@@ -7,6 +7,7 @@ import { poisonFunc } from './Funcs/Poison';
 import { relifeFunc } from './Funcs/Relife';
 import { FightContex } from '../Fight';
 import { multiFunc } from './Funcs/Multi';
+import { observeFunc } from './Funcs/Observe';
 
 export type SkillFuncType = (
 	attacker: FightUnit,
@@ -20,6 +21,7 @@ const SkillFuncMap: Record<string, SkillFuncType> = {
 	poison: poisonFunc,
 	relife: relifeFunc,
 	nohurt: nohurtFunc, //没有伤害
+	observe: observeFunc,
 };
 
 export function skillFunc(

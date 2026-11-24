@@ -41,7 +41,8 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 | 字段 | 含义 | 缺省与边界 |
 | --- | --- | --- |
 | `class` | 特殊实现类名 | buqu/relife/taunt/reflect/rest/protect；省略或未知名称走普通 FightBuff |
-| `classParam` | 特殊类参数 | 见下面的参数表；普通 Buff 不读取 |
+| `relifeRatio` | 自动复活的最大生命恢复比例 | 仅 relife 使用；数值 (0, 1]，缺省 0.2 |
+| `reflectMagicOnly` | 反射只转移魔法伤害 | 仅 reflect 使用；缺省 true，false 时也转移物理伤害；治疗转移不受影响 |
 | `overlap` | 同 ID 重复添加规则 | NOT=0、REPLACE=1、RELPACE_BYPOWER=2；类型必填 |
 | `turnType` | 持续时间/周期边界 | 缺省 thisTurn=0，inputTurn=1，afterTurn=2 |
 | `lastTurn` | 对应边界持续次数 | 必填；正数最后一次生效后移除，0 不按回合到期，不是秒数 |
@@ -56,14 +57,14 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 | `notDisplay` | 不进入单位 Buff 展示列表 | 缺省 false；隐藏不影响效果结算 |
 | `power` | Buff 自身驱散强度 | 当前缺省 0，显式 0 有效；不继承施加技能 power |
 
-### 特殊类及 classParam
+### 特殊类及配置字段
 
 | class | 参数 | 行为要点 |
 | --- | --- | --- |
-| `buqu` | 内置类不读取 classParam | 致死伤害改为留下 1 血，每场每单位一次；固定监听 beforeHurt，通常排在伤害修正链后面 |
-| `relife` | 数值 `(0,1]`，缺省 0.2 | 真实死亡后等完整 action 结束自动复活，每场一次；dieNotRemove 必须 true |
+| `buqu` | 无专用字段 | 致死伤害改为留下 1 血，每场每单位一次；固定监听 beforeHurt，通常排在伤害修正链后面 |
+| `relife` | `relifeRatio`，缺省 0.2 | 真实死亡后等完整 action 结束自动复活，每场一次；dieNotRemove 必须 true |
 | `taunt` | 不读取 | 挂在被嘲讽者身上，施加者成为强制主目标；不是禁止对方行动 |
-| `reflect` | `{ magicOnly?: boolean }`，magicOnly 缺省 true | 默认转移魔法伤害给攻击者，治疗转给随机存活敌人；false 也转移物理伤害 |
+| `reflect` | `reflectMagicOnly`，缺省 true | 默认转移魔法伤害给攻击者，治疗转给随机存活敌人；false 也转移物理伤害 |
 | `rest` | 不读取 | 兼容提供休息状态；新配置直接用 status:["休息"] 即可，持续时间由 turnType/lastTurn 配置 |
 | `protect` | 不读取 | 挂在被保护者身上，施加者承担一半合格直接攻击伤害；比例固定，不用参数调节 |
 

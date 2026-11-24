@@ -160,9 +160,31 @@ export class FightClient {
 					if (unit) unit.dead = true;
 					break;
 				}
+				case 'weakness': {
+					const unit = this.getUnitById(msg[1]);
+					if (unit) {
+						const revealed: number[] =
+							msg[2] === 'prop'
+								? (unit.revealedWeakProp ??= [])
+								: (unit.revealedWeakWeapon ??= []);
+						if (!revealed.includes(msg[3])) revealed.push(msg[3]);
+					}
+					break;
+				}
+				case 'weaknessAll': {
+					const unit = this.getUnitById(msg[1]);
+					if (unit) {
+						unit.revealedWeakProp = [...msg[2]];
+						unit.revealedWeakWeapon = [...msg[3]];
+					}
+					break;
+				}
 				case 'shield': {
 					const unit = this.getUnitById(msg[1]);
-					if (unit) unit.shield = msg[2];
+					if (unit) {
+						unit.shield = msg[2];
+						if (msg[4] !== undefined) unit.shieldMax = msg[4];
+					}
 					break;
 				}
 				case 'relife': {
@@ -224,6 +246,14 @@ export class FightClient {
 					!isDeepStrictEqual(actual.buffs, snapshot.buffs) ||
 					actual.shield !== snapshot.shield ||
 					actual.shieldMax !== snapshot.shieldMax ||
+					!isDeepStrictEqual(
+						actual.revealedWeakProp ?? [],
+						snapshot.revealedWeakProp ?? [],
+					) ||
+					!isDeepStrictEqual(
+						actual.revealedWeakWeapon ?? [],
+						snapshot.revealedWeakWeapon ?? [],
+					) ||
 					!isDeepStrictEqual(actual.skillCds ?? [], snapshot.skillCds ?? [])
 				) {
 					return false;

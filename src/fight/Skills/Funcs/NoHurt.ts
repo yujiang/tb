@@ -22,37 +22,28 @@ function removeBuffFunc(
 	defender: FightUnit,
 	skill: FightSkill,
 	ctx: FightContex,
-) {
+) : boolean {
 	const xls = skill.getXls();
 	const buffs = xls.rmeoveBuff;
 	const tag = xls.removeBuffTag;
 	if (buffs) {
 		defender.removeBuffs(attacker, 'buff', buffs, skill.getPower(), ctx);
-		return true;
 	}
-
 	// 一般不可能同时有buffs+tag
 	if (tag) {
 		defender.removeBuffByTag(attacker, 'buff', tag, xls.removeBuffNum, skill.getPower(), ctx);
-		return true;
 	}
 
-	return false;
+	return !!(buffs || tag);
 }
 
 // 装备技能~
 export function equipSkill(attacker: FightUnit, skill: FightSkill, ctx: FightContex) {
 	const xls = skill.getXls();
-	if (xls.attackSkill != null) {
-		attacker.setAttackSkill(xls.attackSkill);
-	}
+	if (xls.attackSkill != null) attacker.setAttackSkill(xls.attackSkill);
 	if (xls.ultimateSkill != null) attacker.setUltimateSkill(xls.ultimateSkill);
-	if (xls.supportSkill) {
-		attacker.setSupportSkill(xls.supportSkill);
-	}
-	if (xls.fbackSkill) {
-		attacker.setFBackSkill(xls.fbackSkill);
-	}
+	xls.supportSkill && attacker.setSupportSkill(xls.supportSkill);
+	xls.fbackSkill && attacker.setFBackSkill(xls.fbackSkill);
 	return xls.attackSkill || xls.supportSkill || xls.fbackSkill || xls.ultimateSkill;
 }
 

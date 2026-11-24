@@ -55,7 +55,7 @@ function attributes(hp: number, attack: number, speed: number): FightAttr {
 	return attr;
 }
 
-// 测试：真实两回合简报展示非弱点半伤、弱点扣盾、破盾眩晕及下一全局回合行动前回盾，逐批校验客户端。
+// 测试：真实两回合简报展示非弱点半伤、弱点原伤并扣盾、破盾眩晕及下一全局回合行动前回盾，逐批校验客户端。
 test('report demo: weakness shield breaks, stuns and refills before the next round actions', async () => {
 	console.log(
 		'示例：山贼首领有 2 格盾，弱点为刀、火；拳师不命中弱点，刀客同时命中两个弱点仍只扣 1 格。\n',
@@ -78,7 +78,7 @@ test('report demo: weakness shield breaks, stuns and refills before the next rou
 	const boxer = new FightUnitUser(0, attributes(300, 80, 300), { name: '拳师' });
 	const swordsman = new FightUnitUser(1, attributes(300, 100, 200), { name: '刀客' });
 	const mage = new FightUnitUser(2, attributes(300, 100, 100), { name: '术士' });
-	const bossAttr = attributes(530, 40, 50);
+	const bossAttr = attributes(480, 40, 50);
 	bossAttr.shield = 2;
 	bossAttr.weakProp = [PropEnum.火];
 	bossAttr.weakWeapon = [WeaponEnum.刀];
@@ -130,7 +130,7 @@ test('report demo: weakness shield breaks, stuns and refills before the next rou
 	loop.start();
 	assert.match(
 		report.lines.find((line) => line.startsWith('防守方：')),
-		/生命 530\/530，法力 0\/0，护盾 2\/2/,
+		/生命 480\/480，法力 0\/0，护盾 2\/2/,
 	);
 	assert.doesNotMatch(
 		report.lines.find((line) => line.startsWith('攻击方：')),
@@ -165,7 +165,7 @@ test('report demo: weakness shield breaks, stuns and refills before the next rou
 	);
 	assert.deepEqual(
 		messages.filter((msg) => msg[0] === 'hurt').map((msg) => msg[4]),
-		[40, 75, 150, 40, 75, 150],
+		[40, 100, 100, 40, 100, 100],
 	);
 	assert.ok(!messages.some((msg) => msg[0] === 'skill' && msg[2] === boss.uid));
 	const secondTurn = messages.findIndex((msg) => msg[0] === 'turn' && msg[1] === 2);

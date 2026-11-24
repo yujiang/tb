@@ -1,5 +1,5 @@
 import { FightContex } from '../Fight';
-import { FightUnit, UnitContextEventFunc, UnitEventFunc } from '../Unit/FightUnit';
+import { FightUnit, PendingHurt, UnitContextEventFunc, UnitEventFunc } from '../Unit/FightUnit';
 import { BuffData, BuffTurnEnum } from './BuffDatas';
 import { findForbidStatusByAction } from './FightStatus';
 import { buffFunc } from './BuffFuncType';
@@ -33,6 +33,7 @@ export class FightBuff extends FightStatic {
 
 	// 普通次数 Buff 和特殊类共用计次、增量同步与自然移除。
 	protected consumeTimes(unit: FightUnit, ctx: FightContex) {
+		// 效果结算可能触发替换，旧实例不能按 ID 同步新实例的次数。
 		if (unit.findBuff(this.getId()) !== this) return;
 
 		if (this.times > 0) {
@@ -140,6 +141,11 @@ export class FightBuff extends FightStatic {
 		if (this.notDisplay()) return;
 
 		return [this.getId(), this.level, this.start, this.lastTurn, this.times];
+	}
+
+	isHpPendingInvalid(unit: FightUnit, pending: PendingHurt): boolean {
+		// 分担的伤害不再触发保护或反射。
+		return unit.isDied() || pending.cancelled || pending.source === 'share';
 	}
 }
 

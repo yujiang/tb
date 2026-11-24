@@ -35,7 +35,7 @@ function setup(
 		name: '涅槃',
 		desc: '死亡自动复活',
 		class: 'relife',
-		classParam: 0.3,
+		relifeRatio: 0.3,
 		overlap: OverlapEnum.REPLACE,
 		status: [],
 		tags: [],
@@ -356,7 +356,7 @@ test('auto relife: default ratio is one fifth and small positive ratios restore 
 		[0.001, 1],
 		[1, 100],
 	] as const) {
-		const { unit, hurt } = setup({ classParam: ratio });
+		const { unit, hurt } = setup({ relifeRatio: ratio });
 		hurt(1000);
 		assert.equal(unit.getHp(), hp);
 		assert.equal(unit.isDied(), false);
@@ -402,10 +402,10 @@ test('auto relife: the attack pipeline counts full lethal damage and continues r
 
 // 测试：非法复活比例被拒绝，避免产生存活但零血的单位。
 test('auto relife: invalid ratios are rejected instead of producing a living unit with zero HP', () => {
-	for (const classParam of [0, -0.1, 1.1, NaN, Infinity, '0.5']) {
+	for (const relifeRatio of [0, -0.1, 1.1, NaN, Infinity, '0.5']) {
 		assert.throws(
-			() => setup({ classParam }),
-			/relife classParam must be a number in \(0, 1\]/,
+			() => setup({ relifeRatio: relifeRatio as number }),
+			/relifeRatio must be a number in \(0, 1\]/,
 		);
 	}
 });

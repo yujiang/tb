@@ -308,6 +308,7 @@ test('actions: insertion during a combo waits for the complete action', async ()
 			s.target,
 			{ cmd: FightCmdEnum.skill, skill: chainIds.first, target: s.actor.uid },
 			InsertActionPos.first,
+			undefined,
 			ctx,
 		);
 	});

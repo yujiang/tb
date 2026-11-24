@@ -171,15 +171,15 @@ export class FightAttr {
 	// npc only.
 	/** NPC五行弱点；任一弱点列表已配置就替代受伤相克，[]为无该类弱点，均省略则回退人物相克。 */
 	weakProp?: PropEnum[]; // NPC 的五行弱点，直接匹配攻击属性；配置后替代受伤相克
-	/** NPC兵器弱点；五行/兵器任一命中只加一次0.5倍率，不按命中个数叠加。 */
-	weakWeapon?: WeaponEnum[]; // NPC 的兵器弱点，直接匹配施放者兵器；命中任一弱点加 0.5
+	/** NPC兵器弱点；启用弱点盾时命中任一弱点按原伤并扣一格，未启用盾时最多加一次0.5倍率。 */
+	weakWeapon?: WeaponEnum[];
 
 	// 盾，击中弱点盾-1, 盾被击破 = 0, 人物立即进入眩晕状态
 	// 然后下一个回合回满盾
-	// 盾未破时，伤害变为1半
+	// 有盾时，仅未命中弱点的伤害减半
 	// shield = undefined跳过上面
-	/** NPC弱点盾，undefined不启用；attrOri为回满值，attr为当前值；0眩晕，下个全局回合前回满。 */
-	shield?: number; // attrOri 保存回满值，运行中的 attr 保存当前盾数
+	/** NPC弱点盾，undefined不启用；attrOri为初始回满值，attr为当前值；大于0时非弱点伤害减半，弱点命中按原伤扣1格；0眩晕，下个全局回合前回满。 */
+	shield?: number; // attrOri 保存初始回满值，运行中的 attr 保存当前盾数
 
 	/** 完整物理各攻击阶段与最终属性，构造时由宿主提供。 */
 	physic: FightTypeAttr;

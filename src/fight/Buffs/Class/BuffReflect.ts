@@ -35,17 +35,11 @@ export class BuffReflect extends FightBuff {
 		attacker: FightUnit,
 		pending: PendingHurt,
 	) {
-		if (
-			unit.findBuff(this.getId()) !== this ||
-			unit.isDied() ||
-			pending.cancelled ||
-			pending.reflected ||
-			pending.source === 'share'
-		) {
+		if (this.isHpPendingInvalid(unit,pending) || pending.reflected ){
 			return;
 		}
 
-		if ((this.xls.classParam?.magicOnly ?? true) && !pending.magic) {
+		if ((this.xls.reflectMagicOnly ?? true) && !pending.magic) {
 			return;
 		}
 
@@ -79,7 +73,6 @@ export class BuffReflect extends FightBuff {
 		pending: PendingHeal,
 	) {
 		if (
-			unit.findBuff(this.getId()) !== this ||
 			unit.isDied() ||
 			pending.cancelled ||
 			pending.reflected ||

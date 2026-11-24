@@ -3,7 +3,7 @@ import type { InsertActionPos } from '../struct';
 
 // 模板只放配置，每次生成怪物都创建新规则实例，不共享计数、阶段或监听。
 export type RuleData = {
-	/** 规则类型，必填字符串；内置hp血轴、turn回合轴、hurt受伤轴；未知类型工厂报错，字段统一平铺便于XLS配置。 */
+	/** 规则类型，必填字符串；内置hp血轴、turn回合轴、hurt受伤轴、shieldAdd破盾后增加回满层数；未知类型工厂报错，字段统一平铺便于XLS配置。 */
 	type: string;
 	/** 规则执行顺序，有限数，缺省0；小的先执行，同级按添加顺序；不是事件监听器的 prior。 */
 	prior?: number;
@@ -19,8 +19,8 @@ export type RuleData = {
 	pos?: InsertActionPos;
 	/** turn的行动速度倍率，非负有限数，缺省1，0有效；仅pos省略时使用，按当前getSpeedOrder()×倍率排序，速度变化重排剩余行动；不修改单位速度，不推进额外输入或集气；hp/hurt忽略。 */
 	speedRate?: number;
-	/** 宿主自定义附加数据，缺省undefined，不参与内置规则结算；可通过getXls().custom读取。 */
-	custom?: any;
+	/** shieldAdd规则必填，每次破盾增加的上限层数，新的上限为初始盾层数加上此值乘破盾次数，正安全整数，无缺省值；其他规则忽略。 */
+	shieldAdd?: number;
 };
 
 // 保留原有导入路径，创建实现由工厂维护。

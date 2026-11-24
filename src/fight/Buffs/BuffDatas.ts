@@ -17,7 +17,7 @@ export enum BuffTurnEnum {
 // 2. 改变属性attr， 比如增益和减益
 // 3. 每个回合起作用，加血和毒（扣血）
 // 4. 有次数，比如减伤3次后消失
-// 5. 特殊的buff，用class, classParam字段来派生
+// 5. 特殊的buff，通过class选择实现
 // 但是1~5并不互斥，可以同时存在，所以没有type字段
 
 export type FightUnitEvent =
@@ -47,10 +47,10 @@ export type BuffFuncEnum = 'poison' | 'heal';
 export interface BuffData extends StaticData {
 	/** 特殊实现名：buqu/relife/taunt/reflect/rest/protect；省略或未知名使用普通 FightBuff；rest为兼容入口，等同提供休息状态，新配置可直接填写status。 */
 	class?: string;
-	/** 子类参数：relife 为最大生命比例(0,1]、缺省0.2；reflect 为 {magicOnly?:boolean}、缺省true；其他内置类不读此项。 */
-	classParam?: any;
-	// class="relife"：classParam 为 (0, 1] 的数值，省略默认 0.2。
-	// class="reflect"：classParam.magicOnly 默认 true，false 时也反射物理伤害。
+	/** 自动复活恢复的最大生命比例，数值 (0, 1]，缺省 0.2；仅 relife 读取。 */
+	relifeRatio?: number;
+	/** 反射是否只转移魔法伤害，缺省 true；false 也转移物理伤害。仅 reflect 读取，治疗转移不受此字段限制。 */
+	reflectMagicOnly?: boolean;
 
 	/** 同 ID 重复添加：NOT 保留旧实例，REPLACE 替换，RELPACE_BYPOWER 按 power 再等级比较；详见枚举实际拼写。 */
 	overlap: OverlapEnum;

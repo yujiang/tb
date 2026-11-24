@@ -57,7 +57,7 @@ export class FightRuleTurn extends FightRule {
 			const input = { cmd: FightCmdEnum.skill, skill: this.skill };
 			if (
 				ctx.fight.checkPC(unit, input) &&
-				ctx.fight.insertAction(unit, input, this.pos, ctx, this.speedRate)
+				ctx.fight.insertAction(unit, input, this.pos, this.speedRate, ctx)
 			) {
 				this.selectedTurn = turn;
 			}

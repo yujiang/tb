@@ -32,16 +32,16 @@ function setup(shield?: number, combo = false) {
 	return s;
 }
 
-// 测试：一次命中多个弱点也只扣一格盾，未破时伤害减半，破盾这一击全伤并立即眩晕。
+// 测试：一次命中多个弱点也只扣一格盾，有盾时弱点命中打原伤，最后一击破盾并立即眩晕。
 test('shield: one hit consumes one point and breaking immediately stuns', () => {
 	const s = setup(2);
 	s.cast();
 	assert.equal(s.target.attr.shield, 1);
-	assert.equal(s.target.getHp(), 925);
+	assert.equal(s.target.getHp(), 900);
 	assert.equal(s.target.inStatus('眩晕'), false);
 	s.cast();
 	assert.equal(s.target.attr.shield, 0);
-	assert.equal(s.target.getHp(), 775);
+	assert.equal(s.target.getHp(), 800);
 	assert.equal(s.target.inStatus('眩晕'), true);
 	assert.equal(s.target.isForbid('attack'), true);
 	assert.equal(s.target.isForbid('skill'), true);
@@ -51,7 +51,7 @@ test('shield: one hit consumes one point and breaking immediately stuns', () => 
 	);
 	s.cast();
 	assert.equal(s.target.attr.shield, 0);
-	assert.equal(s.target.getHp(), 625);
+	assert.equal(s.target.getHp(), 700);
 	assert.ok(s.client.checkSame(s.fight));
 	assert.doesNotMatch(s.report.toString(), /未识别消息/);
 });
@@ -120,10 +120,10 @@ test('shield: combo segments observe the shield broken by an earlier segment', (
 	const ctx = s.cast();
 	assert.deepEqual(
 		ctx.msgs.filter((msg) => msg[0] === 'hurt').map((msg) => msg[4]),
-		[75, 150, 150],
+		[100, 100, 100],
 	);
 	assert.equal(s.target.attr.shield, 0);
-	assert.equal(s.target.getHp(), 625);
+	assert.equal(s.target.getHp(), 700);
 	assert.ok(!ctx.msgs.some((msg) => msg[0] === 'skill' && msg[4] === 'fback'));
 });
 
@@ -170,7 +170,7 @@ test('shield: poison uses weakness and refill preserves unrelated stuns', () => 
 	});
 	s.flush(ctx);
 	assert.equal(s.target.attr.shield, 0);
-	assert.equal(s.target.getHp(), 850);
+	assert.equal(s.target.getHp(), 900);
 	initBuffs([
 		{
 			...getBuffData(chainIds.rest),
@@ -195,24 +195,26 @@ test('shield: poison uses weakness and refill preserves unrelated stuns', () => 
 // 测试：吸血和反伤按护盾减半后的实际伤害计算，不能使用减半前的数值。
 test('shield: lifesteal and reflection use shield-reduced actual damage', () => {
 	const s = setup(2);
+	s.actor.attr.weaponProp = P.火;
+	s.actor.attr.weapon = W.拳;
 	const initial = initFightContex(s.fight);
 	s.actor.onHurt(s.target, 'test', 500, initial);
 	s.flush(initial);
 	s.actor.attr.magic.final.bloodP = 0.5;
 	s.skills[0].nodback = false;
 	const ctx = s.cast();
-	assert.equal(s.target.getHp(), 925);
-	assert.equal(s.actor.getHp(), 522);
-	assert.equal(ctx.msgs.find((msg) => msg[0] === 'heal')[4], 37);
-	assert.equal(ctx.msgs.find((msg) => msg[0] === 'hurt' && msg[1] === 'dback')[4], 15);
+	assert.equal(s.target.getHp(), 950);
+	assert.equal(s.actor.getHp(), 515);
+	assert.equal(ctx.msgs.find((msg) => msg[0] === 'heal')[4], 25);
+	assert.equal(ctx.msgs.find((msg) => msg[0] === 'hurt' && msg[1] === 'dback')[4], 10);
 	assert.ok(s.client.checkSame(s.fight));
 });
 
-// 测试：盾为零表示已破盾，仍有弱点加伤但没有半伤，未配盾的 NPC 不因此眩晕。
+// 测试：盾为零表示已破盾，弱点按原伤；未配盾的 NPC 沿用原有弱点倍率。
 test('shield: explicit zero is broken rather than disabled', () => {
 	const s = setup(0);
 	s.cast();
-	assert.equal(s.target.getHp(), 850);
+	assert.equal(s.target.getHp(), 900);
 	assert.equal(s.target.attr.shield, 0);
 	assert.equal(s.target.inStatus('眩晕'), true);
 	const disabled = setup();

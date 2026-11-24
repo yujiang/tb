@@ -1,6 +1,6 @@
 import { FightUnit } from '../../Unit/FightUnit';
 import { attrFunc, AttrSkill } from '../AttrSkill';
-import { afterHurt } from './Buff';
+import { afterHurt } from './NoHurt';
 import { FightSkill } from '../FightSkill';
 import { FightContex } from '../../Fight';
 
@@ -26,10 +26,8 @@ export function poison(
 		magic: skill.isMagic(),
 		source: name === 'buff' ? 'buff' : 'skill',
 		noprotect: !skill.canProtect(),
-		weakPoint: defender.isWeakPoint(
-			skill.getXls().skillProp ?? attacker.attr.weaponProp,
-			attacker.attr.weapon,
-		),
+		attackProp: skill.getXls().skillProp ?? attacker.attr.weaponProp,
+		attackWeapon: attacker.attr.weapon,
 	});
 	afterHurt(attacker, defender, skill, ctx);
 	return true;

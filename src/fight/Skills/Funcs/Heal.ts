@@ -2,7 +2,7 @@
 
 import { FightUnit } from '../../Unit/FightUnit';
 import { attrFunc, AttrSkill } from '../AttrSkill';
-import { afterHurt } from './Buff';
+import { afterHurt } from './NoHurt';
 import { FightSkill } from '../FightSkill';
 import { FightContex } from '../../Fight';
 

@@ -150,8 +150,8 @@ export class Fight {
 		unit: FightUnit,
 		input: FightInput,
 		pos?: InsertActionPos,
-		ctx?: FightContex,
 		speedRate?: number,
+		ctx?: FightContex,
 	): boolean {
 		return this.actionInserter?.(unit, { ...input }, pos, ctx, speedRate) ?? false;
 	}
@@ -321,6 +321,9 @@ export class Fight {
 
 	getUnitById(id: number): FightUnit {
 		return this.getAllUnits().find((u) => u.uid == id)!;
+	}
+	hasUnit(id: number): boolean {
+		return this.getAllUnits().some((u) => u.uid == id);
 	}
 
 	getSideUnits(side: FightSideEnum): FightUnit[] {

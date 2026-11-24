@@ -12,7 +12,7 @@ import {
 	FightUnitUser,
 } from '../../../src';
 import { setupChain } from '../../fixtures/skill_chain';
-import { equipSkill } from '../../../src/fight/Skills/Funcs/Buff';
+import { equipSkill } from '../../../src/fight/Skills/Funcs/NoHurt';
 
 const attackId = 99940,
 	nextId = 99941,

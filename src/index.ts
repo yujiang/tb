@@ -30,6 +30,7 @@ export * from './fight/Rules/FightRule';
 export * from './fight/Rules/FightRuleHp';
 export * from './fight/Rules/FightRuleTurn';
 export * from './fight/Rules/FightRuleHurt';
+export * from './fight/Rules/FightRuleShieldAdd';
 export * from './fight/Rules/RuleDatas';
 export * from './fight/FightActionQueue';
 export * from './fight/Skills/FightSkill';

@@ -10,9 +10,9 @@ export class BuffRelife extends FightBuff {
 
 	constructor(xls: BuffData, level: number, attacker: FightUnit, turn: number) {
 		super(xls, level, attacker, turn);
-		this.ratio = xls.classParam ?? 0.2;
+		this.ratio = xls.relifeRatio ?? 0.2;
 		if (!Number.isFinite(this.ratio) || this.ratio <= 0 || this.ratio > 1) {
-			throw new RangeError('relife classParam must be a number in (0, 1]');
+			throw new RangeError('relifeRatio must be a number in (0, 1]');
 		}
 	}
 
@@ -30,9 +30,7 @@ export class BuffRelife extends FightBuff {
 	}
 
 	override onEvent(unit: FightUnit, ctx: FightContex) {
-		if (unit.findBuff(this.getId()) !== this || !unit.isDied()) {
-			return;
-		}
+		if (!unit.isDied()) return;
 
 		ctx.fight.afterAction(() => this.revive(unit, ctx));
 	}

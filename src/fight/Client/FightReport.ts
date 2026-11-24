@@ -9,6 +9,7 @@
 // 6. 仅行首人名按阵营着色（攻击方绿、防守方红），跳过连击等行首标注
 
 import { FightLoop } from '../FightLoop';
+import { PropEnum, WeaponEnum } from '../FightAttr';
 import { fightMsg } from '../struct';
 import { FightClient } from './FightClient';
 import { FightResultEnum } from '../struct';
@@ -264,6 +265,19 @@ export class FightReport {
 				case 'protect':
 					this.write(`${name(msg[1])} 保护 ${name(msg[2])}`);
 					break;
+				case 'weakness':
+					this.write(
+						`${name(msg[1])} 揭示弱点：${msg[2] === 'prop' ? PropEnum[msg[3]] : WeaponEnum[msg[3]]}`,
+					);
+					break;
+				case 'weaknessAll': {
+					const props = (msg[2] as PropEnum[]).map((prop) => PropEnum[prop]);
+					const weapons = (msg[3] as WeaponEnum[]).map((weapon) => WeaponEnum[weapon]);
+					this.write(
+						`${name(msg[1])} 的全部弱点：${[...props, ...weapons].join('、') || '无'}`,
+					);
+					break;
+				}
 				case 'shield':
 					this.write(
 						msg[3] === 'recover'
