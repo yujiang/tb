@@ -126,7 +126,7 @@ function setup(type: 'topThreat' | 'topHealer', magic = false) {
 }
 
 for (const magic of [false, true]) {
-	// 测试：两种致死均固定使用99999攻击力且必中，选中仇恨最高者，击杀、实际仇恨和客户端消息一致。
+	// 测试：两种致死均固定使用999999攻击力且必中，选中仇恨最高者，击杀、实际仇恨和客户端消息一致。
 	test(`contribution AI: highest threat receives a guaranteed lethal hit with magic=${magic}`, () => {
 		const s = setup('topThreat', magic),
 			ctx = initFightContex(s.fight);
@@ -153,8 +153,8 @@ for (const magic of [false, true]) {
 	test(`lethal skill: fixed attack preserves the matching defense pipeline with magic=${magic}`, () => {
 		const s = setup('topThreat', magic);
 		s.boss.enemyHurt.set(0, 1);
-		s.players[0].attr.physic.base.defend = 99990;
-		s.players[0].attr.magic.base.defend = 99980;
+		s.players[0].attr.physic.base.defend = 999_990;
+		s.players[0].attr.magic.base.defend = 999_980;
 		s.players[0].attr.physic.base.dodge = 1e9;
 		s.fight.random = () => {
 			throw new Error('必中且无暴击/反应时不应抽样');
@@ -281,7 +281,7 @@ test('contribution AI: factories create independent typed instances and validate
 	const first = createLethalSkillData(physical),
 		second = createLethalSkillData(magical, true);
 	first.attack.attack = 1;
-	assert.equal(second.attack.attack, 99999);
+	assert.equal(second.attack.attack, 999_999);
 });
 
 for (const type of ['topThreat', 'topHealer'] as const) {

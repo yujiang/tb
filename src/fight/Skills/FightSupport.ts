@@ -40,9 +40,7 @@ export function trySupport(attacker: FightUnit, defender: FightUnit, ctx: FightC
 	supporter.lastSupportTurn = fight.turn;
 	const previous = ctx.supporting;
 	ctx.supporting = true;
-	try {
-		return skillAttackFunc(supporter, defender, skill, ctx, 'support');
-	} finally {
-		ctx.supporting = previous;
-	}
+	const result = skillAttackFunc(supporter, defender, skill, ctx, 'support');
+	ctx.supporting = previous;
+	return result;
 }

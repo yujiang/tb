@@ -537,8 +537,8 @@ test('support: a killing hit pursues another enemy without support or next', () 
 	assert.equal(other.getHp(), 950);
 });
 
-// 测试：协战子技能循环与主动作共用反应上限，异常退出也恢复协战上下文标记。
-test('support: reaction limit is shared and support guard is restored on failure', () => {
+// 测试：协战子技能循环与主动作共用反应上限，超限抛错并中止结算。
+test('support: reaction limit is shared and aborts the action', () => {
 	const s = setup((skills) => {
 		skills[1].damageRate = 0;
 		skills[1].next = ids.support;
@@ -551,5 +551,4 @@ test('support: reaction limit is shared and support guard is restored on failure
 		/Reaction limit exceeded \(64 nested action scopes\)/,
 	);
 	assert.equal(ctx.reactionSteps, 64); // 嵌套动作限制先于第 65 次伤害结算触发。
-	assert.equal(ctx.supporting, undefined);
 });

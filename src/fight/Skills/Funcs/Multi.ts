@@ -12,7 +12,7 @@ export function multiFunc(
 	func: (attacker: FightUnit, target: FightUnit, skill: FightSkill, ctx: FightContex) => boolean,
 	force = false,
 ) {
-	return ctx.fight.resolveAction(()=>multi(attacker,skill,ctx,func,force));
+	return ctx.fight.resolveAction(() => multi(attacker, skill, ctx, func, force));
 }
 
 function multi(
@@ -21,7 +21,7 @@ function multi(
 	ctx: FightContex,
 	func: (attacker: FightUnit, target: FightUnit, skill: FightSkill, ctx: FightContex) => boolean,
 	force = false,
-) {	
+) {
 	const targets = ctx.fight.selectGroupTargets(attacker, skill);
 	if (!targets.length) {
 		attacker.hintClient('没有可用目标');
@@ -35,16 +35,13 @@ function multi(
 
 	const single = skill.forSingleTarget();
 	const previous = ctx.defend;
-	try {
-		for (const target of targets) {
-			if (attacker.isDied()) break;
-			if (!ctx.fight.isLegalTarget(attacker, target, skill)) continue;
-			ctx.defend = target;
-			func(attacker, target, single, ctx);
-		}
-		afterSelfBuff(attacker, skill, ctx);
-		return true;
-	} finally {
-		ctx.defend = previous;
-	}	
+	for (const target of targets) {
+		if (attacker.isDied()) break;
+		if (!ctx.fight.isLegalTarget(attacker, target, skill)) continue;
+		ctx.defend = target;
+		func(attacker, target, single, ctx);
+	}
+	afterSelfBuff(attacker, skill, ctx);
+	ctx.defend = previous;
+	return true;
 }

@@ -14,6 +14,7 @@
 
 ## 设计原则
 
+- **结算异常由 `FightLoop` 统一收尾。** 战斗结算抛错后结束战斗，废弃失败动作的上下文。仅在正常返回时恢复后续结算仍会用到的临时变量，无需为异常路径加 `try/finally` 恢复它们。输入和队列清理、监听解绑等实际收尾仍需保证执行。
 - **规则与 Buff 使用显式配置字段。** 规则按 `RuleData` 的具体字段配置。Buff 子类使用 `relifeRatio`、`reflectMagicOnly` 等字段。
 - **全局配置与表格行分开。** 宿主启动时通过setFightGlobalData统一设置FightGlobalData，包含maxTurn/waitInputSec/duiwei/protectBuff/allShieldBreak；每场new Fight传入表格提供的FightData，当前包含runaway/runawayGrade/deathPenalty/winRecover/winReward。fight.xls保存表格行，fight.globalData读取共享全局规则，不把全局字段重新塞回每场表格数据。
 - **条件语句格式。** `if` 只有一个条件时，简单语句可以直接放在同一行，例如 `if (!skill) return false;`；使用 `&&`、`||` 组合多个条件时，必须添加 `{}`，并将执行语句换行写在块内。单个条件或执行语句较长时，也使用大括号并换行，保持易读。缩进使用 Tab，字符串使用单引号。
