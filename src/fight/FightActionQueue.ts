@@ -155,6 +155,13 @@ export class FightActionQueue {
 		this.firstActions.delete(id);
 		return true;
 	}
+	// 永久离场取消该单位的全部剩余行动，普通行动和插入行动都移除。
+	removeUnit(unit: FightUnit) {
+		for (const action of this.entries) {
+			if (action.unit === unit) this.firstActions.delete(action.id);
+		}
+		this.entries = this.entries.filter((action) => action.unit !== unit);
+	}
 	sort(
 		compare: (a: FightUnit, b: FightUnit) => number,
 		compareActions?: (a: FightAction, b: FightAction) => number,

@@ -21,7 +21,7 @@ export enum WeaponEnum {
 	暗器,
 }
 
-export enum CarerrEnum {
+export enum CareerEnum {
 	none,
 	战士,
 	法师,
@@ -160,8 +160,8 @@ export class FightAttr {
 	spOutputRate = fightConsts.spOutputRate;
 	/** 服务端兵器枚举，与NPC弱点直接匹配，不自动转换MUD兵器文字。 */
 	weapon: WeaponEnum; // 武器类型
-	/** 职业数值，使用CarerrEnum或宿主扩展值；后排医生AI识别CarerrEnum.医生。 */
-	career: number; // 职业
+	/** 职业字符串，由宿主提供名称；target AI通过career精确匹配，如医生；缺省undefined不匹配指定职业。 */
+	career: string // 职业
 
 	/** 人物五行，默认none；用于受伤相克、治疗相生及治疗施放属性缺省来源。 */
 	charProp: PropEnum = PropEnum.none; // 人物属性--被攻击用，也作治疗相生的默认施放属性

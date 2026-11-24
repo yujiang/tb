@@ -111,7 +111,7 @@ test('report: reaction labels keep only the first name colored in joint support'
 			attack: {},
 			final: {},
 			nosupport: false,
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		},
 	]);
 	const init = initial();
@@ -170,7 +170,7 @@ test('report: local configuration names use brackets and healing, damage and cri
 			rand: 1,
 			attack: {},
 			final: {},
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		},
 	]);
 	init[1][2][0].buffs = [
@@ -250,7 +250,7 @@ test('report: skill and Buff colors stay distinct for identical names and can be
 			rand: 1,
 			attack: {},
 			final: {},
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		},
 	]);
 	initBuffs([
@@ -308,7 +308,7 @@ test('report: combo and next use distinct labels for both hits and misses', () =
 			rand: 1,
 			attack: {},
 			final: {},
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		},
 		{
 			id: 98902,
@@ -317,7 +317,7 @@ test('report: combo and next use distinct labels for both hits and misses', () =
 			rand: 1,
 			attack: {},
 			final: {},
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		},
 	]);
 	const report = new FightReport(() => {});

@@ -113,7 +113,7 @@ function setup(
 		rand: 1,
 		attack: {},
 		final: {},
-		sel: { target: TargetSelectEnum.enmey },
+		sel: { target: TargetSelectEnum.enemy },
 	};
 	initSkills([
 		{ ...common, id: magicId, magic: true, noblood: false, nodback: false },

@@ -33,7 +33,7 @@ function setup(change?: (data: SkillData) => void) {
 		nofback: true,
 		nodback: true,
 		cost: { mp: 999 },
-		sel: { target: TargetSelectEnum.enmey },
+		sel: { target: TargetSelectEnum.enemy },
 	};
 	change?.(data);
 	initSkills([data]);

@@ -86,6 +86,10 @@ export abstract class FightLoop {
 	protected takeAction() {
 		return (this.currentAction = this.actionQueue.shift());
 	}
+	private dismissListener = (unit: FightUnit, ctx: FightContex) => {
+		this.actionQueue.removeUnit(unit);
+		this.syncActionOrder(ctx);
+	};
 	// 只有普通行动位和模板extraAction推动集气；规则插入、即时技能、大招及内部反应链不推动。
 	protected finishAction(action: FightAction, ctx: FightContex | undefined) {
 		if (
@@ -294,12 +298,15 @@ export abstract class FightLoop {
 		}
 		this.fight.offUnitEvent('speed', this.speedListener);
 		this.fight.onUnitEvent('speed', this.speedListener);
+		this.fight.offUnitEvent('dismiss', this.dismissListener);
+		this.fight.onUnitEvent('dismiss', this.dismissListener);
 	}
 
 	end() {
 		if (this.stopped) return;
 
 		this.stopped = true;
+		this.fight.offUnitEvent('dismiss', this.dismissListener);
 		this.fight.clearActionInserter(this.actionInserter);
 		this.actionQueue.clear();
 		this.queueTurn = -1;

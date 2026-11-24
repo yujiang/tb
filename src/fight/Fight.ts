@@ -3,6 +3,7 @@ import { FightMap } from './FightMap';
 import { FightUltimate } from './FightUltimate';
 import { FightSide } from './FightSide';
 import { FightUnit, UnitEventFunc, sortByAttr } from './Unit/FightUnit';
+import { FightUnitSummon } from './Unit/FightUnitUser';
 import { FightUnitEvent } from './Buffs/BuffDatas';
 import {
 	EnemySide,
@@ -20,7 +21,12 @@ import { attackFunc } from './Skills/Funcs/NormalAttack';
 import { getBuffData } from './Buffs/BuffDatas';
 import { InsertActionPos } from './struct';
 import type { FightBuff } from './Buffs/FightBuff';
-import { FightSkill, getDefaultSkill } from './Skills/FightSkill';
+import {
+	FightSkill,
+	getDefaultSkill,
+	getDefaultSkillDuiwei,
+	getDefaultSkillProtect,
+} from './Skills/FightSkill';
 
 export type AllUnitType = [FightUnit[], FightUnit[]];
 
@@ -441,19 +447,21 @@ export class Fight {
 	// ***map end
 
 	randomEnemyAlive(side: number) {
-		const list = this.getSideUnitsBySkill(EnemySide(side), getDefaultSkill());
+		const list = this.getSideUnitsBySkill(EnemySide(side), this.getDefaultSkill());
 		if (!list.length) return;
 
 		return this.randArray(list);
 	}
 
+	getDefaultSkill() {
+		return this.globalData.duiwei ? getDefaultSkillDuiwei() : getDefaultSkill();
+	}
+
 	getDefaultEnemy(unit: FightUnit) {
-		const taunt = this.getTauntTarget(unit, getDefaultSkill());
+		const taunt = this.getTauntTarget(unit, this.getDefaultSkill());
 		if (taunt) return taunt;
 
-		const skill = getDefaultSkill({
-			target: this.globalData.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey,
-		});
+		const skill = this.getDefaultSkill();
 		return this.selectMainTarget(unit, skill);
 	}
 
@@ -485,11 +493,13 @@ export class Fight {
 		const sel = skill.getSel();
 		if ((sel.num ?? 1) > 1) return undefined;
 
-		if (sel.target !== TargetSelectEnum.enmey && sel.target !== TargetSelectEnum.duiwei) {
+		if (sel.target !== TargetSelectEnum.enemy && sel.target !== TargetSelectEnum.duiwei) {
 			return undefined;
 		}
 
 		// Map 保持添加顺序，稳定排序使同优先级按 Buff 实例注册顺序处理。
+		// 全局默认对位不限制嘲讽来源；技能显式配置的对位规则仍按技能判断。
+		const targetSkill = skill === getDefaultSkillDuiwei() ? getDefaultSkill() : skill;
 		const buffs = [...unit.buffs.values()].sort(
 			(a, b) => (a.getXls().prior ?? 0) - (b.getXls().prior ?? 0),
 		);
@@ -500,7 +510,7 @@ export class Fight {
 				!target.isDied() &&
 				target.fight === this &&
 				this.getAllUnits().includes(target) &&
-				this.isLegalTarget(unit, target, skill)
+				this.isLegalTarget(unit, target, targetSkill)
 			) {
 				return buff;
 			}
@@ -580,8 +590,8 @@ export class Fight {
 
 		const sel = skill
 			? skill.getSel()
-			: { target: this.globalData.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enmey };
-		const taunt = this.getTauntTarget(unit, skill ?? getDefaultSkill(sel));
+			: { target: this.globalData.duiwei ? TargetSelectEnum.duiwei : TargetSelectEnum.enemy };
+		const taunt = this.getTauntTarget(unit, skill ?? this.getDefaultSkill());
 		if (sel.sortAttr) sortByAttr(targets, sel.sortAttr, sel.sortDescend);
 		const fixed =
 			input.target !== undefined ||
@@ -602,12 +612,7 @@ export class Fight {
 				: equipped?.isMulti()
 					? equipped
 					: undefined) ??
-			getDefaultSkill({
-				target:
-					input.target === undefined && this.globalData.duiwei
-						? TargetSelectEnum.duiwei
-						: TargetSelectEnum.enmey,
-			});
+			(attack && input.target !== undefined ? getDefaultSkill() : this.getDefaultSkill());
 		const explicit = input.target !== undefined ? this.getUnitById(input.target) : undefined;
 		if (input.target !== undefined && !explicit) {
 			unit.hintClient('目标不存在');
@@ -650,11 +655,23 @@ export class Fight {
 				FightCmdEnum.defend,
 				FightCmdEnum.skill,
 				FightCmdEnum.runaway,
+				FightCmdEnum.dismiss,
 				FightCmdEnum.cancel,
 				FightCmdEnum.protect,
 			].includes(input.cmd)
 		) {
 			return false;
+		}
+
+		if (input.cmd === FightCmdEnum.dismiss) {
+			if (!Number.isSafeInteger(input.target)) return false;
+
+			const target = this.getUnitById(input.target);
+			if (!target) return false;
+
+			if (target instanceof FightUnitSummon) return target.user === unit.uid;
+
+			return target.isMonster() && unit.isMonster();
 		}
 
 		if (input.cmd === FightCmdEnum.runaway) {
@@ -673,7 +690,7 @@ export class Fight {
 		}
 
 		// 普攻可以显式指定死亡敌人守尸；自动选目标仍只选存活敌人。
-		let skill = getDefaultSkill();
+		let skill = input.target !== undefined ? getDefaultSkill() : this.getDefaultSkill();
 		let guardCorpse = input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none;
 		if (input.cmd === FightCmdEnum.protect) {
 			if (
@@ -684,7 +701,7 @@ export class Fight {
 				return false;
 			}
 
-			skill = getDefaultSkill({ target: TargetSelectEnum.friend });
+			skill = getDefaultSkillProtect();
 		} else if (input.cmd === FightCmdEnum.skill) {
 			skill = unit.findSkill(input.skill);
 			if (!skill) {
@@ -794,6 +811,17 @@ export class Fight {
 	private executeUnit(unit: FightUnit, input: FightInput): FightContex {
 		let cmd = input.cmd;
 		let tid = input.target;
+		if (cmd === FightCmdEnum.dismiss) {
+			const target = this.getUnitById(tid);
+			const ctx = { ...initFightContex(this), attack: unit, actionStarted: true };
+			const units = this.getSideUnits(target.side);
+			units.splice(units.indexOf(target), 1);
+			target.leaveFight();
+			ctx.msgs.push(['dismiss', unit.uid, target.uid]);
+			target.emitContext('dismiss', ctx, unit);
+			this.updateUltimate(ctx);
+			return ctx;
+		}
 
 		let des = tid !== undefined ? this.getUnitById(tid) : undefined;
 		// 预处理,没有来得及发指令的单位.
@@ -850,7 +878,7 @@ export class Fight {
 		// 不改写提交的 input，只在实际执行时按当前有效嘲讽覆盖主目标。
 		if (cmd === FightCmdEnum.attack || cmd === FightCmdEnum.skill) {
 			const skill =
-				cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) : getDefaultSkill();
+				cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) : this.getDefaultSkill();
 			des = this.getTauntTarget(unit, skill) ?? des;
 		}
 
@@ -904,6 +932,7 @@ export class Fight {
 
 	// 保持随机数, 以便重建战斗保持一致~
 	randArray<T>(items: T[]): T {
+		if (items.length <= 1) return items[0];
 		return items[Math.floor(this.random() * items.length)];
 	}
 

@@ -219,7 +219,7 @@ test('rules: a single AI coexists with independent rules', () => {
 	assert.equal(s.loop.actions.filter((action) => action.inserted).length, 1);
 	s.target.ai = undefined;
 	assert.equal(s.target.rules.length, 2);
-	assert.throws(() => s.target.addRule(new FightAI()), /ai|AI/);
+	assert.throws(() => s.target.addRule(new FightAI() as never), /ai|AI/);
 });
 
 for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {

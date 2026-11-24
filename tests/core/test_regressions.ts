@@ -130,7 +130,7 @@ function skill(id: number, extra: Partial<SkillData> = {}): SkillData {
 		name: String(id),
 		magic: true,
 		rand: 1,
-		sel: { target: TargetSelectEnum.enmey },
+		sel: { target: TargetSelectEnum.enemy },
 		attack: base({ attack: 0, hit: 0 }),
 		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 		...extra,
@@ -481,7 +481,7 @@ test('regression: followup chance is rolled once rather than squared', () => {
 	f.random = () => draws[count++];
 	const ctx = f.processUnit(u, { cmd: FightCmdEnum.skill, skill: 8040, target: v.uid });
 	assert.ok(ctx.msgs.some((m) => m[1] === 8041));
-	assert.equal(count, 2, 'one target selection and one chance roll');
+	assert.equal(count, 1, 'single candidate needs no selection roll; followup chance rolls once');
 });
 
 function addAlly(f: Fight) {

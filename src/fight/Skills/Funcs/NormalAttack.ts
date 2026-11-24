@@ -72,7 +72,8 @@ class PhysicSkill extends FightSkill {
 
 export function attackFunc(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
 	const equipped = attacker.getAttackSkill();
-	const taunt = ctx.fight.getTauntBuff(attacker, equipped ?? getDefaultSkill());
+	const f = ctx.fight;
+	const taunt = f.getTauntBuff(attacker, equipped ?? f.getDefaultSkill());
 	if (equipped) {
 		const result = skillAttackFunc(attacker, defender, equipped, ctx);
 		if (taunt && taunt.getTauntTarget() === defender) {

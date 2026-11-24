@@ -63,7 +63,7 @@ export async function runReactionReport(
 	const skill = {
 		magic: true,
 		rand: 1,
-		sel: { target: TargetSelectEnum.enmey, sortAttr: 'hp' },
+		sel: { target: TargetSelectEnum.enemy, sortAttr: 'hp' },
 		attack: {},
 		final: {},
 		noblood: false,

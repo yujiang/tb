@@ -88,7 +88,7 @@ function setup(extra: Partial<BuffData> = {}) {
 	initBuffs([buff, { ...buff, id: secondTauntId }]);
 	const common = { name: '测试技能', magic: true, rand: 1, attack: {}, final: {} };
 	initSkills([
-		{ ...common, id: attackId, sel: { target: TargetSelectEnum.enmey, sortAttr: 'hp' } },
+		{ ...common, id: attackId, sel: { target: TargetSelectEnum.enemy, sortAttr: 'hp' } },
 		{
 			...common,
 			id: healId,
@@ -101,12 +101,12 @@ function setup(extra: Partial<BuffData> = {}) {
 			...common,
 			id: areaId,
 			spread: spreadId,
-			sel: { target: TargetSelectEnum.enmey, sortAttr: 'hp' },
+			sel: { target: TargetSelectEnum.enemy, sortAttr: 'hp' },
 		},
 		{
 			...common,
 			id: spreadId,
-			sel: { target: TargetSelectEnum.enmey, num: 2, sortAttr: 'hp' },
+			sel: { target: TargetSelectEnum.enemy, num: 2, sortAttr: 'hp' },
 		},
 	]);
 	setFightGlobalData({
@@ -152,7 +152,13 @@ test('taunt: bearer attacks source ID zero instead of random or lowest-HP enemy'
 	assert.equal(
 		fight.selectMainTarget(
 			actor,
-			getDefaultSkill({ target: TargetSelectEnum.enmey, sortAttr: 'hp' }),
+			new FightSkill(
+				{
+					...getDefaultSkill().getXls(),
+					sel: { target: TargetSelectEnum.enemy, sortAttr: 'hp' },
+				},
+				1,
+			),
 		),
 		source,
 	);
@@ -251,18 +257,48 @@ test('taunt: priorities and registration order select the first valid source', (
 	const { fight, actor, source, second, ctx, add } = setup();
 	add();
 	add(second, secondTauntId);
-	const sel = { target: TargetSelectEnum.enmey, sortAttr: 'hp' };
-	assert.equal(fight.selectMainTarget(actor, getDefaultSkill(sel)), source);
+	const sel = { target: TargetSelectEnum.enemy, sortAttr: 'hp' };
+	assert.equal(
+		fight.selectMainTarget(
+			actor,
+			new FightSkill({ ...getDefaultSkill().getXls(), sel: sel }, 1),
+		),
+		source,
+	);
 	actor.removeBuff(source, 'test', tauntId, 99, ctx);
-	assert.equal(fight.selectMainTarget(actor, getDefaultSkill(sel)), second);
+	assert.equal(
+		fight.selectMainTarget(
+			actor,
+			new FightSkill({ ...getDefaultSkill().getXls(), sel: sel }, 1),
+		),
+		second,
+	);
 	// 同优先级替换后的实例按新的注册顺序排在后面。
 	add();
-	assert.equal(fight.selectMainTarget(actor, getDefaultSkill(sel)), second);
+	assert.equal(
+		fight.selectMainTarget(
+			actor,
+			new FightSkill({ ...getDefaultSkill().getXls(), sel: sel }, 1),
+		),
+		second,
+	);
 	initBuffs([{ ...actor.findBuff(tauntId).getXls(), prior: -10 }]);
 	add();
-	assert.equal(fight.selectMainTarget(actor, getDefaultSkill(sel)), source);
+	assert.equal(
+		fight.selectMainTarget(
+			actor,
+			new FightSkill({ ...getDefaultSkill().getXls(), sel: sel }, 1),
+		),
+		source,
+	);
 	source.die();
-	assert.equal(fight.selectMainTarget(actor, getDefaultSkill(sel)), second);
+	assert.equal(
+		fight.selectMainTarget(
+			actor,
+			new FightSkill({ ...getDefaultSkill().getXls(), sel: sel }, 1),
+		),
+		second,
+	);
 });
 
 // 测试：死亡、离场、变为友方或不符合死亡过滤条件的嘲讽来源被忽略。
@@ -352,7 +388,13 @@ test('taunt: ordinary classification tags do not impose targeting behavior', () 
 	assert.equal(
 		fight.selectMainTarget(
 			actor,
-			getDefaultSkill({ target: TargetSelectEnum.enmey, sortAttr: 'hp' }),
+			new FightSkill(
+				{
+					...getDefaultSkill().getXls(),
+					sel: { target: TargetSelectEnum.enemy, sortAttr: 'hp' },
+				},
+				1,
+			),
 		)?.uid,
 		other.uid,
 	);

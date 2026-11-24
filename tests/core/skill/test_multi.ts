@@ -21,7 +21,7 @@ function setup(num = 99, change?: Parameters<typeof setupChain>[0]['change']) {
 		change: (skills) => {
 			skills[0].combo = undefined;
 			skills[0].damageRate = 1;
-			skills[0].sel = { target: TargetSelectEnum.enmey, num };
+			skills[0].sel = { target: TargetSelectEnum.enemy, num };
 			skills[0].nosupport = true;
 			change?.(skills);
 		},

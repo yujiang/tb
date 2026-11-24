@@ -36,7 +36,7 @@ function configure() {
 			rand: 1,
 			attack: {},
 			final: {},
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		},
 	]);
 	initBuffs([

@@ -50,8 +50,11 @@ test('package entry exports the current Fight implementation and has declaration
 	assert.equal(typeof api.FightAI.prototype.getXls, 'function');
 	assert.equal(typeof api.FightAI.prototype.getCustom, 'function');
 	assert.ok(api.FightAITarget.prototype instanceof api.FightAI);
-	assert.ok(api.FightAILowHpHeal.prototype instanceof api.FightAI);
-	assert.ok(api.createAI({ type: 'lowHpHeal', skill: 10012101 }) instanceof api.FightAILowHpHeal);
+	assert.ok(api.FightAICond.prototype instanceof api.FightAI);
+	assert.ok(
+		api.createAI({ type: 'cond', cond: 'hpLow', custom: 0.5, skill: 10012101 }) instanceof
+			api.FightAICond,
+	);
 	assert.equal(typeof api.createLethalSkillData, 'function');
 	assert.equal(api.createLethalSkillData(10011701).alwaysHit, true);
 	assert.equal(api.createLethalSkillData(10011702, true).magic, true);

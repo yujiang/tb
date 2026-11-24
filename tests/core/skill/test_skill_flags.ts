@@ -9,7 +9,7 @@ const data = {
 	rand: 1,
 	attack: {},
 	final: {},
-	sel: { target: TargetSelectEnum.enmey },
+	sel: { target: TargetSelectEnum.enemy },
 };
 
 for (const [field, method] of [

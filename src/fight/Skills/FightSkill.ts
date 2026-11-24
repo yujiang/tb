@@ -271,10 +271,34 @@ export class FightSkill {
 	}
 }
 
-/** 默认普通攻击的选目标规则；每次创建独立实例，未注册进技能表，不携带单位属性。 */
-export function getDefaultSkill(sel: SelectParam = { target: TargetSelectEnum.enmey }): FightSkill {
-	return new FightSkill(
-		{ id: 0, name: '默认普攻', magic: false, rand: 1, sel: { ...sel }, attack: {}, final: {} },
-		0,
-	);
+function createDefaultData(target: TargetSelectEnum): SkillData {
+ return { id: 0, name: '默认普攻', magic: false, rand: 1, sel: { target }, attack: {}, final: {} }
+}
+
+/** 默认普通攻击的选目标规则；按敌方、对位和友方分别缓存实例，未注册进技能表，不携带单位属性；调用者不得修改共享配置。 */
+const defaultData: SkillData = createDefaultData(TargetSelectEnum.enemy);
+let defaultSkill: FightSkill;
+export function getDefaultSkill(): FightSkill {
+	if (!defaultSkill) {
+		defaultSkill = new FightSkill(defaultData, 0);
+	}
+	return defaultSkill;
+}
+
+const defaultData2: SkillData = createDefaultData(TargetSelectEnum.duiwei);
+let defaultSkill2: FightSkill;
+export function getDefaultSkillDuiwei(): FightSkill {
+	if (!defaultSkill2) {
+		defaultSkill2 = new FightSkill(defaultData2, 0);
+	}
+	return defaultSkill2;
+}
+
+const defaultData3: SkillData = createDefaultData(TargetSelectEnum.friend);
+let defaultSkill3: FightSkill;
+export function getDefaultSkillProtect(): FightSkill {
+	if (!defaultSkill3) {
+		defaultSkill3 = new FightSkill(defaultData3, 0);
+	}
+	return defaultSkill3;
 }

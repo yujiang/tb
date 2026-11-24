@@ -61,6 +61,7 @@ export interface PendingHeal extends HealOptions {
 
 // 战斗单元
 export abstract class FightUnit {
+	// 约定这个uid按照序号递增，绝不重复
 	uid: number;
 	attr: FightAttr;
 	attrOri: FightAttr;
@@ -96,6 +97,10 @@ export abstract class FightUnit {
 		return this.getSpeed() + this.speedRand;
 	}
 
+	isCareer(c: string) {
+		return c === this.attr.career;
+	}
+
 	startFight(f: Fight) {
 		this.skillCds.clear();
 		this.attr.shield = this.attrOri.shield;
@@ -103,12 +108,21 @@ export abstract class FightUnit {
 		this.speedRand = this.getSpeed() * (f.random() * 0.2 - 0.1);
 	}
 	endFight() {}
+	// 单位永久离场，不触发死亡、驱散或资源变化；本场实例不会再次使用。
+	leaveFight() {
+		this.input = null;
+		this.endFight();
+		for (const buff of this.buffs.values()) buff.onRemoved(this);
+	}
 
 	getHp() {
 		return this.attr.point.hp;
 	}
 	getHpMax() {
 		return this.attr.point.hpMax;
+	}
+	getHpPercent() {
+		return this.getHp() / this.getHpMax();
 	}
 
 	// 统一资源增长及上限截断；消息携带实际增加值和最终值，客户端无需重复计算。

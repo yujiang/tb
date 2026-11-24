@@ -10,7 +10,7 @@ function skill(id: number, extra: Partial<SkillData> = {}): SkillData {
 		rand: 1,
 		attack: {},
 		final: {},
-		sel: { target: TargetSelectEnum.enmey },
+		sel: { target: TargetSelectEnum.enemy },
 		...extra,
 	};
 }
@@ -45,7 +45,7 @@ for (const [index, target] of [TargetSelectEnum.self, TargetSelectEnum.duiwei].e
 		});
 		const original = structuredClone(data);
 		initSkills([data]);
-		assert.match(output(), new RegExp(`${data.name}.*${data.id}.*sel.target.*friend.*enmey`));
+		assert.match(output(), new RegExp(`${data.name}.*${data.id}.*sel.target.*friend.*enemy`));
 		assert.match(output(), new RegExp(TargetSelectEnum[target]));
 		assert.deepEqual(data, original);
 		assert.equal(getSkillData(data.id), data);
@@ -57,7 +57,7 @@ test('skill config: supported group targets and single self or position targets 
 	const output = warnings(t);
 	const selections = [
 		{ target: TargetSelectEnum.friend, num: 2 },
-		{ target: TargetSelectEnum.enmey, num: 99 },
+		{ target: TargetSelectEnum.enemy, num: 99 },
 		{ target: TargetSelectEnum.self, num: 1 },
 		{ target: TargetSelectEnum.duiwei },
 	];
@@ -74,7 +74,7 @@ test('skill config: group warnings are Chinese and never modify data', (t) => {
 	const output = warnings(t);
 	const data = skill(10011201, {
 		name: '横扫千军',
-		sel: { target: TargetSelectEnum.enmey, num: 99 },
+		sel: { target: TargetSelectEnum.enemy, num: 99 },
 	});
 	const original = structuredClone(data);
 	initSkills([data]);
@@ -93,7 +93,7 @@ test('skill config: recommended group and ordinary single configurations are qui
 	initSkills([
 		skill(10011202),
 		skill(10011203, {
-			sel: { target: TargetSelectEnum.enmey, num: 3 },
+			sel: { target: TargetSelectEnum.enemy, num: 3 },
 			nosupport: true,
 			noprotect: true,
 		}),
@@ -161,7 +161,7 @@ test('skill config: ambiguous next and combo are reported without rewriting', (t
 
 // 新批次不重复报告无关旧技能的问题。
 test('skill config: unrelated later batches do not repeat old warnings', (t) => {
-	initSkills([skill(10011217, { sel: { target: TargetSelectEnum.enmey, num: 99 } })]);
+	initSkills([skill(10011217, { sel: { target: TargetSelectEnum.enemy, num: 99 } })]);
 	const output = warnings(t);
 	initSkills([skill(10011218)]);
 	assert.equal(output(), '');
@@ -173,7 +173,7 @@ test('skill config: warnings name only missing recommendations', (t) => {
 	initSkills([
 		skill(10011219, {
 			name: '部分配置',
-			sel: { target: TargetSelectEnum.enmey, num: 2 },
+			sel: { target: TargetSelectEnum.enemy, num: 2 },
 			nosupport: true,
 			noprotect: false,
 		}),

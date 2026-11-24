@@ -11,7 +11,7 @@ function initial(): fightMsg[] {
 		rand: 1,
 		attack: {},
 		final: {},
-		sel: { target: TargetSelectEnum.enmey },
+		sel: { target: TargetSelectEnum.enemy },
 	};
 	initSkills([
 		{ ...common, id: root, name: '主攻', nosupport: false },

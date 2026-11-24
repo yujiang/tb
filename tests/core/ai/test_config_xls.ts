@@ -12,27 +12,27 @@ import {
 
 // 测试：工厂必须把完整xls交给AI，getCustom能读取宿主附加数据而不是访问未初始化字段。
 test('AI xls: factory-created instances can read their custom configuration', () => {
-	const xls = { type: 'rearDoctor', custom: { stage: 'phase-one' } };
+	const xls = { type: 'target', career: '医生', pos: 'back', custom: { stage: 'phase-one' } };
 	const ai = createAI(xls);
 	assert.equal(ai.getXls(), xls);
 	assert.equal(ai.getCustom(), xls.custom);
 });
 
 for (const xls of [
-	{ type: 'topThreat', skill: 1, typeParam: [1, 2], custom: false },
-	{ type: 'topHealer', custom: 0 },
+	{ type: 'target', contributions: 'unitHurt', skill: 1, custom: false },
+	{ type: 'target', contributions: 'enemyHeal', custom: 0 },
 	{
-		type: 'lowHpHeal',
+		type: 'cond',
+		cond: 'hpLow',
+		custom: 0.5,
 		skill: 1,
-		typeParam: { threshold: 'unused' },
-		custom: { label: 'healer' },
 	},
 ] as AIData[]) {
-	// 测试：各AI均接收完整xls，保留typeParam和custom，显式false与0不被默认值覆盖。
+	// 测试：各AI均接收完整xls，保留配置和custom，显式false与0不被默认值覆盖。
 	test(`AI xls: ${xls.type} retains complete configuration and falsy custom values`, () => {
 		const ai = createAI(xls);
 		assert.equal(ai.getXls(), xls);
-		assert.equal(ai.getXls().typeParam, xls.typeParam);
+		assert.equal(ai.getXls().skill, xls.skill);
 		assert.equal(ai.getCustom(), xls.custom);
 	});
 }

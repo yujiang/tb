@@ -72,7 +72,7 @@ function setup(summon = false) {
 			nofback: true,
 			nodback: true,
 			nosupport: true,
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		},
 	]);
 	const a = new FightUnitUser(0, attributes(200), { name: '甲' });
@@ -454,7 +454,7 @@ test('pc: input-boundary death effects finish drawing before the next actor', as
 			rand: 1,
 			attack: { attack: 2000 },
 			final: {},
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		},
 	]);
 	initBuffs([
@@ -634,7 +634,7 @@ for (const [func, status, hint] of [
 				cost: { mp: 10 },
 				cd: 2,
 				sel: {
-					target: func === 'poison' ? TargetSelectEnum.enmey : TargetSelectEnum.friend,
+					target: func === 'poison' ? TargetSelectEnum.enemy : TargetSelectEnum.friend,
 				},
 			},
 		]);
@@ -726,7 +726,7 @@ test('pc: automatic targets exclude unavailable recipients and are selected only
 			func: 'poison',
 			attack: {},
 			final: {},
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		},
 	]);
 	initBuffs([
@@ -762,7 +762,7 @@ test('pc: automatic targets exclude unavailable recipients and are selected only
 				true,
 			);
 			assert.equal(unit.input.target, s.d.uid);
-			assert.equal(samples, 1);
+			assert.equal(samples, 0); // 过滤后只有一个候选，无需抽样。
 		} else s.loop.onInput(unit.uid, { cmd: FightCmdEnum.attack, target: s.c.uid });
 	});
 	await s.loop.processOneTurn(1);

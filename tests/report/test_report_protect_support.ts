@@ -71,7 +71,7 @@ test('report demo: protect and support share a real round with incremental clien
 		attack: {},
 		final: {},
 		noprotect: false,
-		sel: { target: TargetSelectEnum.enmey },
+		sel: { target: TargetSelectEnum.enemy },
 	};
 	initSkills([
 		{ ...common, id: mainId, name: '破阵掌', nosupport: false },

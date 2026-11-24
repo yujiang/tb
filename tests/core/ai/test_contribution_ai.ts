@@ -19,7 +19,7 @@ import {
 	initBuffs,
 	initFightContex,
 	OverlapEnum,
-	CarerrEnum,
+	TargetSelectEnum,
 } from '../../../src';
 
 const physical = 10011701,
@@ -104,7 +104,11 @@ function setup(type: 'topThreat' | 'topHealer', magic = false) {
 	fight.createSide(a, b);
 	const skill = magic ? magical : physical;
 	boss.addSkill(skill, 1);
-	boss.setAI({ type, skill });
+	boss.setAI({
+		type: 'target',
+		contributions: type === 'topThreat' ? 'unitHurt' : 'enemyHeal',
+		skill,
+	});
 	const loop = new FightLoopPC(fight),
 		client = new FightClient();
 	loop.onMsg((msgs) => client.onMsg(JSON.parse(JSON.stringify(msgs))));
@@ -217,7 +221,11 @@ for (const type of ['topThreat', 'topHealer'] as const) {
 		s.fight.nextTurn();
 		s.fight.nextTurn();
 		assert.equal(s.decide().target, 0);
-		s.boss.setAI({ type, skill: 10011799 });
+		s.boss.setAI({
+			type: 'target',
+			contributions: type === 'topThreat' ? 'unitHurt' : 'enemyHeal',
+			skill: 10011799,
+		});
 		assert.deepEqual(s.decide(), { cmd: FightCmdEnum.attack });
 	});
 }
@@ -253,14 +261,23 @@ test('top healer AI: departed recipients do not erase team healing history', () 
 
 // 测试：工厂创建两种独立AI，物理/魔法致死配置互不共享，非法技能ID在构造时拒绝。
 test('contribution AI: factories create independent typed instances and validate skill IDs', () => {
-	assert.ok(createAI({ type: 'topThreat', skill: physical }) instanceof FightAITarget);
-	assert.ok(createAI({ type: 'topHealer', skill: magical }) instanceof FightAITarget);
+	assert.ok(
+		createAI({ type: 'target', contributions: 'unitHurt', skill: physical }) instanceof
+			FightAITarget,
+	);
+	assert.ok(
+		createAI({ type: 'target', contributions: 'enemyHeal', skill: magical }) instanceof
+			FightAITarget,
+	);
 	assert.notEqual(
-		createAI({ type: 'topThreat', skill: physical }),
-		createAI({ type: 'topThreat', skill: physical }),
+		createAI({ type: 'target', contributions: 'unitHurt', skill: physical }),
+		createAI({ type: 'target', contributions: 'unitHurt', skill: physical }),
 	);
 	for (const skill of [0, -1, 1.5, NaN])
-		assert.throws(() => createAI({ type: 'topThreat', skill }), /positive safe integer/);
+		assert.throws(
+			() => createAI({ type: 'target', contributions: 'unitHurt', skill }),
+			/positive safe integer/,
+		);
 	const first = createLethalSkillData(physical),
 		second = createLethalSkillData(magical, true);
 	first.attack.attack = 1;
@@ -275,7 +292,10 @@ for (const type of ['topThreat', 'topHealer'] as const) {
 			type === 'topThreat' ? s.boss.enemyHurt : s.fight.getSide(s.players[0].side).heal;
 		scores.set(0, 50);
 		scores.set(1, 10);
-		s.boss.setAI({ type });
+		s.boss.setAI({
+			type: 'target',
+			contributions: type === 'topThreat' ? 'unitHurt' : 'enemyHeal',
+		});
 		assert.deepEqual(s.decide(), { cmd: FightCmdEnum.attack, target: 0 });
 	});
 
@@ -325,10 +345,10 @@ for (const magic of [false, true]) {
 	test(`target AI: rear doctor selection combines with lethal magic=${magic}`, () => {
 		const s = setup('topThreat', magic);
 		s.fight.createMap(3, 3);
-		s.players[0].attr.career = s.players[1].attr.career = CarerrEnum.医生;
+		s.players[0].attr.career = s.players[1].attr.career = '医生';
 		s.players[0].setPos(6);
 		s.players[1].setPos(0);
-		s.boss.setAI({ type: 'rearDoctor', skill: s.skill });
+		s.boss.setAI({ type: 'target', career: '医生', pos: 'back', skill: s.skill });
 		const input = s.decide();
 		assert.deepEqual(input, { cmd: FightCmdEnum.skill, skill: s.skill, target: 0 });
 		const ctx = s.fight.processUnit(s.boss, input);
@@ -363,3 +383,35 @@ test('target AI: default position rules do not reject explicit ordinary attack t
 	s.players[1].setPos(2);
 	assert.equal(s.fight.checkPC(s.boss, { cmd: FightCmdEnum.attack, target: 0 }), true);
 });
+
+for (const contributions of [
+	'unitHurt',
+	'unitHeal',
+	'enemyHurt',
+	'enemyHeal',
+	'friendHurt',
+	'friendHeal',
+]) {
+	// 六种贡献来源分别读取对应榜单，零值与非法数值不参与排名。
+	test(`target AI: contribution source ${contributions} selects its legal leader`, () => {
+		const s = setup('topThreat');
+		const friendly = contributions === 'unitHeal' || contributions.startsWith('friend');
+		const target = friendly ? s.ally : s.players[0];
+		const scores =
+			contributions === 'unitHurt'
+				? s.boss.enemyHurt
+				: contributions === 'unitHeal'
+					? s.boss.friendHeal
+					: s.fight.getSide(friendly ? s.boss.side : s.players[0].side)[
+							contributions.endsWith('Hurt') ? 'hurt' : 'heal'
+						];
+		scores.set(target.uid, 10);
+		s.boss.setAI({ type: 'target', contributions });
+		if (friendly) {
+			const skill = s.boss.findSkill(s.skill);
+			skill.getXls().sel.target = TargetSelectEnum.friend;
+			s.boss.setAI({ type: 'target', contributions, skill: s.skill });
+		}
+		assert.equal(s.decide().target, target.uid);
+	});
+}

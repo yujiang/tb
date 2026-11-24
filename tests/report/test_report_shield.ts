@@ -68,7 +68,7 @@ test('report demo: weakness shield breaks, stuns and refills before the next rou
 		nosupport: true,
 		nodback: true,
 		nofback: true,
-		sel: { target: TargetSelectEnum.enmey },
+		sel: { target: TargetSelectEnum.enemy },
 	};
 	initSkills([
 		{ ...common, id: 1001030, name: '开山拳' },

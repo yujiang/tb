@@ -146,7 +146,7 @@ test('preparse: resolve skill flags locally or through a host callback', () => {
 			attack: {},
 			final: {},
 			nosupport: false,
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		},
 	]);
 	assert.equal(new FightPreParse().parse([...initial(), ...hits()]).groups.length, 1);
@@ -162,7 +162,7 @@ test('preparse: negative support flags and ordinary attacks follow the same defa
 		rand: 1,
 		attack: {},
 		final: {},
-		sel: { target: TargetSelectEnum.enmey },
+		sel: { target: TargetSelectEnum.enemy },
 	};
 	initSkills([common]);
 	assert.equal(new FightPreParse().parse([...initial(), ...hits()]).groups.length, 1);

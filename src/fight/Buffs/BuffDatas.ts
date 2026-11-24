@@ -26,6 +26,7 @@ export type FightUnitEvent =
 	| 'beforeHeal'
 	| 'afterTurn'
 	| 'die'
+	| 'dismiss'
 	| 'relife'
 	| 'hurt'
 	| 'heal'
@@ -39,6 +40,7 @@ export type FightUnitEvent =
 // break(unit, ctx, attacker, allBroken)：盾正数变 0 时；allBroken 为该瞬间本阵营全体存活单位破盾的快照。
 // hp(unit, ctx, attacker, previous, current)：真实生命值变化，含受伤、分担、治疗及生命费用；费用在整笔扣费完成后通知，attacker为本人，不发hurt。
 // hurt(unit, ctx, attacker, damage, pending)：最后一项提供 HurtOptions/source；分担伤害仍不发 hurt。
+// dismiss(unit, ctx, operator)：单位已永久离场并解绑内部监听，operator是执行移除指令的单位，不触发die。
 
 export type BuffFuncEnum = 'poison' | 'heal';
 

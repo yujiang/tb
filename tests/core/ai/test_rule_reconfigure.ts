@@ -143,7 +143,7 @@ test('rule replacement: invalid definitions leave the original rules intact', ()
 	assert.throws(() => s.target.setRules([{ type: 'hurt' }]), /positive/);
 	assert.throws(() => s.target.setRules([{ type: 'unregistered' }]), /Unknown rule type/);
 	assert.throws(() => s.target.setRules([hp, hp]), /duplicate/);
-	assert.throws(() => s.target.setRules([new FightAI()]), /AI/);
+	assert.throws(() => s.target.setRules([new FightAI() as never]), /AI/);
 	assert.deepEqual(s.target.rules, [hp]);
 	assert.equal(s.target.contextEmitter.listenerCount('hp'), 1);
 	assert.equal(s.target.contextEmitter.listenerCount('hurt'), 0);
@@ -192,7 +192,7 @@ test('rule replacement: initialization failures roll back the entire new set', (
 test('AI replacement: configure replace and clear without changing rules', () => {
 	const s = setup();
 	s.target.setRules([{ type: 'hurt', every: 2 }]);
-	s.target.setAI({ type: 'rearDoctor' });
+	s.target.setAI({ type: 'target', career: '医生', pos: 'back' });
 	assert.ok(s.target.ai instanceof FightAITarget);
 	class DefendAI extends FightAI {
 		override waitInput() {

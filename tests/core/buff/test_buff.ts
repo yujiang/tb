@@ -92,7 +92,7 @@ function skillData(id: number, func: string, extra: Partial<SkillData> = {}): Sk
 		id,
 		name: `skill-${id}`,
 		magic: false,
-		sel: { target: TargetSelectEnum.enmey },
+		sel: { target: TargetSelectEnum.enemy },
 		func,
 		rand: 1,
 		attack: {

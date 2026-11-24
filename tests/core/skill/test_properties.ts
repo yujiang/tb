@@ -161,7 +161,7 @@ for (const func of ['heal', 'poison'] as const) {
 				attack: {},
 				final: {},
 				func,
-				sel: { target: TargetSelectEnum.enmey },
+				sel: { target: TargetSelectEnum.enemy },
 			},
 		]);
 		actor.addSkill(1001010, 1);
@@ -284,7 +284,7 @@ for (const [skillProp, amount] of [
 				final: {},
 				func: 'heal',
 				skillProp,
-				sel: { target: TargetSelectEnum.enmey },
+				sel: { target: TargetSelectEnum.enemy },
 			},
 		]);
 		actor.addSkill(99910, 1);
@@ -356,7 +356,7 @@ test('properties: periodic healing uses its caster while revival keeps its fixed
 			func: 'relife',
 			skillProp: P.水,
 			healRate: 0.3,
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		},
 	]);
 	actor.addSkill(99913, 1);
@@ -397,7 +397,7 @@ for (const func of ['heal', 'poison'] as const) {
 					func,
 					healRate: rate,
 					poisonRate: rate,
-					sel: { target: TargetSelectEnum.enmey },
+					sel: { target: TargetSelectEnum.enemy },
 				},
 			]);
 			actor.addSkill(99916, 1);
@@ -432,7 +432,7 @@ for (const periodic of [false, true]) {
 					final: {},
 					func: 'poison',
 					skillProp,
-					sel: { target: TargetSelectEnum.enmey },
+					sel: { target: TargetSelectEnum.enemy },
 				},
 			]);
 			let effects: string[];
@@ -485,7 +485,7 @@ test('properties: elemental effects belong to each heal or hurt rather than the 
 		rand: 1,
 		attack: { attack: 100 },
 		final: {},
-		sel: { target: TargetSelectEnum.enmey },
+		sel: { target: TargetSelectEnum.enemy },
 	};
 	const ctx = initFightContex(fight);
 	ctx.effects = ['crit'];

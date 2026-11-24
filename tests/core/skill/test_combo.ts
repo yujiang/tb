@@ -216,7 +216,7 @@ test("combo: splash damage is not added to the main target's reflection total", 
 			id: 98423,
 			name: '连招溅射',
 			nodback: false,
-			sel: { target: TargetSelectEnum.enmey, num: 2 },
+			sel: { target: TargetSelectEnum.enemy, num: 2 },
 		},
 	]);
 	other.attrOri.magic.final.dbackP = 0.2;

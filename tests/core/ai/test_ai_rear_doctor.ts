@@ -3,7 +3,6 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
 	BaseAttack,
-	CarerrEnum,
 	Fight,
 	FightAITarget,
 	FightAttr,
@@ -18,7 +17,7 @@ import {
 	OverlapEnum,
 } from '../../../src';
 
-function attr(career = CarerrEnum.战士) {
+function attr(career = '战士') {
 	const base = (attack = 100, rand = 0): BaseAttack => ({
 		attack,
 		rand,
@@ -67,8 +66,8 @@ function setup(nx = 3, ny = 3) {
 		0,
 	);
 	fight.createMap(nx, ny);
-	const doctor = new FightUnitUser(0, attr(CarerrEnum.医生), { name: '后排医生' });
-	const frontDoctor = new FightUnitUser(1, attr(CarerrEnum.医生), { name: '前排医生' });
+	const doctor = new FightUnitUser(0, attr('医生'), { name: '后排医生' });
+	const frontDoctor = new FightUnitUser(1, attr('医生'), { name: '前排医生' });
 	const warrior = new FightUnitUser(2, attr(), { name: '后排战士' });
 	const monster = new FightUnitMonster(3, attr(), { name: '刺客' });
 	doctor.setPos(fight.map.getPos(0, ny - 1));
@@ -80,7 +79,7 @@ function setup(nx = 3, ny = 3) {
 	a.units.push(doctor, frontDoctor, warrior);
 	b.units.push(monster);
 	fight.createSide(a, b);
-	monster.ai = new FightAITarget({ type: 'rearDoctor' });
+	monster.ai = new FightAITarget({ type: 'target', career: '医生', pos: 'back' });
 	const loop = new FightLoopPC(fight),
 		client = new FightClient();
 	loop.onMsg((msgs) => client.onMsg(structuredClone(msgs)));
@@ -139,7 +138,7 @@ test('rear doctor AI: samples only when multiple rear doctors are available', ()
 	};
 	assert.equal(s.decide().target, s.doctor.uid);
 	assert.equal(samples, 0);
-	s.warrior.attr.career = CarerrEnum.医生;
+	s.warrior.attr.career = '医生';
 	assert.equal(s.decide().target, s.warrior.uid);
 	assert.equal(samples, 1);
 });
@@ -160,8 +159,8 @@ test('rear doctor AI: dead rear doctors are excluded and default targeting remai
 // 医生位于己方时不能成为目标，没有地图时也回退普通输入而不是猜测站位。
 test('rear doctor AI: allies and missing maps never become preferred targets', () => {
 	const s = setup();
-	s.doctor.attr.career = CarerrEnum.战士;
-	s.monster.attr.career = CarerrEnum.医生;
+	s.doctor.attr.career = '战士';
+	s.monster.attr.career = '医生';
 	s.monster.setPos(8);
 	assert.deepEqual(s.decide(), { cmd: FightCmdEnum.attack });
 	s.fight.map = undefined;
@@ -216,9 +215,25 @@ test('rear doctor AI: existing taunt execution overrides the preferred doctor', 
 test('rear doctor AI: target decisions are deterministic for the same seed', () => {
 	const first = setup(),
 		second = setup();
-	first.warrior.attr.career = second.warrior.attr.career = CarerrEnum.医生;
+	first.warrior.attr.career = second.warrior.attr.career = '医生';
 	assert.deepEqual(
 		Array.from({ length: 10 }, () => first.decide().target),
 		Array.from({ length: 10 }, () => second.decide().target),
 	);
+});
+
+// 仅职业筛选不依赖地图，未配置站位时前排与位置零都可以被选中。
+test('target AI: career-only selection works without a map', () => {
+	const s = setup();
+	s.monster.setAI({ type: 'target', career: '医生' });
+	s.fight.map = undefined;
+	s.fight.random = () => 0.99;
+	assert.equal(s.decide().target, s.frontDoctor.uid);
+});
+
+// 位置零属于前排，不能因为数值为零而绕过后排过滤。
+test('target AI: position zero does not bypass the rear filter', () => {
+	const s = setup();
+	s.doctor.setPos(0);
+	assert.deepEqual(s.decide(), { cmd: FightCmdEnum.attack });
 });

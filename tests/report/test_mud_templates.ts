@@ -78,7 +78,7 @@ function tables(): Tables {
 			rand: 1,
 			attack: {},
 			final: {},
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		},
 		{
 			id: counterId,
@@ -87,7 +87,7 @@ function tables(): Tables {
 			rand: 1,
 			attack: {},
 			final: {},
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		},
 	]);
 	return {

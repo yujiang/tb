@@ -53,6 +53,7 @@ export class FightPreParse {
 		for (let index = 0; index < messages.length; index++) {
 			const msg = messages[index];
 			if (msg[0] === 'start') this.sides.clear();
+			if (msg[0] === 'dismiss') this.sides.delete(msg[2]);
 			if (msg[0] === 'side') {
 				for (const [uid, side] of this.sides) if (side === msg[1]) this.sides.delete(uid);
 				for (const unit of msg[2]) this.sides.set(unit.uid, msg[1]);
@@ -94,6 +95,7 @@ export class FightPreParse {
 					'skillFailed',
 					'skipAction',
 					'protect',
+					'dismiss',
 				].includes(msg[0])
 			) {
 				return -1;

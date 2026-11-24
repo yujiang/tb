@@ -95,6 +95,17 @@ export class FightClient {
 				case 'runaway':
 					if (msg[2]) this.runaway = true;
 					break;
+				case 'dismiss': {
+					const uid = msg[2];
+					for (const side of this.sides) {
+						const index = side.findIndex((unit) => unit.uid === uid);
+						if (index >= 0) side.splice(index, 1);
+					}
+					this.sort = this.sort.filter((id) => id !== uid);
+					this.actions = this.actions.filter((action) => action.uid !== uid);
+					if (this.actor === uid) this.actor = undefined;
+					break;
+				}
 				case 'sort':
 					this.sort = [...msg[1]];
 					this.actions = msg[2]

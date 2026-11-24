@@ -70,6 +70,13 @@ export class FightMap {
 		return y + 1 > Math.ceil(this.ny / 2);
 	}
 
+	isPos(pos: number, posName: string){
+		if (posName === 'back') {
+			return this.isBackRow(pos);
+		}
+		return false;
+	}
+
 	// 以unit为中心来计算
 	selectTargetsShape(unit: FightUnit, shape: MapShapeEnum) {
 		const side = unit.side;

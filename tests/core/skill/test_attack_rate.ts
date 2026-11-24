@@ -19,7 +19,7 @@ function data(rate?: number, extra: Partial<SkillData> = {}): SkillData {
 		name: '攻击力倍率',
 		magic: true,
 		rand: 1,
-		sel: { target: TargetSelectEnum.enmey },
+		sel: { target: TargetSelectEnum.enemy },
 		attack: { attack: 20 },
 		attackLevel: { attack: 5 },
 		final: {},
@@ -167,7 +167,7 @@ test('attackRate: healing and poison reuse the same unit attack merge rule', () 
 			data(0.5, {
 				id: 98102,
 				func,
-				sel: { target: func === 'heal' ? TargetSelectEnum.self : TargetSelectEnum.enmey },
+				sel: { target: func === 'heal' ? TargetSelectEnum.self : TargetSelectEnum.enemy },
 			}),
 		]);
 		actor.addSkill(98102, 2);

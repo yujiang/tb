@@ -70,10 +70,10 @@ export function warnSkillConfigs(datas: SkillData[], skills: ReadonlyMap<number,
 		if ((data.sel?.num ?? 1) > 1) {
 			if (
 				data.sel.target !== TargetSelectEnum.friend &&
-				data.sel.target !== TargetSelectEnum.enmey
+				data.sel.target !== TargetSelectEnum.enemy
 			) {
 				messages.push(
-					`群攻技能 sel.num > 1 时，sel.target 只能为 friend 或 enmey，当前为 ${TargetSelectEnum[data.sel.target] ?? data.sel.target}`,
+					`群攻技能 sel.num > 1 时，sel.target 只能为 friend 或 enemy，当前为 ${TargetSelectEnum[data.sel.target] ?? data.sel.target}`,
 				);
 			}
 			recommend('群攻技能', ['nosupport', 'noprotect']);

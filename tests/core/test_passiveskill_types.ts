@@ -98,7 +98,7 @@ test('passive type 1: status forbids ordinary attacks and skills without a buff'
 			name: '普通技能',
 			magic: true,
 			rand: 1,
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 			attack: { attack: 10 },
 			final: {},
 		},

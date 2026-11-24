@@ -164,15 +164,15 @@ const result = await loop.run();
 
 查看实际异常日志：打开 `tests/report/test_report_error.ts`，在 VS Code 选择“调试战斗异常日志”并按 F5，自动编译后运行；可在示例主动抛错处或 `FightLoop.onError` 下断点。命令行等价操作为 `npm run test:build` 后执行 `node --enable-source-maps .test-build/tests/report/test_report_error.js`，堆栈会定位到 TypeScript 源文件。
 
-目标数量使用 `SelectParam.num`（可省略，默认 `1`）。`num > 1` 直接群体施放，例如 `sel: { target: TargetSelectEnum.enmey, num: 99 }` 对敌方全体，`{ target: TargetSelectEnum.friend, num: 3, sortAttr: "hp" }` 对血量最低的三个队友（包含自身）。只选择指定阵营及符合技能 `canTarget` 的单位，不先选主目标，不依赖 `spread`，也不被嘲讽改为单体。整次施放共用一次费用、CD、发动判定和施放后自身 Buff，每个目标独立结算；复活等动作结束回调在整组执行完后发生。
+目标数量使用 `SelectParam.num`（可省略，默认 `1`）。`num > 1` 直接群体施放，例如 `sel: { target: TargetSelectEnum.enemy, num: 99 }` 对敌方全体，`{ target: TargetSelectEnum.friend, num: 3, sortAttr: "hp" }` 对血量最低的三个队友（包含自身）。只选择指定阵营及符合技能 `canTarget` 的单位，不先选主目标，不依赖 `spread`，也不被嘲讽改为单体。整次施放共用一次费用、CD、发动判定和施放后自身 Buff，每个目标独立结算；复活等动作结束回调在整组执行完后发生。
 
-`SelectParam` 统一使用 `num`：主技能表示直接施放的总人数，`num: 1` 或省略为单体；溅射子技能表示副目标人数（默认 `1`，不包含主目标，`0` 不选）。例如主技能配置 `spread: 子技能ID`，子技能配置 `sel: { target: TargetSelectEnum.enmey, num: 2 }`，表示单体命中后溅射另外两人；子技能的 `shape` 配置优先于人数，排序也读取子技能。旧主表的 `numSpread/shape/sortAttr/sortDescend` 溅射配置需迁移到子技能的 `sel`，其中 `numSpread` 改为 `num`。`combo` 和协战仍继承实际主目标。
+`SelectParam` 统一使用 `num`：主技能表示直接施放的总人数，`num: 1` 或省略为单体；溅射子技能表示副目标人数（默认 `1`，不包含主目标，`0` 不选）。例如主技能配置 `spread: 子技能ID`，子技能配置 `sel: { target: TargetSelectEnum.enemy, num: 2 }`，表示单体命中后溅射另外两人；子技能的 `shape` 配置优先于人数，排序也读取子技能。旧主表的 `numSpread/shape/sortAttr/sortDescend` 溅射配置需迁移到子技能的 `sel`，其中 `numSpread` 改为 `num`。`combo` 和协战仍继承实际主目标。
 
 治疗示例见 `tests/report/fixtures/heal_targets.ts`：同一初始场面分别演示主目标 `healRate: 1` 加两个 spread 目标 `healRate: 0.7`，以及 `friend, num: 3` 的直接群疗。主技能人数省略为单体，spread 子技能配置 `num: 2`；两者按血量排序并跳过禁疗和死亡单位，包含实际回血量、一次扣费和客户端一致性检查。运行 `npm run test:build` 后执行 `node .test-build/tests/report/fixtures/heal_targets.js` 可查看两段简报。
 
 为保持场面清晰，建议填表时仅让单一主目标触发协战和保护：群攻技能及溅射子技能填写 `nosupport: true, noprotect: true`，单体主技能按需配置。这是填表建议，程序不因群攻或溅射身份强制关闭能力；禁止字段省略或 `false` 时不额外禁止。群攻拆成逐目标结算时保留原配置，溅射子技能独立读取自己的配置，后续链接的子技能也应逐个检查。溅射仍保留原来的单次攻击结算流程。
 
-`initSkills` 在整批注册后用中文 `console.warn` 提醒填表问题，包含技能名称、ID 和具体字段，只告警、不改配置、不阻止注册。检查 `num > 1` 时 `sel.target` 是否为 `friend/enmey`（群体仅支持这两种目标类型），群攻/溅射的 `nosupport/noprotect`，协战及后续攻击链的 `nofback/nodback`，协战根技能的攻击类 `func`，大招的 `noprotect`，主攻击及 `heal/poison/relife/nohurt` 一般建议的 `rand: 1`，以及同时填写 `next/combo` 的歧义。角色从已注册技能表的引用识别；未被引用为子技能、协战或反击的攻击类技能按主攻击建议检查。跨批次可识别已有引用，不报告无关旧行；被动、怪物表或运行时才装配的技能角色，单靠 `initSkills` 无法识别。
+`initSkills` 在整批注册后用中文 `console.warn` 提醒填表问题，包含技能名称、ID 和具体字段，只告警、不改配置、不阻止注册。检查 `num > 1` 时 `sel.target` 是否为 `friend/enemy`（群体仅支持这两种目标类型），群攻/溅射的 `nosupport/noprotect`，协战及后续攻击链的 `nofback/nodback`，协战根技能的攻击类 `func`，大招的 `noprotect`，主攻击及 `heal/poison/relife/nohurt` 一般建议的 `rand: 1`，以及同时填写 `next/combo` 的歧义。角色从已注册技能表的引用识别；未被引用为子技能、协战或反击的攻击类技能按主攻击建议检查。跨批次可识别已有引用，不报告无关旧行；被动、怪物表或运行时才装配的技能角色，单靠 `initSkills` 无法识别。
 
 单体 `heal/poison/relife/nohurt` 在扣费及启动 CD 后、执行效果前判一次发动概率；群体仍整组判一次，不按目标重复判定。`rand: 0` 必定不发动，`rand: 1` 必定发动，两者不抽取概率随机数。失败发送 `skillFailed`，仍消耗费用/CD，不执行效果、溅射或施放后自身 Buff；受有效嘲讽约束时仍消耗该次嘲讽。周期 Buff 的治疗/毒伤不走主动技能概率判定。此前单体非攻击技能遗漏此判定，修正后配置 `0 < rand < 1` 会增加一次随机抽样，相同旧种子的后续结果可能变化；一般技能建议填 1。
 
@@ -318,14 +318,14 @@ attackLevel: { attack: 5 },
 ```ts
 // 一式：主技能，费用只在这里收取，结束后附加休息
 { id: 98001, combo: 98002, damageRate: 0.4, rand: 1,
-  sel: { target: TargetSelectEnum.enmey }, nofback: true, nodback: true,
+  sel: { target: TargetSelectEnum.enemy }, nofback: true, nodback: true,
   cost: { mp: 10 }, afterSelfBuff: [[98004, 1, 1]] }
 // 二式：锁定同一人，不反击、不反伤、不追击
 { id: 98002, combo: 98003, damageRate: 0.7, rand: 1,
-  sel: { target: TargetSelectEnum.enmey }, nofback: true, nodback: true }
+  sel: { target: TargetSelectEnum.enemy }, nofback: true, nodback: true }
 // 终式：按需开启反击、反伤，追击可另配 kill
 { id: 98003, damageRate: 1, rand: 1,
-  sel: { target: TargetSelectEnum.enmey }, nofback: false, nodback: false }
+  sel: { target: TargetSelectEnum.enemy }, nofback: false, nodback: false }
 ```
 
 休息 Buff 配置 `status: ["休息"], turnType: BuffTurnEnum.afterTurn, lastTurn: 2`，无需专用类；旧 `class: "rest"` 兼容提供同一状态。`FightStatus` 将休息映射到独立的 `action` 限制，`FightUnit.isForbid("action")` 统一查询 Buff 和被动。`Fight.processUnit()` 发现该状态会直接跳过主动行动，包括普通攻击、技能和防御，不选目标、不扣费、不抽样，并发送 `["skipAction", unitId, buffId]` 供简报显示；状态来自被动而没有 Buff 来源时发送 `["skipAction", unitId, null, statusName]`。它不禁止提交指令，也不改变 `needInput()`。`afterTurn` 的 `lastTurn` 计回合后边界次数：第 N 回合施放后添加，N 回合结束计第一次，N+1 回合结束计第二次并移除；因此 N+1 回合跳过行动，N+2 恢复；`0` 不自然到期。只要 Buff 存在，额外主动行动也会被跳过；反击等反应仍按原技能流程处理。
@@ -395,7 +395,7 @@ const accepted = await loop.onInput(unitId, {
 
 每个 `FightUnitMonster` 只有一个 `ai: FightAI`，负责通过 `waitInput(unit, turn, ctx)` 根据场面选择本次普通行动。返回 undefined 时回退普攻；赋值替换 AI 会解绑旧监听，但不会移除规则。AI 可继承公共的监听、生命周期和属性修正能力，不能通过 `addRule` 混入规则列表。
 
-`FightAITarget({ type: "rearDoctor" })` 默认优先普攻敌方存活的后排医生（`attr.career === CarerrEnum.医生`），多个候选通过战斗随机源选一个，只有一个时不抽样；没有候选或没有地图则沿用默认选目标。后排由 `FightMap.isBackRow(pos)` 统一判断：内部坐标 y 从 0 开始，策划行号为 y+1，行号大于 `ceil(ny/2)` 属于后排，即 3×3 第 3 排、5×5 第 4、5 排，矩形地图按高度 ny 计算。嘲讽仍在执行时覆盖原始目标。可直接赋值 `monster.ai = new FightAITarget({ type: "rearDoctor" })`，也可统一通过怪物模板的 `ai: { type: "rearDoctor" }` 装配。
+`FightAITarget({ type: "target", career: "医生", pos: "back" })` 默认优先普攻敌方存活的后排医生（`attr.career === "医生"`），多个候选通过战斗随机源选一个，只有一个时不抽样；没有候选或没有地图则沿用默认选目标。后排由 `FightMap.isBackRow(pos)` 统一判断：内部坐标 y 从 0 开始，策划行号为 y+1，行号大于 `ceil(ny/2)` 属于后排，即 3×3 第 3 排、5×5 第 4、5 排，矩形地图按高度 ny 计算。嘲讽仍在执行时覆盖原始目标。可直接赋值 `monster.ai = new FightAITarget({ type: "target", career: "医生", pos: "back" })`，也可统一通过怪物模板的 `ai: { type: "target", career: "医生", pos: "back" }` 装配。
 
 多个固定行为放进 `rules`，使用 `addRule(rule, prior = 0)`、`removeRule(rule)` 管理，`rules` 返回列表副本。规则按 prior 从小到大、同优先级按添加顺序执行，彼此不争抢输入。没有 AI 但有规则时普通行动为普攻；两者都没有时沿用 `inputSkill → 技能首项 → 普攻`。原 `FightAIHp/FightAITurn/FightAIHurt`、`addAI/removeAI/ais` 已分别改名为 `FightRuleHp/FightRuleTurn/FightRuleHurt`、`addRule/removeRule/rules`。
 
@@ -405,7 +405,7 @@ const accepted = await loop.onInput(unitId, {
 
 ```ts
 // Boss 狂暴：用新配置创建一套规则，不再保留旧规则的计数。
-boss.setAI({ type: "rearDoctor" });
+boss.setAI({ type: "target", career: "医生", pos: "back" });
 boss.setRules([
     { type: "turn", every: 1, skill: rageSkillId },
     { type: "hurt", every: 2 },
@@ -450,7 +450,7 @@ monster.addRule(new FightRuleHurt({ type: "hurt", every: 3 }));
 
 `MonsterData` 保存怪物模板：`id/name/character`、`attr: FightAttr`、`skills/passiveSkills`、`attackSkill/fbackSkill/supportSkill/ultimateSkill/inputSkill`、单个 `ai: AIData` 和 `rules: RuleData[]`。`CreateMonsterSide` 一次完成 AI、规则及被动装配，不要求宿主生成后再逐只绑定。模板不保存战斗 `uid` 或站位。同一模板 ID 可以反复生成，运行单位用 `monsterId` 保留来源 ID。属性既可提供 FightAttr 实例，也可由表加载为同结构的 JSON 对象，生成时恢复为 FightAttr 并深拷贝。
 
-`AIData` 统一为 `{ type: string; skill?: number; typeParam?: any; custom?: any }`，由具体AI解释和校验专用参数；当前内置AI不读取typeParam。使用 `type` 选择 `rearDoctor/topThreat/topHealer` 方法，`skill` 选择已学敌方单体技能，省略 skill 则普攻；三种方法统一由 `createAI` 创建 `FightAITarget` 实例。原 `new FightAIRearDoctor()` 改为 `new FightAITarget({ type: "rearDoctor" })`；`RuleData` 使用一个平铺结构：`type: string` 加可选的 `prior/lines/every/skill/pos/custom`，便于XLS固定列，各规则按类型校验和读取适用字段。现有配置写法保持不变，支持 `{ type: "hp", lines, prior? }`、`{ type: "turn", every, skill, pos?, prior? }`、`{ type: "hurt", every, skill?, prior? }`，由 `createRule` 创建多条规则。每只怪物的 AI、Rule 均为独立实例。具体类创建集中在 `AI/AIFactory.ts` 和 `Rules/RuleFactory.ts`，与 Buff 工厂一致；可从 `FightAI`/`FightRule` 模块导入 `createAI`/`createRule`，原 `AIDatas`/`RuleDatas` 导入路径及包入口继续可用，数据类型使用 `import type`。技能用 `[id, level]` 明确学习，AI、Rule 或装配不会自动学习技能。生成顺序为属性/显示、学习技能、初始化被动、显式装配、绑定规则与 AI；显式装配包括 0 会覆盖被动，省略则保留被动装配。初始生命为 0 时生成死亡单位并执行普通死亡清理。
+`AIData` 使用平铺字段 `type/skill/friend/contributions/career/pos/cond/custom`。工厂内置 `target`（FightAITarget）和 `cond`（FightAICond），旧 rearDoctor/topThreat/topHealer/lowHpHeal 类型需迁移为下述配置。target 的 skill 省略则普攻；contributions选择贡献榜，career与pos组合筛选职业和站位，friend缺省敌方。cond满足条件时对自身施放已学技能，`cond: "hpLow"`使用custom作为严格小于的血量比例阈值。完整字段和六种贡献来源见[怪物与行为字典](document/wiki/怪物与行为.md)。`RuleData` 使用一个平铺结构：`type: string` 加可选的 `prior/lines/every/skill/pos/custom`，便于XLS固定列，各规则按类型校验和读取适用字段。现有配置写法保持不变，支持 `{ type: "hp", lines, prior? }`、`{ type: "turn", every, skill, pos?, prior? }`、`{ type: "hurt", every, skill?, prior? }`，由 `createRule` 创建多条规则。每只怪物的 AI、Rule 均为独立实例。具体类创建集中在 `AI/AIFactory.ts` 和 `Rules/RuleFactory.ts`，与 Buff 工厂一致；可从 `FightAI`/`FightRule` 模块导入 `createAI`/`createRule`，原 `AIDatas`/`RuleDatas` 导入路径及包入口继续可用，数据类型使用 `import type`。技能用 `[id, level]` 明确学习，AI、Rule 或装配不会自动学习技能。生成顺序为属性/显示、学习技能、初始化被动、显式装配、绑定规则与 AI；显式装配包括 0 会覆盖被动，省略则保留被动装配。初始生命为 0 时生成死亡单位并执行普通死亡清理。
 
 阵型独立使用 `ZhenData { id, pos: number[] }`，通过 `initZhens()` 注册。生成时传阵型 ID `zhen`，由 `getZhenPos(zhen)` 查位置，`ids[i]` 对应位置数组第 i 项；函数返回副本。模板不承载阵型，玩家的阵型加成可由宿主基于同一个阵型 ID 扩展，怪物生成当前只消费站位。
 
@@ -460,7 +460,7 @@ initMonsters([{
     id: 1001, name: "山贼", character: 11, attr: monsterAttr,
     skills: [[101, 2], [102, 1]], attackSkill: 101,
     passiveSkills: [[201, 1]],
-    ai: { type: "rearDoctor" },
+    ai: { type: "target", career: "医生", pos: "back" },
     rules: [
         { type: "hp", lines: [{ hp: 0.7, attackRate: 0.2 }] },
         { type: "turn", every: 3, skill: 102 },
@@ -629,10 +629,10 @@ initSkills([
 ]);
 monster.addSkill(11001, 1);
 monster.addSkill(11002, 1);
-monster.setAI({ type: "topThreat", skill: 11001 }); // 最高有效仇恨＋物理致死
-// monster.setAI({ type: "topHealer", skill: 11002 }); // 最高有效治疗贡献＋魔法致死
-// monster.setAI({ type: "rearDoctor", skill: 11001 }); // 后排医生＋物理致死
-// monster.setAI({ type: "topThreat" }); // 同一选人方法也能用普攻
+monster.setAI({ type: "target", contributions: "unitHurt", skill: 11001 }); // 最高有效仇恨＋物理致死
+// monster.setAI({ type: "target", contributions: "enemyHeal", skill: 11002 }); // 最高有效治疗贡献＋魔法致死
+// monster.setAI({ type: "target", career: "医生", pos: "back", skill: 11001 }); // 后排医生＋物理致死
+// monster.setAI({ type: "target", contributions: "unitHurt" }); // 同一选人方法也能用普攻
 const contributions = fight.getSide(monster.side).getContributions(); // [{ uid, hurt, heal }]
 ```
 
@@ -659,11 +659,22 @@ extraAction: [[0.5, 0]], // 原行动＋一个半速行动位，每回合两次�
 
 ```ts
 monster.addSkill(healSkillId, 1); // 已注册的单体heal技能，目标为self或friend
-monster.setAI({ type: "lowHpHeal", skill: healSkillId });
+monster.setAI({ type: "cond", cond: "hpLow", custom: 0.5, skill: healSkillId });
 ```
 
-`FightAILowHpHeal` 在血量严格低于50%时尝试给自己治疗，否则返回undefined，沿用默认普攻。技能未学会、冷却中、禁疗或当前状态不允许施放时也不强行自疗。每次出手重新判断，包含extraAction触发的AI决策；治疗仍复用公共目标检查和技能结算。
+上述 `FightAICond` 配置在血量严格低于50%时尝试给自己治疗；条件AI也可使用其他合法的自身技能，否则返回undefined，沿用默认普攻。技能未学会、冷却中、禁疗或当前状态不允许施放时也不强行自疗。每次出手重新判断，包含extraAction触发的AI决策；治疗仍复用公共目标检查和技能结算。
 
-AI和Rule与Buff一样接收完整xls：`new FightAITarget(aiData)`、`new FightAILowHpHeal(aiData)`、`new FightRuleHp(ruleData)`、`new FightRuleTurn(ruleData)`、`new FightRuleHurt(ruleData)`。工厂原样传入配置，基类保存为protected xls，提供`getXls()`和`getCustom()`；`custom?: any`供宿主附加数据，内置逻辑不读取。原来直接new规则时的数组/位置参数已统一改为配置对象，表配置及工厂入口保持不变。代码派生AI/Rule仍可无参调用super()，获得安全的默认配置。
+AI和Rule与Buff一样接收完整xls：`new FightAITarget(aiData)`、`new FightAICond(aiData)`、`new FightRuleHp(ruleData)`、`new FightRuleTurn(ruleData)`、`new FightRuleHurt(ruleData)`。工厂原样传入配置，基类保存为protected xls，提供`getXls()`和`getCustom()`；`custom?: any`供宿主附加数据，条件AI的hpLow读取custom作为生命比例阈值，其他内置逻辑不读取。原来直接new规则时的数组/位置参数已统一改为配置对象，表配置及工厂入口保持不变。代码派生AI/Rule仍可无参调用super()，获得安全的默认配置。
 
 `FightRule` 和 `FightAI` 同级继承公共 `FightBehavior`。公共层负责xls配置访问、单位绑定、监听注册/清理、初始化、属性修正和回合钩子；具体规则继承FightRule，普通行动决策继承FightAI。AI不再是FightRule，规则列表仍拒绝AI实例；具体类、工厂和配置写法保持不变。包入口导出FightBehavior，代码派生AI/Rule的默认super()用法继续可用。
+
+## 移除单位（dismiss）
+
+`FightCmdEnum.dismiss`使用必填的`target`指定离场单位（0有效），占用操作者一次普通行动；PC/西游支持，西游网络入口须带当前`turn`，烟雨网络入口仅接受skill。玩家不能被移除；怪物可移除怪物，不校验归属或阵营；召唤物检查`FightUnitSummon.user === 操作者.uid`，`user`由宿主设置，0有效，未配置不可移除。目标死亡也允许移除，执行时重新检查目标和归属；操作者仍须存活且未被禁止行动。
+
+```ts
+summon.user = player.uid;
+loop.onInput(player.uid, { turn: fight.turn, cmd: FightCmdEnum.dismiss, target: summon.uid });
+```
+
+成功时发送`['dismiss', 操作者UID, 离场单位UID]`，从服务端和客户端阵营列表删除目标，同时取消其全部剩余行动、清空输入并解绑内部Buff/AI/规则监听，随后同步sort。离场不会扣血、触发死亡或单独驱散Buff；简报与MUD显示离场。`dismiss(unit, ctx, operator)`事件在单位移除、监听清理后发出，完整动作结束检查胜负。历史仇恨和贡献ID保留，查询不到已离场目标便跳过。每场新建FightUnit、只绑定一个Fight且不复用；UID按序递增、不重复，离场后不重用。`dismiss/cancel/protect`当前枚举值为5/6/7，宿主与客户端应同步。

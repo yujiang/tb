@@ -154,7 +154,7 @@ for (const field of ['next', 'combo'] as const) {
 			final: {},
 			nofback: true,
 			nodback: true,
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		};
 		initSkills([
 			{ ...common, id: first, name: '一段', damageRate: 0.4, [field]: second },

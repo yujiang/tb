@@ -91,6 +91,8 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 
 普通次数 Buff 使用 `(unit, ctx, ...args)` 的上下文事件，如 beforeHurt、beforeHeal、hurt、heal、hp、die、relife、break、afterTurn、addBuff、removeBuff。`attr/speed` 是普通属性事件，不带同样的 ctx 参数，不适合普通次数 Buff。
 
+`dismiss(unit, ctx, operator)`是永久离场事件，单位已从战斗列表移除并解绑Buff和行为监听，不触发die或removeBuff。此时Buff已停止监听，不用它配置离场单位自身的次数消耗；宿主可监听战斗级事件处理离场。
+
 `break` 仅在盾正数变为 0 时发出，附带该瞬间全体破盾快照；直接击杀未破盾的单位不算 break。`hp` 只表达实际生命变化，包含保护分担与截断后的治疗；分担不发普通 hurt 事件。
 
 ## PassiveData 自身字段

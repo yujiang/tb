@@ -157,6 +157,10 @@ export class FightReport {
 				this.lines.length = 0;
 			}
 			// 复用客户端的消息处理，仅从消息累计展示状态，不读取服务端战斗。
+			const dismissal =
+				msg[0] === 'dismiss'
+					? `${this.name(msg[1])} 移除 ${this.name(msg[2])}，使其离场`
+					: undefined;
 			this.client.onMsg(msg);
 			if (this.describe(msg)) continue;
 			const name = (id: number) => this.name(id);
@@ -401,6 +405,9 @@ export class FightReport {
 					this.write(`战斗结束：${msg[3] ? '逃跑，' : ''}${result}`);
 					break;
 				}
+				case 'dismiss':
+					this.write(dismissal);
+					break;
 				case 'runaway':
 					this.write(`${name(msg[1])} 逃跑${msg[2] ? '成功' : '失败'}`);
 					break;

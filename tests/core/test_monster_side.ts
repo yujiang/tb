@@ -30,7 +30,6 @@ import {
 	BuffTurnEnum,
 	initFightContex,
 	WeaponEnum,
-	CarerrEnum,
 } from '../../src';
 
 const monsterId = 1001200,
@@ -82,7 +81,7 @@ function setup() {
 		nofback: true,
 		nodback: true,
 		nosupport: true,
-		sel: { target: TargetSelectEnum.enmey },
+		sel: { target: TargetSelectEnum.enemy },
 	};
 	initSkills([
 		{
@@ -244,7 +243,7 @@ test('monster side: extraAction configuration belongs to each generated unit', (
 // 怪物模板一次装配单个 AI、多条规则与被动，重复模板生成的实例互不共享。
 test('monster side: one template assembles AI rules and passives together', () => {
 	const { data, allocateUid } = setup();
-	const configured = { ...data, id: monsterId + 24, ai: { type: 'rearDoctor' as const } };
+	const configured = { ...data, id: monsterId + 24, ai: { type: 'target' as const, career: '医生', pos: 'back' } };
 	const original = structuredClone(configured);
 	initMonsters([configured]);
 	const [first, second] = CreateMonsterSide(
@@ -268,9 +267,9 @@ test('monster side: one template assembles AI rules and passives together', () =
 test('monster side: a template-equipped AI attacks the generated rear doctor', () => {
 	const { data, allocateUid } = setup();
 	const doctorAttr = attributes();
-	doctorAttr.career = CarerrEnum.医生;
+	doctorAttr.career = '医生';
 	initMonsters([
-		{ ...data, id: monsterId + 25, ai: { type: 'rearDoctor' } },
+		{ ...data, id: monsterId + 25, ai: { type: 'target', career: '医生', pos: 'back' } },
 		{ id: monsterId + 26, name: '医生', attr: doctorAttr },
 	]);
 	initZhens([{ id: zhenId + 50, pos: [0, 6] }]);

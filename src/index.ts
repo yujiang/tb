@@ -25,7 +25,7 @@ export * from './fight/Unit/FightUnitMonster';
 export * from './fight/Unit/MonsterDatas';
 export * from './fight/AI/FightAI';
 export * from './fight/AI/FightAITarget';
-export * from './fight/AI/FightAILowHpHeal';
+export * from './fight/AI/FightAICond';
 export * from './fight/AI/AIDatas';
 export * from './fight/Rules/FightRule';
 export * from './fight/Rules/FightRuleHp';

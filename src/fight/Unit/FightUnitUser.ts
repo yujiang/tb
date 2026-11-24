@@ -63,4 +63,7 @@ export class FightUnitUser extends FightUnitCost {
 
 export class FightUnitSummon extends FightUnitCost {
 	override type = UnitType.summon;
+
+	/** 主人FightUnit的uid，由宿主创建召唤物时设置，0有效；dismiss通过此字段校验操作者，不配置时不能被指令移除。 */
+	user: number;
 }

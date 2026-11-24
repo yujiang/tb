@@ -74,14 +74,20 @@ function secondaryTargets(
 	func = 'normal',
 ): string[] | undefined {
 	const param: SelectParam = {
-		target: TargetSelectEnum.enmey,
+		target: TargetSelectEnum.enemy,
 		num: 1,
 		shape,
 	};
 	return names(
 		fight.selectSpreadTargets(
 			main,
-			new FightSkill({ ...getDefaultSkill(param).getXls(), func }, 1),
+			new FightSkill(
+				{
+					...new FightSkill({ ...getDefaultSkill().getXls(), sel: param }, 1).getXls(),
+					func,
+				},
+				1,
+			),
 		),
 	);
 }
@@ -91,7 +97,10 @@ test('main target selection and secondary shape selection are separate stages', 
 	const mainParam: SelectParam = {
 		target: TargetSelectEnum.duiwei,
 	};
-	const main = fight.selectMainTarget(a00, getDefaultSkill(mainParam));
+	const main = fight.selectMainTarget(
+		a00,
+		new FightSkill({ ...getDefaultSkill().getXls(), sel: mainParam }, 1),
+	);
 
 	assert.equal(main, b40);
 	assert.deepEqual(secondaryTargets(main, MapShapeEnum.x_line), ['b41']);
@@ -100,7 +109,13 @@ test('main target selection and secondary shape selection are separate stages', 
 // 测试：选择自身时以行动者作为主目标。
 test('self selects the attacker as the main target', () => {
 	assert.equal(
-		fight.selectMainTarget(a00, getDefaultSkill({ target: TargetSelectEnum.self })),
+		fight.selectMainTarget(
+			a00,
+			new FightSkill(
+				{ ...getDefaultSkill().getXls(), sel: { target: TargetSelectEnum.self } },
+				1,
+			),
+		),
 		a00,
 	);
 });
@@ -108,7 +123,13 @@ test('self selects the attacker as the main target', () => {
 // 测试：选出的主目标保持为预期的敌方单位。
 test('an explicit main target is preserved', () => {
 	assert.equal(
-		fight.selectMainTarget(a00, getDefaultSkill({ target: TargetSelectEnum.enmey })),
+		fight.selectMainTarget(
+			a00,
+			new FightSkill(
+				{ ...getDefaultSkill().getXls(), sel: { target: TargetSelectEnum.enemy } },
+				1,
+			),
+		),
 		b40,
 	);
 });
@@ -121,7 +142,10 @@ test('duiwei can select dead units or skip them according to skill qualification
 			a00,
 			new FightSkill(
 				{
-					...getDefaultSkill({ target: TargetSelectEnum.duiwei }).getXls(),
+					...new FightSkill(
+						{ ...getDefaultSkill().getXls(), sel: { target: TargetSelectEnum.duiwei } },
+						1,
+					).getXls(),
 					func: 'relife',
 				},
 				1,
@@ -130,7 +154,13 @@ test('duiwei can select dead units or skip them according to skill qualification
 		b40,
 	);
 	assert.equal(
-		fight.selectMainTarget(a00, getDefaultSkill({ target: TargetSelectEnum.duiwei })),
+		fight.selectMainTarget(
+			a00,
+			new FightSkill(
+				{ ...getDefaultSkill().getXls(), sel: { target: TargetSelectEnum.duiwei } },
+				1,
+			),
+		),
 		b41,
 	);
 	b40.relife();
@@ -144,10 +174,16 @@ test('main-target selection filters dead units and honors sorting', () => {
 	assert.equal(
 		fight.selectMainTarget(
 			a00,
-			getDefaultSkill({
-				target: TargetSelectEnum.enmey,
-				sortAttr: 'hp',
-			}),
+			new FightSkill(
+				{
+					...getDefaultSkill().getXls(),
+					sel: {
+						target: TargetSelectEnum.enemy,
+						sortAttr: 'hp',
+					},
+				},
+				1,
+			),
 		),
 		b41,
 	);
@@ -177,11 +213,17 @@ test('numeric secondary selection chooses sorted allies and excludes the main ta
 
 	const selected = fight.selectSpreadTargets(
 		a00,
-		getDefaultSkill({
-			target: TargetSelectEnum.enmey,
-			num: 2,
-			sortAttr: 'hp',
-		}),
+		new FightSkill(
+			{
+				...getDefaultSkill().getXls(),
+				sel: {
+					target: TargetSelectEnum.enemy,
+					num: 2,
+					sortAttr: 'hp',
+				},
+			},
+			1,
+		),
 	);
 
 	assert.deepEqual(names(selected), ['a11', 'a02']);

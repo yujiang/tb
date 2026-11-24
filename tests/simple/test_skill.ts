@@ -8,7 +8,7 @@ import { FightClient } from '../../src/fight/Client/FightClient';
 import { FightReport } from '../../src/fight/Client/FightReport';
 
 const sel: SelectParam = {
-	target: TargetSelectEnum.enmey,
+	target: TargetSelectEnum.enemy,
 };
 
 function baseAttack(attack: number): BaseAttack {
@@ -40,7 +40,7 @@ const normalSkill: SkillData = {
 	id: 1,
 	name: '普通魔法',
 	magic: true,
-	sel: { target: TargetSelectEnum.enmey },
+	sel: { target: TargetSelectEnum.enemy },
 	rand: 1,
 
 	cost: { mp: 10 },
@@ -69,7 +69,7 @@ const spreadSkill: SkillData = {
 	id: 3,
 	name: '溅射',
 	magic: true,
-	sel: { target: TargetSelectEnum.enmey, shape: MapShapeEnum.x_line },
+	sel: { target: TargetSelectEnum.enemy, shape: MapShapeEnum.x_line },
 	func: 'spread',
 
 	rand: 1,

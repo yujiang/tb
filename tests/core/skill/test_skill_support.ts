@@ -124,7 +124,7 @@ function setup(
 		nofback: true,
 		nosupport: true,
 		noprotect: true,
-		sel: { target: TargetSelectEnum.enmey },
+		sel: { target: TargetSelectEnum.enemy },
 	};
 	const skills: SkillData[] = [
 		{ ...common, id: ids.root, name: '主攻', nosupport: false },

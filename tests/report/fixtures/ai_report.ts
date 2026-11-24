@@ -68,7 +68,7 @@ export async function runAIReport(
 		nofback: true,
 		nodback: true,
 		nosupport: true,
-		sel: { target: TargetSelectEnum.enmey },
+		sel: { target: TargetSelectEnum.enemy },
 	};
 	initSkills([
 		{ ...common, id: heroSkill, name: '断岳刀', attack: {} },

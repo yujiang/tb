@@ -92,7 +92,7 @@ for (const rate of [0, 0.4, 1, 2]) {
 				final: {},
 				func: 'heal',
 				healRate: rate,
-				sel: { target: TargetSelectEnum.enmey },
+				sel: { target: TargetSelectEnum.enemy },
 			},
 		]);
 		actor.addSkill(99930, 1);
@@ -129,7 +129,7 @@ test('critical add: roll once for attacks and never add a new poison critical ro
 			attack: {},
 			final: {},
 			func: 'poison',
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		},
 	]);
 	actor.addSkill(99931, 1);

@@ -36,7 +36,7 @@ for (const func of ['heal', 'poison'] as const) {
 				attackRate: 0.5,
 				healRate: func === 'heal' ? rate : 7,
 				poisonRate: func === 'poison' ? rate : 7,
-				sel: { target: func === 'heal' ? TargetSelectEnum.self : TargetSelectEnum.enmey },
+				sel: { target: func === 'heal' ? TargetSelectEnum.self : TargetSelectEnum.enemy },
 			});
 			initSkills([config]);
 			actor.addSkill(config.id, 2);

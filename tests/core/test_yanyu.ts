@@ -67,7 +67,7 @@ async function setup(cd?: number) {
 			nofback: true,
 			nodback: true,
 			nosupport: true,
-			sel: { target: TargetSelectEnum.enmey },
+			sel: { target: TargetSelectEnum.enemy },
 		},
 	]);
 	setFightGlobalData({

@@ -7,6 +7,8 @@ import {
 	MapShapeEnum,
 	FightCmdEnum,
 	getDefaultSkill,
+	getDefaultSkillDuiwei,
+	getDefaultSkillProtect,
 	FightUnitMonster,
 	FightAttr,
 } from '../../src';
@@ -16,7 +18,7 @@ import { setupChain, chainIds as ids } from '../fixtures/skill_chain';
 test('targets: numeric secondary selection filters before sorting without mutating side order', () => {
 	const { fight, target, other, skills } = setupChain();
 	const skill = new FightSkill(
-		{ ...skills[0], sel: { target: TargetSelectEnum.enmey, num: 2, sortAttr: 'hp' } },
+		{ ...skills[0], sel: { target: TargetSelectEnum.enemy, num: 2, sortAttr: 'hp' } },
 		1,
 	);
 	const order = [...fight.getSideUnits(target.side)];
@@ -47,7 +49,7 @@ test('targets: attack splash reads child num and sort configuration', () => {
 			skills[0].combo = undefined;
 			skills[0].spread = ids.second;
 			skills[1].combo = undefined;
-			skills[1].sel = { target: TargetSelectEnum.enmey, num: 0, sortAttr: 'hp' };
+			skills[1].sel = { target: TargetSelectEnum.enemy, num: 0, sortAttr: 'hp' };
 		},
 	});
 	const ctx = fight.processUnit(actor, {
@@ -69,7 +71,7 @@ test('targets: shape selection uses the supplied skill qualification', () => {
 	const { fight, target, other, skills } = setupChain();
 	fight.createMap(3, 2);
 	const skill = new FightSkill(
-		{ ...skills[0], sel: { target: TargetSelectEnum.enmey, shape: MapShapeEnum.y_line } },
+		{ ...skills[0], sel: { target: TargetSelectEnum.enemy, shape: MapShapeEnum.y_line } },
 		1,
 	);
 	skill.canTarget = (unit) => unit !== other;
@@ -86,7 +88,7 @@ test('targets: splash child selects two sorted secondary targets independently',
 			skills[0].spread = ids.second;
 			skills[0].sel.shape = MapShapeEnum.x_line;
 			skills[1].combo = undefined;
-			skills[1].sel = { target: TargetSelectEnum.enmey, num: 2, sortAttr: 'hp' };
+			skills[1].sel = { target: TargetSelectEnum.enemy, num: 2, sortAttr: 'hp' };
 		},
 	});
 	for (const [uid, hp] of [
@@ -124,7 +126,7 @@ test('targets: splash child selects two sorted secondary targets independently',
 test('targets: group selection honors custom qualification before taking num', () => {
 	const { fight, actor, target, other, skills } = setupChain();
 	const skill = new FightSkill(
-		{ ...skills[0], sel: { target: TargetSelectEnum.enmey, num: 99 } },
+		{ ...skills[0], sel: { target: TargetSelectEnum.enemy, num: 99 } },
 		1,
 	);
 	skill.canTarget = (unit) => unit !== target;
@@ -157,12 +159,18 @@ test('targets: revival qualification controls automatic and explicit input targe
 	assert.equal(actor.attr.point.mp, 90);
 });
 
-// 测试：默认技能不依赖注册表，重复获取的配置与合并属性互不影响。
-test('targets: default skills are independent and require no registry entry', () => {
-	const first = getDefaultSkill();
-	first.getSel().target = TargetSelectEnum.friend;
-	first.getAttack().attack = 999;
-	const second = getDefaultSkill();
-	assert.equal(second.getSel().target, TargetSelectEnum.enmey);
-	assert.equal(second.getAttack().attack, 0);
+// 默认技能按敌方、对位和友方分别缓存，调用者定制配置时创建自己的技能实例。
+test('targets: cached default skills have distinct selection rules without a registry entry', () => {
+	const enemy = getDefaultSkill();
+	assert.equal(getDefaultSkill(), enemy);
+	assert.equal(enemy.getSel().target, TargetSelectEnum.enemy);
+	assert.equal(getDefaultSkillDuiwei().getSel().target, TargetSelectEnum.duiwei);
+	assert.equal(getDefaultSkillProtect().getSel().target, TargetSelectEnum.friend);
+	const custom = new FightSkill(
+		{ ...enemy.getXls(), sel: { target: TargetSelectEnum.friend } },
+		0,
+	);
+	custom.getAttack().attack = 999;
+	assert.equal(enemy.getSel().target, TargetSelectEnum.enemy);
+	assert.equal(enemy.getAttack().attack, 0);
 });

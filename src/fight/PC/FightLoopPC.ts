@@ -20,6 +20,8 @@ export class FightLoopPC extends FightLoop {
 		super.start();
 		this.fight.offUnitEvent('die', this.onWaitingUnitDied);
 		this.fight.onUnitEvent('die', this.onWaitingUnitDied);
+		this.fight.offUnitEvent('dismiss', this.onWaitingUnitDied);
+		this.fight.onUnitEvent('dismiss', this.onWaitingUnitDied);
 	}
 
 	override nextTurn() {
@@ -167,6 +169,7 @@ export class FightLoopPC extends FightLoop {
 	override end() {
 		this.closeInput();
 		this.fight.offUnitEvent('die', this.onWaitingUnitDied);
+		this.fight.offUnitEvent('dismiss', this.onWaitingUnitDied);
 		super.end();
 	}
 }

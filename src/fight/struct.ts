@@ -19,7 +19,7 @@ export enum TargetSelectEnum {
 	self,
 	duiwei, // 对位
 	friend, // 己方：加血，buff
-	enmey, // 敌方：伤害, debuff
+	enemy, // 敌方：伤害, debuff
 }
 
 export enum MapShapeEnum {
@@ -31,7 +31,7 @@ export enum MapShapeEnum {
 }
 
 export interface SelectParam {
-	/** 目标类型，必填：self自身、duiwei对位、friend己方、enmey敌方；直接群体施放仅支持friend/enmey，其他组合注册时warn；保留现有 enmey 拼写。 */
+	/** 目标类型，必填：self自身、duiwei对位、friend己方、enemy敌方；直接群体施放仅支持friend/enemy，其他组合注册时warn。 */
 	target: TargetSelectEnum;
 	/** 直接施放时为总人数，缺省1，>1为群体，99可覆盖全体；作为溅射子技能时为副目标人数，不含主目标，0不选。 */
 	num?: number;
@@ -83,6 +83,7 @@ export enum FightCmdEnum {
 	skill, //技能
 	runaway, //逃跑
 	//catch,    //捕捉宠物
+	dismiss, // 移除单位，target必填；怪物可移除怪物，召唤物校验user归属，玩家不可移除
 	cancel, //取消
 	protect, //保护队友，行动优先级高于普通指令
 }
@@ -90,11 +91,11 @@ export enum FightCmdEnum {
 export interface FightInput {
 	/** West/YanYu网络入口必填当前全局回合；PC入口可省略，提供时须匹配；底层本地调用可省略。 */
 	turn?: number;
-	/** 指令枚举：none默认普攻、attack、defend、skill、runaway逃跑、cancel、protect；逃跑无须目标，PC/西游支持，烟雨不接受；必须由宿主先鉴权。 */
+	/** 指令枚举：none默认普攻、attack、defend、skill、runaway逃跑、dismiss移除、cancel、protect；runaway/dismiss为普通行动，PC/西游支持，烟雨网络入口不接受；必须由宿主先鉴权。 */
 	cmd: FightCmdEnum;
 	/** cmd=skill时的已学技能ID；独立大招入口可省略，按装备的ultimateSkill推导。 */
 	skill?: number;
-	/** 明确目标的运行uid，0有效；省略才自动选择，非法明确目标不会自动换人。 */
+	/** 明确目标的运行uid，0有效；dismiss必填且只接受在场怪物或自己的召唤物；其他指令省略才自动选择，非法明确目标不自动换人。 */
 	target?: number;
 }
 
