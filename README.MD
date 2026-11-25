@@ -699,6 +699,10 @@ loop.onInput(player.uid, { turn: fight.turn, cmd: FightCmdEnum.dismiss, target: 
 成功时发送`['dismiss', 操作者UID, 离场单位UID]`，从服务端和客户端阵营列表删除目标，同时取消其全部剩余行动、清空输入并解绑内部Buff/AI/规则监听，随后同步sort。离场不会扣血、触发死亡或单独驱散Buff；简报与MUD显示离场。`dismiss(unit, ctx, operator)`事件在单位移除、监听清理后发出，完整动作结束检查胜负。历史仇恨和贡献ID保留，查询不到已离场目标便跳过。每场新建FightUnit、只绑定一个Fight且不复用；UID按序递增、不重复，离场后不重用。`dismiss/cancel/protect`当前枚举值为5/6/7，宿主与客户端应同步。
 
 血轴的旧`attackRate`配置已移除，示例Buff 2101/2102需由宿主先调用initBuffs注册。运行中调用`addRule(rule, prior, ctx)`、`removeRule(rule, ctx)`、`setRules(list, ctx)`或`clearRules(ctx)`时，传入当前动作ctx并由循环广播其msgs，确保初始低血量阶段和规则移除的Buff变化也同步客户端；初始化可省略ctx，由初始单位快照携带Buff。显式移除规则只停止规则监听，已经添加的Buff保留并按自身生命周期处理；战斗结束仅解绑规则监听，Buff展示状态仍与客户端最终快照一致。
+# 陷阱
+
+陷阱使用 `class: 'trap'` 的 Buff，布置技能通过 `func: 'nohurt'`、`sel.target: self` 和 `addBuff` 添加到自己身上；Buff 用 `skill/skillLevel` 引用触发伤害，`times: 1` 表示一次性陷阱。对持有者的移动型主目标物理攻击会在命中前踩中；魔法、原地攻击、追击和溅射跳过。陷阱合并持有者当前属性，复用单次攻击的伤害与附加Buff，不要求学会、不收费/CD；若给攻击者附加缠绕使其不能移动，或攻击者死亡、不能攻击，原攻击中断，否则继续。消息先通知原攻击出手，再通知踩中、伤害和状态，出手只发一次。配置与事件签名见 [Buff与被动](document/wiki/Buff与被动.md)。
+
 # 单位查询的数组约定
 
 `Fight.getSideUnits(side)` 返回 `readonly FightUnit[]`，是阵营数组的只读视图，不复制数组。TypeScript 调用方不能直接排序、洗牌、增删或替换数组元素；需要可修改的数组时使用 `getSideUnitsCopy(side)`。只读约束不冻结运行时数组，也不限制修改单位对象的属性。构造阵营或测试场景时，通过 `FightSide.units` 明确修改成员。

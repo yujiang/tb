@@ -40,18 +40,18 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 
 | 字段 | 含义 | 缺省与边界 |
 | --- | --- | --- |
-| `class` | 特殊实现类名 | buqu/relife/taunt/reflect/rest/protect；省略或未知名称走普通 FightBuff |
+| `class` | 特殊实现类名 | buqu/relife/taunt/reflect/rest/protect/trap；省略或未知名称走普通 FightBuff |
 | `relifeRatio` | 自动复活的最大生命恢复比例 | 仅 relife 使用；数值 (0, 1]，缺省 0.2 |
 | `reflectMagicOnly` | 反射只转移魔法伤害 | 仅 reflect 使用；缺省 true，false 时也转移物理伤害；治疗转移不受影响 |
 | `overlap` | 同 ID 重复添加规则 | NOT=0、REPLACE=1、RELPACE_BYPOWER=2；类型必填 |
 | `turnType` | 持续时间/周期边界 | 缺省 thisTurn=0，inputTurn=1，afterTurn=2 |
 | `lastTurn` | 对应边界持续次数 | 必填；正数最后一次生效后移除，0 不按回合到期，不是秒数 |
 | `times` | 事件次数 | 类型必填；普通 Buff 运行时缺省按 0；正数用完移除，0 不限次数；特殊类可能覆盖 |
-| `event` | 普通次数 Buff 的计次事件（嘲讽固定 taunt，忽略此字段） | 类型必填；需带 ctx；特殊类可能固定监听其他事件 |
+| `event` | 普通次数 Buff 的计次事件 | 类型必填；需带 ctx；嘲讽固定 taunt、trap 固定 beforeAttack，忽略此字段 |
 | `prior` | 事件监听优先级 | 小的先执行，同级按注册顺序；普通/反射缺省 0，保护 500，不屈/自动复活 1000 |
 | `func` | 周期效果 | heal/poison；省略不执行周期数值效果 |
-| `skill` | 周期效果引用的技能 ID | func 已配置时需要有效技能；读取技能原始配置，不再与施放者单位属性合并 |
-| `skillLevel` | 周期引用技能等级 | 缺省 0；不是 Buff 自身等级 |
+| `skill` | 周期效果或陷阱引用的技能 ID | 需要已注册的有效技能；周期效果读取技能原始配置；trap 合并持有者当前物理/魔法 base 与 final，只结算单次攻击及附加 Buff，不走技能链，不要求已学，不收费用/CD；缺省无引用效果 |
+| `skillLevel` | 周期效果或陷阱引用技能等级 | 缺省 0；不是 Buff 自身等级 |
 | `notRemove` | 禁止外部驱散 | 缺省 false；自然到期、次数耗尽与死亡清理不由此字段拦截 |
 | `dieNotRemove` | 死亡保留 | 缺省 false；自动复活 Buff 需 true 才能继续收到 die 事件 |
 | `notDisplay` | 不进入单位 Buff 展示列表 | 缺省 false；隐藏不影响效果结算 |
@@ -67,8 +67,13 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 | `reflect` | `reflectMagicOnly`，缺省 true | 默认转移魔法伤害给攻击者，治疗转给随机存活敌人；false 也转移物理伤害 |
 | `rest` | 不读取 | 兼容提供休息状态；新配置直接用 status:["休息"] 即可，持续时间由 turnType/lastTurn 配置 |
 | `protect` | 不读取 | 挂在被保护者身上，施加者承担一半合格直接攻击伤害；比例固定，不用参数调节 |
+| `trap` | `skill`、`skillLevel`、`times` | 挂在受保护者身上，移动型主目标物理攻击命中前触发；魔法、原地攻击、追击、溅射与陷阱自身不触发。times 为踩中次数，0 不限次数；固定监听 beforeAttack，忽略 event |
 
 不屈/自动复活固定使用一次，不是填 times=10 就能变成十次。反射在成功转移时扣 times；保护当前按持续时间移除，不使用普通次数消耗流程。特殊类的 event/prior 行为应按类说明配置，不能只套普通 Buff 的计次规则。
+
+陷阱通过普通技能配置布置：`func: 'nohurt'`、`sel.target: self`、`nomove: 1`、`addBuff: [[陷阱BuffID, 等级, 1]]`。陷阱 Buff 配置 `class: 'trap'`、`skill`、`skillLevel`，一次性陷阱填 `times: 1`，持续时间沿用 `lastTurn/turnType`。触发技能通常填 `nomove: 1`，可用 `addBuff` 给踩中者添加 `status: ['缠绕']` 的 Buff。
+
+`beforeAttack(unit, ctx, attacker, skill, startAttack)` 在需要移动的主目标物理攻击发动后、命中判定前同步发出。陷阱先调用 `startAttack()` 发原攻击的 `skill` 消息（同次自动去重），再发 `['buffTrigger', 持有者UID, BuffID, 'trap', 踩中者UID]` 及陷阱技能伤害/状态。因此客户端先看见出手，再看见踩陷阱；若踩中后死亡、不能攻击或不能移动，原攻击中断，不产生原攻击伤害。否则继续原命中及伤害结算。未发动的原技能不踩陷阱；攻击未命中仍可能踩中，陷阱技能自身的发动概率与命中照常计算，踩中即消耗一次。
 
 `hp(unit, ctx, source, previousHp, currentHp)` 表达真实生命变化，受伤、保护分担、治疗和生命费用都会通知。生命费用的 source 为本人，在整笔费用及消息完成后通知，不触发 beforeHurt/hurt；零费用、预检或支付失败不通知。普通受伤另发 hurt，保护分担仍不发 hurt。因此血线机制监听 hp，按受伤次数触发的机制监听 hurt，不把生命费用算成受伤。
 

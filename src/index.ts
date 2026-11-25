@@ -44,6 +44,7 @@ export * from './fight/Buffs/Class/BuffTaunt';
 export * from './fight/Buffs/Class/BuffReflect';
 export * from './fight/Buffs/Class/BuffRest';
 export * from './fight/Buffs/Class/BuffProtect';
+export * from './fight/Buffs/Class/BuffTrap';
 export * from './fight/Buffs/BuffDatas';
 export * from './fight/Buffs/StaticData';
 export * from './fight/Passives/PassiveSkill';

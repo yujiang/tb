@@ -67,6 +67,7 @@ export function skillAttack(
 	reaction?: AttackReaction,
 	combo?: ComboDamage,
 	force = false,
+	mainTarget = true,
 ) {
 	// assert(skill);
 	const f = ctx.fight;
@@ -90,6 +91,31 @@ export function skillAttack(
 		return false;
 	}
 
+	// 陷阱需要先表现接近目标的出手动作；正常路径仍在命中后通知，且同一攻击只发一次。
+	let started = false;
+	const startAttack = () => {
+		if (started) return;
+
+		started = true;
+		ctx.msgs.push(
+			reaction
+				? ['skill', skill.getId(), attacker.uid, defender.uid, reaction]
+				: ['skill', skill.getId(), attacker.uid, defender.uid],
+		);
+	};
+	// 前方陷阱在近身主目标攻击命中前结算；追击、溅射和陷阱自身不参与。
+	if (mainTarget && reaction !== 'kill' && skill.isPhysic() && !skill.getNoMove()) {
+		defender.emitContext('beforeAttack', ctx, attacker, skill, startAttack);
+		if (
+			!canAttack(attacker) ||
+			!canUseAttackMovement(attacker, skill) ||
+			defender.isDied() ||
+			!skill.canTarget(defender)
+		) {
+			return false;
+		}
+	}
+
 	// 命中概率
 	if (skill.isPhysic() && !skill.physicHitTest(f, defender)) {
 		ctx.msgs.push(
@@ -103,11 +129,7 @@ export function skillAttack(
 	}
 
 	// 方便客户端绘制
-	ctx.msgs.push(
-		reaction
-			? ['skill', skill.getId(), attacker.uid, defender.uid, reaction]
-			: ['skill', skill.getId(), attacker.uid, defender.uid],
-	);
+	startAttack();
 	ctx.effects = [];
 
 	const ismagic = skill.isMagic();
@@ -347,6 +369,7 @@ function spread(
 			undefined,
 			combo,
 			isDebugReaction('spread'),
+			false,
 		);
 	}
 }

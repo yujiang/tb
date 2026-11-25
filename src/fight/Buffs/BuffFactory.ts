@@ -7,6 +7,7 @@ import { BuffTaunt } from './Class/BuffTaunt';
 import { BuffReflect } from './Class/BuffReflect';
 import { BuffRest } from './Class/BuffRest';
 import { BuffProtect } from './Class/BuffProtect';
+import { BuffTrap } from './Class/BuffTrap';
 
 // 特殊 Buff 按配置中的 class 查找构造类，其余配置使用通用 FightBuff。
 const buffClasses = new Map<string, typeof FightBuff>([
@@ -16,6 +17,7 @@ const buffClasses = new Map<string, typeof FightBuff>([
 	['reflect', BuffReflect],
 	['rest', BuffRest],
 	['protect', BuffProtect],
+	['trap', BuffTrap],
 ]);
 
 export function createBuff(

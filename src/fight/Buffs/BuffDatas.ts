@@ -21,6 +21,7 @@ export enum BuffTurnEnum {
 // 但是1~5并不互斥，可以同时存在，所以没有type字段
 
 export type FightUnitEvent =
+	| 'beforeAttack'
 	| 'taunt'
 	| 'beforeHurt'
 	| 'beforeHeal'
@@ -37,6 +38,7 @@ export type FightUnitEvent =
 	| 'attr'
 	| 'speed';
 // taunt(unit, ctx, buff)：本次普通行动实际受所选嘲讽约束，完整技能/反应链执行后发出；未命中或发动失败仍计次，预检/费用不足/跳过不发。
+// beforeAttack(unit, ctx, attacker, skill, startAttack)：需要移动的主目标物理攻击已发动、尚未判定命中；追击/溅射/陷阱自身不发。同步调用startAttack()可提前发出原攻击的skill消息（自动去重），以表现出手后踩陷阱。
 // break(unit, ctx, attacker, allBroken)：盾正数变 0 时；allBroken 为该瞬间本阵营全体存活单位破盾的快照。
 // hp(unit, ctx, attacker, previous, current)：真实生命值变化，含受伤、分担、治疗及生命费用；费用在整笔扣费完成后通知，attacker为本人，不发hurt。
 // hurt(unit, ctx, attacker, damage, pending)：最后一项提供 HurtOptions/source；分担伤害仍不发 hurt。
@@ -45,7 +47,7 @@ export type FightUnitEvent =
 export type BuffFuncEnum = 'poison' | 'heal';
 
 export interface BuffData extends StaticData {
-	/** 特殊实现名：buqu/relife/taunt/reflect/rest/protect；省略或未知名使用普通 FightBuff；rest为兼容入口，等同提供休息状态，新配置可直接填写status。 */
+	/** 特殊实现名：buqu/relife/taunt/reflect/rest/protect/trap；省略或未知名使用普通 FightBuff；trap监听主目标近身物理攻击，times为踩中次数，0不限次数；rest等同提供休息状态。 */
 	class?: string;
 	/** 自动复活恢复的最大生命比例，数值 (0, 1]，缺省 0.2；仅 relife 读取。 */
 	relifeRatio?: number;
@@ -62,16 +64,16 @@ export interface BuffData extends StaticData {
 
 	/** 事件使用次数，类型必填，0 不按次数到期；普通 Buff 在 event 后扣减；嘲讽按实际诱导的普通行动扣减；不屈/自动复活固定一次。 */
 	times: number;
-	/** 普通次数 Buff 的计次事件；必须使用带 ctx 的事件，attr/speed 不是该签名；嘲讽固定监听taunt并仅消耗被选中的实例，忽略本字段；其他特殊类也可固定监听。 */
+	/** 普通次数Buff的计次事件；必须带ctx，attr/speed不是该签名；嘲讽固定监听taunt，trap固定监听beforeAttack，两者忽略本字段且只在实际触发时计次；其他特殊类也可固定监听。 */
 	event: FightUnitEvent;
 	/** 监听优先级，小的先执行，同级按注册顺序；普通/反射默认0，保护500，不屈/自动复活1000。 */
 	prior?: number;
 
 	/** 周期效果 heal 或 poison，缺省不执行周期数值效果；与状态、属性、特殊类可组合。 */
 	func?: BuffFuncEnum;
-	/** 周期效果引用的技能 ID；需已注册，用其原始配置计算，不再合并施放者单位属性。 */
+	/** 周期效果或trap引用的技能ID，需已注册；周期效果用原始配置计算，trap合并陷阱持有者当前物理/魔法base与final，执行一次伤害及附加Buff，不走连击、追击或溅射，不要求已学，不收费用/CD。缺省无引用效果。 */
 	skill?: number;
-	/** 周期引用技能的等级，缺省0；与 Buff 自身用于属性成长的 level 分开。 */
+	/** 周期效果或trap引用技能的等级，缺省0；与Buff自身用于属性成长的level分开。 */
 	skillLevel?: number;
 
 	/** true 禁止外部驱散；缺省false，自然到期、次数耗尽、死亡清理仍各自处理。 */
