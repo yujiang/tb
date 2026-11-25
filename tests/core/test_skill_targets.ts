@@ -100,7 +100,7 @@ test('targets: splash child selects two sorted secondary targets independently',
 		const unit = new FightUnitMonster(uid, attr, { name: `副目标${uid}` });
 		unit.setPos(uid);
 		unit.setFight(fight, other.side);
-		fight.getSideUnits(other.side).push(unit);
+		fight.getSide(other.side).units.push(unit);
 	}
 	const before = fight.getSideUnits(other.side).map((unit) => unit.uid);
 	const ctx = fight.processUnit(actor, {

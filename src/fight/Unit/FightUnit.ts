@@ -591,6 +591,20 @@ export abstract class FightUnit {
 	abstract costSkill(cost: SkillCost, ctx: FightContex): boolean;
 
 	skills = new Map<number, FightSkill>();
+	private temporarySkills: FightSkill[] = [];
+	// 仅查询临时技能是否存在；费用与CD规则由执行指令的ignoreCostCD显式控制。
+	isTemporarySkill(id: number): boolean {
+		return this.temporarySkills.some((skill) => skill.getId() === id);
+	}
+	// 临时提供技能查询能力，不修改已学列表；无论结算成功或抛错都撤销这次借用。
+	withTemporarySkill<T>(skill: FightSkill, run: () => T): T {
+		this.temporarySkills.push(skill);
+		try {
+			return run();
+		} finally {
+			this.temporarySkills.pop();
+		}
+	}
 	// 按单位、技能编号保存恢复回合；升级、死亡及复活不重置。
 	private skillCds = new Map<number, number>();
 	getSkillCd(id: number): number {
@@ -606,6 +620,10 @@ export abstract class FightUnit {
 	}
 	findSkill(id: number): FightSkill {
 		if (!id) return;
+
+		for (let i = this.temporarySkills.length - 1; i >= 0; i--) {
+			if (this.temporarySkills[i].getId() === id) return this.temporarySkills[i];
+		}
 
 		return this.skills.get(id);
 	}

@@ -256,7 +256,7 @@ test('HP buff: a low-health initial unit exposes only the final phase in its sna
 	assert.equal(unit.fight, undefined);
 	assert.equal(unit.findBuff(firstBuff), undefined);
 	assert.equal(unit.findBuff(secondBuff)?.level, 0);
-	s.fight.getSideUnits(s.target.side)[0] = unit;
+	s.fight.getSide(s.target.side).units[0] = unit;
 	s.fight.createSide(s.fight.getSide(0), s.fight.getSide(1));
 	s.loop.start();
 	assert.equal(unit.findBuff(firstBuff), undefined);

@@ -15,7 +15,9 @@ export class PassiveSkill extends FightStatic {
 		if (xls.attackSkill != null) {
 			unit.setAttackSkill(xls.attackSkill);
 		}
-		if (xls.ultimateSkill != null) unit.setUltimateSkill(xls.ultimateSkill);
+		if (xls.ultimateSkill != null) {
+			unit.setUltimateSkill(xls.ultimateSkill);
+		}
 		//if (xls.supportSkill != null && unit.addSkill(xls.supportSkill, this.level)) {
 		// 为什么不应该加，1.因为这个肯定是组合技，这个被动肯定在supportSkill学会之后才有，不会失效。
 		// 2.而主动技，在fightUnit的init的时候，主动技已经全部加上了，这里再加就乱了，并且用this.level也不对

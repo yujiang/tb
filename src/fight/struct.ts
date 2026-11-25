@@ -20,6 +20,7 @@ export enum TargetSelectEnum {
 	duiwei, // 对位
 	friend, // 己方：加血，buff
 	enemy, // 敌方：伤害, debuff
+	any, // 任意
 }
 
 export enum MapShapeEnum {
@@ -31,7 +32,7 @@ export enum MapShapeEnum {
 }
 
 export interface SelectParam {
-	/** 目标类型，必填：self自身、duiwei对位、friend己方、enemy敌方；直接群体施放仅支持friend/enemy，其他组合注册时warn。 */
+	/** 目标类型，必填：self自身、duiwei对位、friend己方、enemy敌方、any任意阵营（含自身）；直接群体支持friend/enemy/any，其他组合注册时warn。mimic配any时单体选择任一已行动来源，配self时使用全局最近攻击。 */
 	target: TargetSelectEnum;
 	/** 直接施放时为总人数，缺省1，>1为群体，99可覆盖全体；作为溅射子技能时为副目标人数，不含主目标，0不选。 */
 	num?: number;
@@ -99,6 +100,8 @@ export interface FightInput {
 	target?: number;
 	/** 内部自动大招执行标记，默认false；普通输入入口拒绝true，宿主不可用此字段申请机会。 */
 	ultimate?: boolean;
+	/** 内部执行标记，缺省/false正常结算；true跳过技能费用预检/扣除及CD检查/启动，不修改已有CD，也不绕过已学、状态或目标检查。客户端提交入口拒绝true，宿主仅可在可信执行指令中设置。 */
+	ignoreCostCD?: boolean;
 }
 
 /** [配置ID, 等级]；等级0有效，按对应表查找。 */

@@ -8,7 +8,7 @@
 // 5. 技能名青色，Buff 名紫色
 // 6. 仅行首人名按阵营着色（攻击方绿、防守方红），跳过连击等行首标注
 
-import { FightLoop } from '../FightLoop';
+import { FightLoop } from '../Loop/FightLoop';
 import { PropEnum, WeaponEnum } from '../FightAttr';
 import { fightMsg } from '../struct';
 import { FightClient } from './FightClient';

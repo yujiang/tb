@@ -116,7 +116,7 @@ test('multi: friendly healing includes the caster', () => {
 		{ name: '队友' },
 	);
 	ally.setFight(fight, actor.side);
-	fight.getSideUnits(actor.side).push(ally);
+	fight.getSide(actor.side).units.push(ally);
 	actor.attr.point.hp = 500;
 	ally.attr.point.hp = 400;
 	fight.processUnit(actor, { cmd: FightCmdEnum.skill, skill: ids.first });
@@ -233,7 +233,7 @@ test('multi: sorted num two selects exactly two of three enemies', () => {
 		{ name: '第三敌人' },
 	);
 	third.setFight(fight, other.side);
-	fight.getSideUnits(other.side).push(third);
+	fight.getSide(other.side).units.push(third);
 	target.attr.point.hp = 800;
 	other.attr.point.hp = 500;
 	third.attr.point.hp = 300;
@@ -293,7 +293,7 @@ test('multi: ineligible effect targets do not consume group slots', () => {
 		{ name: '第三敌人' },
 	);
 	third.setFight(fight, other.side);
-	fight.getSideUnits(other.side).push(third);
+	fight.getSide(other.side).units.push(third);
 	target.attr.point.hp = 300;
 	other.attr.point.hp = 400;
 	third.attr.point.hp = 500;
@@ -320,7 +320,7 @@ for (const num of [1, 99]) {
 			supporter.addSkill(ids.second, 1);
 			supporter.setSupportSkill(ids.second);
 			supporter.setFight(fight, actor.side);
-			fight.getSideUnits(actor.side).push(supporter);
+			fight.getSide(actor.side).units.push(supporter);
 			const previousTurn = supporter.lastSupportTurn;
 			const ctx = fight.processUnit(actor, {
 				cmd: FightCmdEnum.skill,
@@ -457,7 +457,7 @@ test('multi: only the main target triggers support before spread', () => {
 		unit.addSkill(ids.kill, 1);
 		unit.setSupportSkill(ids.kill);
 		unit.setFight(fight, actor.side);
-		fight.getSideUnits(actor.side).push(unit);
+		fight.getSide(actor.side).units.push(unit);
 		return unit;
 	});
 	const ctx = fight.processUnit(actor, {

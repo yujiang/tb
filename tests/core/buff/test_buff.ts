@@ -15,7 +15,7 @@ import { initSkills, SkillData } from '../../../src/fight/Skills/SkillDatas';
 import { skillFunc } from '../../../src/fight/Skills/SkillFuncType';
 import { TargetSelectEnum } from '../../../src/fight/struct';
 import { attackFunc } from '../../../src/fight/Skills/Funcs/NormalAttack';
-import { FightLoopWest } from '../../../src/fight/Online/FightLoopWest';
+import { FightLoopWest } from '../../../src/fight/Loop/FightLoopWest';
 
 function createFightPair(random = () => 0) {
 	setFightGlobalData({

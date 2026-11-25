@@ -1,12 +1,34 @@
 // 单机游戏
 
-import { initFightContex } from '../Fight';
-import { FightLoop } from '../FightLoop';
+import { FightContex, initFightContex } from '../Fight';
+import { FightLoop } from '../Loop/FightLoop';
 import { FightCmdEnum, FightInput } from '../struct';
 import { FightUnit } from '../Unit/FightUnit';
 
 // 每个玩家单位单独下指令
 export class FightLoopPC extends FightLoop {
+	private ordinaryActionActive = false;
+	private entruster = {
+		canUse: (unit: FightUnit) =>
+			this.canProcessTurn() &&
+			this.currentAction?.unit === unit &&
+			!this.currentAction.inserted &&
+			this.ordinaryActionActive &&
+			(!this.fight.isInAction() ||
+				(this.currentAction.input?.cmd === FightCmdEnum.skill &&
+					(unit.findSkill(this.currentAction.input.skill)?.getFunc() === 'entrust' ||
+						unit.findSkill(this.currentAction.input.skill)?.isMimicAny()))),
+		process: (unit: FightUnit, target: FightUnit, ctx: FightContex) => {
+			if (!this.entruster.canUse(unit) || ctx.attack !== unit) {
+				return false;
+			}
+
+			this.actionQueue.entrust(this.currentAction, target);
+			ctx.actionEntrusted = true;
+			this.syncActionOrder(ctx);
+			return true;
+		},
+	};
 	private running: Promise<void> | undefined;
 	private waiting:
 		{ unit: FightUnit; turn: number; resolve: (input?: FightInput) => void } | undefined;
@@ -18,6 +40,7 @@ export class FightLoopPC extends FightLoop {
 	override start() {
 		this.closeInput();
 		super.start();
+		this.fight.setActionEntruster(this.entruster);
 		this.fight.offUnitEvent('die', this.onWaitingUnitDied);
 		this.fight.onUnitEvent('die', this.onWaitingUnitDied);
 		this.fight.offUnitEvent('dismiss', this.onWaitingUnitDied);
@@ -45,6 +68,7 @@ export class FightLoopPC extends FightLoop {
 			while (this.canProcessTurn(turn) && this.processUnits?.length) {
 				const action = this.takeAction(),
 					unit = action.unit;
+				this.ordinaryActionActive = !action.inserted;
 				if (action.inserted) {
 					const ctx = this.insertedContext(action);
 					this.finishAction(action, ctx);
@@ -82,7 +106,9 @@ export class FightLoopPC extends FightLoop {
 					input = this.fight.prepareActionInput(unit, input);
 					if (!this.fight.checkInput(unit, input)) continue;
 				}
+				action.input = { ...input };
 				const ctx = this.fight.processUnit(unit, input);
+				this.ordinaryActionActive = false;
 				this.finishAction(action, ctx);
 				if (ctx) this.bcMsg(ctx.msgs);
 				await this.waitDrawOver();
@@ -90,6 +116,7 @@ export class FightLoopPC extends FightLoop {
 		} catch (error) {
 			this.fail(error);
 		} finally {
+			this.ordinaryActionActive = false;
 			this.closeInput();
 			this.running = undefined;
 		}
@@ -167,6 +194,8 @@ export class FightLoopPC extends FightLoop {
 
 	override end() {
 		this.closeInput();
+		this.ordinaryActionActive = false;
+		this.fight.clearActionEntruster(this.entruster);
 		this.fight.offUnitEvent('die', this.onWaitingUnitDied);
 		this.fight.offUnitEvent('dismiss', this.onWaitingUnitDied);
 		super.end();

@@ -20,17 +20,23 @@ export interface SkillData {
 	/** 技能五行；缺省时攻击/毒伤取施放者 weaponProp，治疗取 charProp；显式 none 不回退。 */
 	skillProp?: PropEnum;
 
-	/** 发动概率，0～1；主攻击及heal/poison/relife/nohurt/observe一般填1，注册时只提醒、不改值。类型必填，运行时缺省1；单体每次施放判一次，群体整组判一次，失败仍消耗主动费用/CD，不执行效果或自身Buff；不是命中率，周期Buff不走主动施放判定。 */
+	/** 发动概率，0～1；主攻击及heal/poison/relife/nohurt/observe/entrust/mimic一般填1，注册时只提醒、不改值。类型必填，运行时缺省1；单体每次施放判一次，群体整组判一次，失败仍消耗主动费用/CD，不执行效果或自身Buff；不是命中率，周期Buff不走主动施放判定。 */
 	rand: number;
 
-	/** 阵营、目标人数及溅射规则；主动技能需要有效配置，详见 SelectParam；目标资格由技能canTarget判断。 */
+	/** 阵营、目标人数及溅射规则；主动技能需要有效配置，详见 SelectParam；目标资格由技能canTarget判断。mimic配any时单体target为已行动来源，可选双方，非回放指令的效果目标。 */
 	sel: SelectParam;
 	/** 根主动技能的HP/MP/SP/JP费用，可同时配置；缺省不收费，子技能和装配普攻不重复收费，怪物沿用不耗资源规则。 */
 	cost?: SkillCost;
 	/** 非负安全整数，全局回合 CD，缺省 0；第 t 回合施放后 t+cd 可再次施放；不随死亡清空。 */
 	cd?: number;
 
-	/** 效果函数：normal/heal/poison/relife/nohurt/observe；缺省或未识别名称走 normal。 */
+	/**
+	 * 效果函数：normal/heal/poison/relife/nohurt/observe/entrust/mimic；缺省或未识别名称走 normal。
+	 * entrust仅PC普通行动可用，单体选择存活的其他队友，把当前行动位交给目标并重新等其输入，保留目标原行动；费用/CD沿用主动技能配置。
+	 * mimic建议单体self，保存本场最近普攻或normal主动技能的输入指令及等级，使用自身属性；保护/防御等不覆盖记录。目标选择及失效回退复用普通流程，群攻不锁定上次目标集合。
+	 * mimic配sel.target=any为高级模仿，单体选择任一已实际行动的在场来源，复制其最新指令（含防御、保护、治疗等）及技能等级；双方均可，来源死亡不清记录。敌方来源的普攻/技能清空原target后重选，己方保留原target；回放仍须通过普通校验。
+	 * 被模仿技能不要求已学，内部回放指令用ignoreCostCD免除全部资源与CD检查/启动，不改变原技能已有CD；仅结算模仿技能本身的费用/CD，其他检查不变。客户端不能设置ignoreCostCD=true。
+	 */
 	func?: string;
 
 	// 数据与level加成 => al*(level)+a;

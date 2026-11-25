@@ -10,6 +10,7 @@ export interface FightAction {
 	after?: number;
 	speedRate?: number; // 当前单位速度的倍率；配置后参与剩余行动的速度排序。
 	extraAction?: boolean; // 来自单位extraAction模板，执行后推动集气；规则插入不设置。
+	entrusted?: boolean; // 托付的当前行动位，保持队首，出队后由PC重新请求单位输入。
 }
 
 // 同一单位可以有多个独立行动；普通行动及带速度倍率的追加行动按速度排序，固定位置插队保留指定位置。
@@ -69,6 +70,14 @@ export class FightActionQueue {
 		// 已出队的行动不再作为下一次队首插入的锚点。
 		if (action) this.firstActions.delete(action.id);
 		return action;
+	}
+	// 复用刚出队的行动ID和位置，不消耗受托者原有机会；连续托付共用每回合64次限制。
+	entrust(action: FightAction, unit: FightUnit) {
+		if (this.insertedCount >= 64) {
+			throw new Error('Action insertion limit exceeded (64 per round)');
+		}
+		this.insertedCount++;
+		this.entries.unshift({ ...action, unit, input: undefined, entrusted: true });
 	}
 	display(): FightActionDisplay[] {
 		return this.entries.map((action) => ({
@@ -175,7 +184,7 @@ export class FightActionQueue {
 	}
 	sort(compare: (a: FightAction, b: FightAction) => number) {
 		const sortable = (action: FightAction) =>
-			!action.inserted || action.speedRate !== undefined;
+			!action.entrusted && (!action.inserted || action.speedRate !== undefined);
 		const ordinary = this.entries.filter(sortable).sort(compare);
 		let index = 0;
 		this.entries = this.entries.map((action) =>

@@ -141,6 +141,10 @@ export class FightSkill {
 	getFunc() {
 		return this.xls.func || 'normal';
 	}
+	// 同一模仿func通过目标规则区分：any选择来源，其余沿用全局最近攻击。
+	isMimicAny(): boolean {
+		return this.getFunc() === 'mimic' && this.getSel()?.target === TargetSelectEnum.any;
+	}
 
 	canTarget(target: FightUnit): boolean {
 		return !this.getTargetHint(target);
@@ -149,6 +153,10 @@ export class FightSkill {
 	// 即时输入的目标资格预检，不计算伤害、不抽样；执行函数仍保留自己的状态检查。
 	getTargetHint(target: FightUnit): string | undefined {
 		const func = this.getFunc();
+		if (this.isMimicAny()) {
+			// 这里只读取来源的行动记录，不把来源当作实际受击者检查死亡或石化。
+			return target.fight?.hasMimicRecord(target) ? undefined : '该单位尚无可模仿的行动';
+		}
 		if (func === 'relife') {
 			if (!target.isDied()) return '目标尚未死亡';
 
@@ -275,7 +283,15 @@ export class FightSkill {
 }
 
 function createDefaultData(target: TargetSelectEnum): SkillData {
- return { id: 0, name: '默认普攻', magic: false, rand: 1, sel: { target }, attack: {}, final: {} }
+	return {
+		id: 0,
+		name: '默认普攻',
+		magic: false,
+		rand: 1,
+		sel: { target },
+		attack: {},
+		final: {},
+	};
 }
 
 /** 默认普通攻击的选目标规则；按敌方、对位和友方分别缓存实例，未注册进技能表，不携带单位属性；调用者不得修改共享配置。 */

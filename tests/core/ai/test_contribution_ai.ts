@@ -177,10 +177,10 @@ for (const type of ['topThreat', 'topHealer'] as const) {
 			if (invalid === 'stone')
 				s.players[0].addBuff(s.boss, 'test', stone, 1, initFightContex(s.fight));
 			if (invalid === 'departed' || invalid === 'ally')
-				s.fight.getSideUnits(s.players[0].side).splice(0, 1);
+				s.fight.getSide(s.players[0].side).units.splice(0, 1);
 			if (invalid === 'ally') {
 				s.players[0].setFight(s.fight, s.boss.side);
-				s.fight.getSideUnits(s.boss.side).push(s.players[0]);
+				s.fight.getSide(s.boss.side).units.push(s.players[0]);
 			}
 			assert.deepEqual(s.decide(), { cmd: FightCmdEnum.skill, skill: s.skill, target: 1 });
 		});
@@ -255,7 +255,7 @@ test('top healer AI: departed recipients do not erase team healing history', () 
 	s.players[2].onHeal(s.players[0], 'heal', 400, ctx);
 	s.players[3].onHurt(s.boss, 'test', 500, ctx);
 	s.players[3].onHeal(s.players[1], 'heal', 200, ctx);
-	s.fight.getSideUnits(s.players[2].side).splice(2, 1);
+	s.fight.getSide(s.players[2].side).units.splice(2, 1);
 	assert.equal(s.decide().target, 0);
 });
 

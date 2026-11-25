@@ -35,6 +35,20 @@ tb = turnbase 回合制
 
 # 当前实现
 
+普通和高级模仿统一使用 `func: 'mimic'`，通过 `sel.target` 区分：self使用全局最近攻击；any选择双方任一已实际行动且仍在场的单位，读取该单位最近一次实际指令，包括普攻、技能、防御、保护、治疗等。高级模仿提交 `{ cmd: FightCmdEnum.skill, skill: 高级模仿ID, target: 来源UID }`。两种记录独立，模仿保存实际回放指令，不会递归模仿外层模仿技能。高级模仿的敌方来源普攻/技能清空原target后按模仿者阵营重选，己方保留原target。只扣模仿自身费用/CD，回放共用ignoreCostCD与普通校验，托付仍仅PC可执行。
+
+例如注册 `{ id: 103, name: '高级模仿', func: 'mimic', magic: true, nomove: 1, rand: 1, sel: { target: TargetSelectEnum.any }, attack: {}, final: {}, cost: { mp: 5 } }`。target为行动来源；必须单体，未指定时可自动选来源。来源死亡不清历史，新战斗统一清空。`TargetSelectEnum.any=4`，旧枚举0～3不变；其他技能的any表示任意阵营（含自身），普通目标资格检查不变。见 [高级模仿测试](tests/core/skill/test_mimic_any.ts)。
+
+支持 `func: 'mimic'` 模仿，建议配置 `sel: { target: TargetSelectEnum.self }`、`rand: 1`。保存本场最近一次普通攻击或 `func: 'normal'` 主动技能的 `FightInput` 副本（cmd/skill/target）及原技能配置、等级，不记录结算目标集合；保护、防御、治疗、托付等不覆盖记录，例如A攻击、B防御、C模仿时仍模仿A。使用模仿者自己的属性，复用普通攻击/技能的选人、嘲讽与失效目标回退：显式目标按指令处理，未指定目标时重新自动选择，群攻按当前场面重新选人。回放不携带旧回合号及自动大招内部标记，无合法目标则无法模仿。
+
+被模仿技能不要求已学，**不扣任何资源、不检查也不启动CD**，已有原技能CD保持不变；只检查和结算模仿技能本身的费用/CD。移动、封印、目标资格、发动/命中、反应链等其他检查不变。原技能不会永久加入已学列表，原表配置及已有技能实例、等级也不修改。新战斗清空记录，反击等子反应不覆盖根攻击，自动破盾攻击大招可成为新记录。示例与验证见 [模仿测试](tests/core/skill/test_mimic.ts)。
+
+内部指令可设置 `FightInput.ignoreCostCD: true`，统一跳过技能费用预检/扣除及CD检查/启动；省略或false沿用普通规则，已有CD不变，也不绕过已学、状态或目标校验。模仿通过该字段免除被模仿技能的消耗，不再改写技能副本的cost/cd。`Fight.checkInput`、`checkOnline`及PC/西游/烟雨客户端输入入口拒绝客户端提交true；宿主只可在可信的 `checkPC/processUnit/executeUnit` 等内部执行路径使用，网络数据应先经过输入入口校验。
+
+PC 支持 `func: 'entrust'` 托付技能，配置 `sel: { target: TargetSelectEnum.friend }` 单体选择存活的其他队友。A将当前行动位交给B，`A → C → B` 变为 `B → C → B`：复用A的行动ID，受托位固定在队首，B立即重新等待输入并触发一次自己的 `inputTurn` Buff，B原行动位仍正常保留。A的托付按技能配置支付费用及启动CD，B选择技能时支付自己的费用；托付本身不额外推进集气，受托者完成此行动时才推进。支持继续托付，共用每回合64次插入/托付限制。西游、烟雨、普通规则插入和动作外执行不支持该技能。
+
+例如通过 `initSkills` 注册 `{ id: 101, name: '托付', func: 'entrust', magic: true, nomove: 1, rand: 1, sel: { target: TargetSelectEnum.friend }, attack: {}, final: {}, cost: { mp: 10 } }`，A学习后在自己的PC输入窗口提交 `{ cmd: FightCmdEnum.skill, skill: 101, target: B.uid }`。沿用现有 `skill/sort/actor` 消息，无新增协议。
+
 单位属性采用延迟重算：Buff、被动、AI、Rule 变化时设置 `unit.attrDirty = true`，首次读取 `unit.attr` 时才合并计算。构造末尾仍初始化一次；`unit.calcAttr()` 保留立即强制重算入口。修改 `attrOri` 后可置脏或显式重算；不要长期缓存 `unit.attr` 引用跨越属性来源变化。重算保留当前 HP/MP/SP/JP 与盾格数。
 
 Loop 在完整行动结束后刷新所有脏单位，再按当前速度重排剩余行动，顺序变化时同步行动条；下一行动出队前也会刷新，覆盖输入和消息/动画回调中的变化。烟雨即时技能同样刷新，但不占普通行动条。Loop 不再监听 `speed` 事件，动作内读取属性不会立即重排行动条；`attr/speed` 事件仍在实际重算时发送，宿主需要动作外立即重排时可调用 `loop.onChangeSpeed(unit)`。
@@ -176,7 +190,7 @@ const result = await loop.run();
 
 为保持场面清晰，建议填表时仅让单一主目标触发协战和保护：群攻技能及溅射子技能填写 `nosupport: true, noprotect: true`，单体主技能按需配置。这是填表建议，程序不因群攻或溅射身份强制关闭能力；禁止字段省略或 `false` 时不额外禁止。群攻拆成逐目标结算时保留原配置，溅射子技能独立读取自己的配置，后续链接的子技能也应逐个检查。溅射仍保留原来的单次攻击结算流程。
 
-`initSkills` 在整批注册后用中文 `console.warn` 提醒填表问题，包含技能名称、ID 和具体字段，只告警、不改配置、不阻止注册。检查 `num > 1` 时 `sel.target` 是否为 `friend/enemy`（群体仅支持这两种目标类型），群攻/溅射的 `nosupport/noprotect`，协战及后续攻击链的 `nofback/nodback`，协战根技能的攻击类 `func`，大招的 `noprotect`，主攻击及 `heal/poison/relife/nohurt/observe` 一般建议的 `rand: 1`，以及同时填写 `next/combo` 的歧义。角色从已注册技能表的引用识别；未被引用为子技能、协战或反击的攻击类技能按主攻击建议检查。跨批次可识别已有引用，不报告无关旧行；被动、怪物表或运行时才装配的技能角色，单靠 `initSkills` 无法识别。
+`initSkills` 在整批注册后用中文 `console.warn` 提醒填表问题，包含技能名称、ID 和具体字段，只告警、不改配置、不阻止注册。检查 `num > 1` 时 `sel.target` 是否为 `friend/enemy/any`（己方、敌方或任意阵营），群攻/溅射的 `nosupport/noprotect`，协战及后续攻击链的 `nofback/nodback`，协战根技能的攻击类 `func`，大招的 `noprotect`，主攻击及 `heal/poison/relife/nohurt/observe` 一般建议的 `rand: 1`，以及同时填写 `next/combo` 的歧义。角色从已注册技能表的引用识别；未被引用为子技能、协战或反击的攻击类技能按主攻击建议检查。跨批次可识别已有引用，不报告无关旧行；被动、怪物表或运行时才装配的技能角色，单靠 `initSkills` 无法识别。
 
 单体 `heal/poison/relife/nohurt/observe` 在扣费及启动 CD 后、执行效果前判一次发动概率；群体仍整组判一次，不按目标重复判定。`rand: 0` 必定不发动，`rand: 1` 必定发动，两者不抽取概率随机数。失败发送 `skillFailed`，仍消耗费用/CD，不执行效果、溅射或施放后自身 Buff；受有效嘲讽约束时仍消耗该次嘲讽。周期 Buff 的治疗/毒伤不走主动技能概率判定。此前单体非攻击技能遗漏此判定，修正后配置 `0 < rand < 1` 会增加一次随机抽样，相同旧种子的后续结果可能变化；一般技能建议填 1。
 
@@ -485,6 +499,8 @@ fight.createSide(playerSide, monsters);
 
 ## 全体破盾大招
 
+每个阵营通过 `FightSide.ultimate` 持有自己的 `FightUltimate`，内部只保存一个回合标记和一个待放记录。`Fight` 保留公共转发入口，并在完整动作结束后先取走双方待放记录，再按原登记顺序执行，避免大招的嵌套收尾提前消费另一边。异常动作丢弃双方记录，先放的大招结束战斗后另一边跳过；绑定到新战斗及循环初始化时统一重置。
+
 怪物的弱点初始对客户端隐藏。有效命中时，只同步本次匹配的五行和兵器弱点。每项首次揭示发送 `["weakness", uid, "prop" 或 "weapon", 枚举值]`，客户端单位用 `revealedWeakProp` 和 `revealedWeakWeapon` 保存已揭示的弱点。命中弱点即可揭示，即使盾还没破。观察技能配置 `func: "observe"` 和 `sel: { target: TargetSelectEnum.enemy }`，成功施放时发送 `["weaknessAll", uid, 五行弱点数组, 兵器弱点数组]`，客户端用完整列表刷新目标弱点；没有弱点时使用空数组。观察不扣血或扣盾。
 
 Boss 可配置 `{ type: 'shieldAdd', shieldAdd: 3 }`。初始盾为 3 层时，每次破盾当前盾归零，下回合回满依次为 6、9、12 层。`shieldAdd` 为必填的正安全整数，上限按初始盾层数 + shieldAdd × 破盾次数计算，随破盾消息同步。
@@ -557,7 +573,7 @@ const fight = new Fight(1, row, 123);
 
 PC和西游可在普通行动位提交 `{ cmd: FightCmdEnum.runaway }`，西游仍须带当前 `turn`。`FightData.runaway` 控制开关，概率为 `clamp(1-(unit.attr.grade-runawayGrade)/100,0,1)`，通过战斗随机源判定；缠绕等禁止move、眩晕的escapse限制、休息和死亡在执行时复验。成功后整场标记逃跑、对方胜，双方均不发奖、不恢复、不惩罚；失败只消耗当前行动并继续队列，仍推动普通行动位的集气。烟雨不支持逃跑。广播 `["runaway", uid, success]` 供客户端表现。
 
-正常结束时，败方收到 `FightSide.deathPenalty(deathPenalty)`，胜方收到 `FightSide.onWin(winReward, winRecover)`，宿主负责实际效果和保存。结果回调重入不会重复结算，异常也会清理等待和队列并记录。`FightUltimate` 集中管理破盾者登记、队伍回合限制和动作结束后的自动施放；Fight 只保留转发入口及通用动作边界，动画由 FightLoop 负责。
+正常结束时，败方收到 `FightSide.deathPenalty(deathPenalty)`，胜方收到 `FightSide.onWin(winReward, winRecover)`，宿主负责实际效果和保存。结果回调重入不会重复结算，异常也会清理等待和队列并记录。每个 `FightSide.ultimate` 管理本队破盾者登记、每回合一次限制和单个待放大招；Fight保留转发入口及通用动作边界，在动作结束时协调双方按登记顺序施放，动画由FightLoop负责。
 
 ## 西游式整轮输入
 
@@ -683,3 +699,7 @@ loop.onInput(player.uid, { turn: fight.turn, cmd: FightCmdEnum.dismiss, target: 
 成功时发送`['dismiss', 操作者UID, 离场单位UID]`，从服务端和客户端阵营列表删除目标，同时取消其全部剩余行动、清空输入并解绑内部Buff/AI/规则监听，随后同步sort。离场不会扣血、触发死亡或单独驱散Buff；简报与MUD显示离场。`dismiss(unit, ctx, operator)`事件在单位移除、监听清理后发出，完整动作结束检查胜负。历史仇恨和贡献ID保留，查询不到已离场目标便跳过。每场新建FightUnit、只绑定一个Fight且不复用；UID按序递增、不重复，离场后不重用。`dismiss/cancel/protect`当前枚举值为5/6/7，宿主与客户端应同步。
 
 血轴的旧`attackRate`配置已移除，示例Buff 2101/2102需由宿主先调用initBuffs注册。运行中调用`addRule(rule, prior, ctx)`、`removeRule(rule, ctx)`、`setRules(list, ctx)`或`clearRules(ctx)`时，传入当前动作ctx并由循环广播其msgs，确保初始低血量阶段和规则移除的Buff变化也同步客户端；初始化可省略ctx，由初始单位快照携带Buff。显式移除规则只停止规则监听，已经添加的Buff保留并按自身生命周期处理；战斗结束仅解绑规则监听，Buff展示状态仍与客户端最终快照一致。
+# 单位查询的数组约定
+
+`Fight.getSideUnits(side)` 返回 `readonly FightUnit[]`，是阵营数组的只读视图，不复制数组。TypeScript 调用方不能直接排序、洗牌、增删或替换数组元素；需要可修改的数组时使用 `getSideUnitsCopy(side)`。只读约束不冻结运行时数组，也不限制修改单位对象的属性。构造阵营或测试场景时，通过 `FightSide.units` 明确修改成员。
+

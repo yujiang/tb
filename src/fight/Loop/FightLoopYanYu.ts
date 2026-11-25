@@ -29,6 +29,18 @@ export class FightLoopYanYu extends FightLoopOnline {
 		return super.nextTurn();
 	}
 
+	allInput(turn: number, ctx: FightContex) {
+		for (const unit of this.fight.getAllUnits()) {
+			if (unit instanceof FightUnitMonster && unit.getExtraActions().length) {
+				unit.inputStart(turn, ctx, true);
+			} else {
+				unit.inputStart(turn, ctx);
+			}
+		}
+	}
+
+	// 有的buff根据turn来，有的buff根据input来，所以这里也有影响要包裹 resolveAction
+	// buff根据input主要预留了多次出手的可能， 比如A托付行动给B！
 	override async waitInput(turn: number, ctx: FightContex): Promise<number> {
 		this.accepting = false;
 		if (!this.canProcessTurn(turn)) {
@@ -36,13 +48,7 @@ export class FightLoopYanYu extends FightLoopOnline {
 		}
 
 		this.fight.resolveAction(() => {
-			for (const unit of this.fight.getAllUnits()) {
-				if (unit instanceof FightUnitMonster && unit.getExtraActions().length) {
-					unit.inputStart(turn, ctx, true);
-				} else {
-					unit.inputStart(turn, ctx);
-				}
-			}
+			this.allInput(turn, ctx)
 		});
 		this.accepting = !this.fight.isEnd();
 		return 1; // 自动普攻不等待玩家收齐指令。

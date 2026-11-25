@@ -36,7 +36,7 @@ function setup(
 	summon.user = s.actor.uid;
 	summon.setPos(1);
 	summon.setFight(s.fight, s.actor.side);
-	s.fight.getSideUnits(s.actor.side).push(summon);
+	s.fight.getSide(s.actor.side).units.push(summon);
 	const loop = new Loop(s.fight),
 		client = new FightClient(),
 		mud = new FightMud(() => {}, false);

@@ -8,6 +8,8 @@ import { relifeFunc } from './Funcs/Relife';
 import { FightContex } from '../Fight';
 import { multiFunc } from './Funcs/Multi';
 import { observeFunc } from './Funcs/Observe';
+import { entrustFunc } from './Funcs/Entrust';
+import { mimicFunc } from './Funcs/Mimic';
 
 export type SkillFuncType = (
 	attacker: FightUnit,
@@ -22,13 +24,17 @@ const SkillFuncMap: Record<string, SkillFuncType> = {
 	relife: relifeFunc,
 	nohurt: nohurtFunc, //没有伤害
 	observe: observeFunc,
+	entrust: entrustFunc,
+	mimic: mimicFunc,
 };
 
+// ignoreCostCD由可信执行指令传入，只作用于本次技能调用，不影响外层模仿自身费用/CD。
 export function skillFunc(
 	attacker: FightUnit,
 	defender: FightUnit,
 	skillId: number,
 	ctx: FightContex,
+	ignoreCostCD = false,
 ) {
 	const skill = attacker.findSkill(skillId);
 	if (!skill) {
@@ -41,13 +47,34 @@ export function skillFunc(
 		return;
 	}
 
-	const cd = attacker.getSkillCd(skillId);
+	const cd = ignoreCostCD ? 0 : attacker.getSkillCd(skillId);
 	if (cd > 0) {
 		attacker.hintClient(`[${skill.getName()}]冷却中，还需 ${cd} 回合`);
 		return;
 	}
 
 	const f = ctx.fight;
+	if (skill.isMimicAny() && skill.isMulti()) {
+		attacker.hintClient('高级模仿只能选择一个行动来源');
+		return false;
+	}
+	if (
+		skill.getFunc() === 'mimic' &&
+		!skill.isMimicAny() &&
+		!f.canMimic(attacker, ignoreCostCD ? undefined : skill.getCost())
+	) {
+		attacker.hintClient('没有可模仿的攻击，或当前无法使用原攻击');
+		return false;
+	}
+	if (skill.getFunc() === 'entrust' && (!f.canEntrust(attacker) || skill.isMulti())) {
+		attacker.hintClient('托付只能在PC普通行动中使用，且只能指定一名队友');
+		return false;
+	}
+
+	if (skill.getFunc() === 'entrust' && defender && !f.isLegalTarget(attacker, defender, skill)) {
+		attacker.hintClient('托付目标必须是存活的其他队友');
+		return false;
+	}
 
 	// defender 可能不合适了，因为可能被前面的人打飞了~
 	if (skill.isMulti()) {
@@ -69,13 +96,22 @@ export function skillFunc(
 	const func = SkillFuncMap[skill.getFunc()] || skillAttackFunc;
 	if (!func) return;
 
+	if (
+		skill.isMimicAny() &&
+		(!f.isLegalTarget(attacker, defender, skill) ||
+			!f.canMimic(attacker, ignoreCostCD ? undefined : skill.getCost(), defender))
+	) {
+		attacker.hintClient('当前无法模仿该单位的行动');
+		return false;
+	}
+
 	const cost = skill.getCost();
-	if (cost && !attacker.costSkill(cost, ctx)) {
+	if (!ignoreCostCD && cost && !attacker.costSkill(cost, ctx)) {
 		return;
 	}
 
 	ctx.actionStarted = true;
-	attacker.startSkillCd(skill, ctx);
+	if (!ignoreCostCD) attacker.startSkillCd(skill, ctx);
 
 	if (skill.isMulti() && func !== skillAttackFunc) {
 		return multiFunc(attacker, skill, ctx, func);

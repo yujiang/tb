@@ -3,6 +3,7 @@ import { BaseAttack, FightAttr, FinalAttack } from './FightAttr';
 import { FightUnit } from './Unit/FightUnit';
 import { FightUnitMonster } from './Unit/FightUnitMonster';
 import { FightSideEnum } from './struct';
+import { FightUltimate } from './FightUltimate';
 
 export interface simpleData {
 	/** 简单示例单位名称。 */
@@ -42,6 +43,8 @@ function defaultBaseAttack(): BaseAttack {
 
 export class FightSide {
 	units: FightUnit[] = [];
+	/** 本阵营破盾大招状态：每回合一次、单个待放记录；由Fight在完整动作后协调施放。 */
+	readonly ultimate = new FightUltimate(this);
 	/** 本阵营成员造成的实际扣血，按来源运行UID累计；0号有效，死亡或离场不删除，单位为生命点。 */
 	readonly hurt = new Map<number, number>();
 	/** 本阵营成员造成的实际回血，按来源运行UID累计；含自疗，不含溢出，死亡或离场不删除，单位为生命点。 */

@@ -70,10 +70,11 @@ export function warnSkillConfigs(datas: SkillData[], skills: ReadonlyMap<number,
 		if ((data.sel?.num ?? 1) > 1) {
 			if (
 				data.sel.target !== TargetSelectEnum.friend &&
-				data.sel.target !== TargetSelectEnum.enemy
+				data.sel.target !== TargetSelectEnum.enemy &&
+				data.sel.target !== TargetSelectEnum.any
 			) {
 				messages.push(
-					`群攻技能 sel.num > 1 时，sel.target 只能为 friend 或 enemy，当前为 ${TargetSelectEnum[data.sel.target] ?? data.sel.target}`,
+					`群攻技能 sel.num > 1 时，sel.target 只能为 friend、enemy 或 any，当前为 ${TargetSelectEnum[data.sel.target] ?? data.sel.target}`,
 				);
 			}
 			recommend('群攻技能', ['nosupport', 'noprotect']);
@@ -84,7 +85,12 @@ export function warnSkillConfigs(datas: SkillData[], skills: ReadonlyMap<number,
 			messages.push('协战技能应使用攻击类 func: normal');
 		}
 		if (ultimates.has(id)) recommend('大招技能', ['noprotect']);
-		if (['heal', 'poison', 'relife', 'nohurt', 'observe'].includes(data.func) && (data.rand ?? 1) !== 1) {
+		if (
+			['heal', 'poison', 'relife', 'nohurt', 'observe', 'entrust', 'mimic'].includes(
+				data.func,
+			) &&
+			(data.rand ?? 1) !== 1
+		) {
 			messages.push('非攻击技能一般建议填写 rand: 1，避免施放时未发动');
 		}
 		if (

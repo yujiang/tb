@@ -1,8 +1,8 @@
-import { Fight, FightContex, initFightContex } from './Fight';
-import { FightUnit, sortByAttr } from './Unit/FightUnit';
-import { FightCmdEnum, FightInput, fightMsg, InsertActionPos, FightResultEnum } from './struct';
+import { Fight, FightContex, initFightContex } from '../Fight';
+import { FightUnit, sortByAttr } from '../Unit/FightUnit';
+import { FightCmdEnum, FightInput, fightMsg, InsertActionPos, FightResultEnum } from '../struct';
 import EventEmitter from 'node:events';
-import { FightActionQueue, FightAction } from './FightActionQueue';
+import { FightActionQueue, FightAction } from '../FightActionQueue';
 
 export type bcMsgFunc = (msgs: fightMsg | fightMsg[]) => void;
 export interface FightErrorContext {
@@ -19,6 +19,8 @@ export interface FightErrorContext {
 	/** 输入意图副本；不是嘲讽等重定向后的实际目标记录。 */
 	input?: FightInput;
 }
+
+export type FightLoopType = 'west' | 'yanyu' | 'pc';
 
 export abstract class FightLoop {
 	protected readonly actionQueue = new FightActionQueue();
@@ -95,6 +97,7 @@ export abstract class FightLoop {
 		if (
 			!this.fight.globalData.jiqi ||
 			!ctx?.actionStarted ||
+			ctx.actionEntrusted ||
 			(action.inserted && !action.extraAction)
 		) {
 			return;
@@ -192,6 +195,13 @@ export abstract class FightLoop {
 		this.fight = fight;
 	}
 
+	/** 
+	processBeforeTurn 会执行周期 Buff，可能扣血、死亡、触发自动复活。`resolveAction` 会让这些流程按顺序完成：
+	1. 遍历所有单位的回合前效果。
+	2. 执行 afterAction 排队的效果，例如自动复活。
+	3. 检查胜负，再处理破盾大招。
+	没有外层包裹，`afterAction()` 在动作外会直接执行。例如单位被第一个毒 Buff 毒死，就可能当场复活，接着又被后面的毒 Buff 扣血；现在则等整批回合前效果处理完再复活。
+*/
 	processBeforeTurn(turn: number, ctx: FightContex) {
 		this.fight.resolveAction(() => {
 			for (const unit of this.fight.getAllUnits()) unit.processBeforeTurn(turn, ctx);
@@ -262,6 +272,7 @@ export abstract class FightLoop {
 	}
 
 	start() {
+		this.fight.resetMimic();
 		this.stopped = false;
 		this.failed = false;
 		this.actionQueue.clear();

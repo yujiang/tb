@@ -6,7 +6,7 @@ import { FightReport } from '../../src/fight/Client/FightReport';
 import { FightClient } from '../../src/fight/Client/FightClient';
 import { Fight } from '../../src/fight/Fight';
 import { FightSide } from '../../src/fight/FightSide';
-import { FightLoopWest } from '../../src/fight/Online/FightLoopWest';
+import { FightLoopWest } from '../../src/fight/Loop/FightLoopWest';
 import { fightMsg } from '../../src/fight/struct';
 import { BuffData, initBuffs, OverlapEnum } from '../../src/fight/Buffs/BuffDatas';
 import { initSkills } from '../../src/fight/Skills/SkillDatas';

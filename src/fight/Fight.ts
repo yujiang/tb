@@ -1,6 +1,6 @@
 // 核心的战斗对象
 import { FightMap } from './FightMap';
-import { FightUltimate } from './FightUltimate';
+import { FightMimic } from './FightMimic';
 import { FightSide } from './FightSide';
 import { FightUnit, UnitEventFunc, sortByAttr } from './Unit/FightUnit';
 import { FightUnitSummon } from './Unit/FightUnitUser';
@@ -11,6 +11,7 @@ import {
 	FightInput,
 	FightSideEnum,
 	FightResultEnum,
+	SkillCost,
 	TargetSelectEnum,
 	fightMsg,
 } from './struct';
@@ -27,6 +28,7 @@ import {
 	getDefaultSkillDuiwei,
 	getDefaultSkillProtect,
 } from './Skills/FightSkill';
+import { FightLoopType } from './Loop/FightLoop';
 
 export type AllUnitType = [FightUnit[], FightUnit[]];
 
@@ -47,6 +49,9 @@ export interface FightGlobalData {
 
 	/** 缺省false；敌方最后一面盾打破且全体存活单位均破盾后，完整动作结束后由实际破盾者自动施放装配大招，每队每回合最多一次；无大招或无法施放直接跳过。 */
 	allShieldBreak?: boolean;
+
+	// west, yanyu or pc
+	loopType?: FightLoopType;
 }
 
 const gData: FightGlobalData = {
@@ -119,6 +124,7 @@ export interface FightContex {
 
 	damage?: number; // 伤害值
 	actionStarted?: boolean; // 根单位行动已通过目标、禁止及费用检查；用于完整行动后统一集气
+	actionEntrusted?: boolean; // 当前普通行动位已交给队友，本次托付不额外推动集气。
 
 	killNum?: number; // 追击次数
 	nextNum?: number; // 追击次数
@@ -133,6 +139,46 @@ export function initFightContex(f: Fight): FightContex {
 }
 
 export class Fight {
+	private readonly mimic = new FightMimic(this);
+	resetMimic() {
+		this.mimic.reset();
+	}
+	hasMimicRecord(unit: FightUnit): boolean {
+		return this.mimic.hasRecord(unit);
+	}
+	canMimic(unit: FightUnit, cost?: SkillCost, source?: FightUnit): boolean {
+		return this.mimic.canUse(unit, cost, source);
+	}
+	mimicSkill(unit: FightUnit, ctx: FightContex, source?: FightUnit): boolean {
+		return this.mimic.process(unit, ctx, source);
+	}
+	private actionEntruster?: {
+		canUse: (unit: FightUnit) => boolean;
+		process: (unit: FightUnit, target: FightUnit, ctx: FightContex) => boolean;
+	};
+	setActionEntruster(handler: NonNullable<typeof this.actionEntruster>) {
+		this.actionEntruster = handler;
+	}
+	clearActionEntruster(handler: typeof this.actionEntruster) {
+		if (this.actionEntruster === handler) this.actionEntruster = undefined;
+	}
+	canEntrust(unit: FightUnit): boolean {
+		return this.actionEntruster?.canUse(unit) ?? false;
+	}
+	entrustAction(unit: FightUnit, target: FightUnit, ctx: FightContex): boolean {
+		if (
+			!this.canEntrust(unit) ||
+			!target ||
+			target === unit ||
+			target.side !== unit.side ||
+			target.isDied() ||
+			this.getUnitById(target.uid) !== target
+		) {
+			return false;
+		}
+
+		return this.actionEntruster.process(unit, target, ctx);
+	}
 	private actionInserter?: (
 		unit: FightUnit,
 		input: FightInput,
@@ -241,7 +287,7 @@ export class Fight {
 
 	private actionDepth = 0;
 	private afterActionTasks: (() => void)[] = [];
-	private readonly ultimate = new FightUltimate(this);
+	private firstUltimateSide?: FightSideEnum;
 
 	/** 是否仍在动作或嵌套反应链中；大招等子模块据此延迟发布或拒绝重入。 */
 	isInAction(): boolean {
@@ -249,15 +295,31 @@ export class Fight {
 	}
 
 	resetUltimate() {
-		this.ultimate.reset();
+		this.firstUltimateSide = undefined;
+		for (const side of this.Sides ?? []) side.ultimate.reset();
 	}
 
 	isAllShieldBroken(side: FightSideEnum): boolean {
-		return this.ultimate.isAllShieldBroken(side);
+		return this.getSide(side).ultimate.isAllShieldBroken();
 	}
 
 	onShieldBreak(unit: FightUnit, ctx: FightContex, attacker: FightUnit, allBroken: boolean) {
-		this.ultimate.onShieldBreak(unit, ctx, attacker, allBroken);
+		if (this.getSide(attacker.side).ultimate.onShieldBreak(unit, ctx, attacker, allBroken)) {
+			this.firstUltimateSide ??= attacker.side;
+		}
+	}
+	private finishUltimates(completed: boolean) {
+		const firstSide = this.firstUltimateSide ?? FightSideEnum.attack;
+		this.firstUltimateSide = undefined;
+		const first = this.Sides?.[firstSide]?.ultimate;
+		const second = this.Sides?.[EnemySide(firstSide)]?.ultimate;
+		// 先同时清空双方待放槽；大招自己的完整动作收尾只处理新登记的机会。
+		const firstPending = first?.takePending();
+		const secondPending = second?.takePending();
+		if (!completed) return;
+
+		first?.processPending(firstPending);
+		second?.processPending(secondPending);
 	}
 
 	// 完整动作的反应链结束后、胜负检查前执行；不在动作中时直接执行。
@@ -291,7 +353,7 @@ export class Fight {
 				// 异常动作不能把待处理效果带进下一次行动。
 				this.afterActionTasks.length = 0;
 				if (completed) this.checkOutcome();
-				this.ultimate.finishAction(completed);
+				this.finishUltimates(completed);
 			}
 		}
 	}
@@ -305,11 +367,13 @@ export class Fight {
 	AllUnits: AllUnitType;
 	private readonly dismissedUids = new Set<number>();
 	createSide(attack: FightSide, des: FightSide) {
+		this.resetMimic();
 		this.dismissedUids.clear();
 		attack.clearContributions();
 		des.clearContributions();
 		this.Sides = [attack, des];
 		this.AllUnits = [attack.units, des.units];
+		this.resetUltimate();
 		//console.log("AllUnits", this.fid, "attack", attack.units.length, "des", des.units.length)
 		for (const u of attack.units) {
 			u.setFight(this, FightSideEnum.attack);
@@ -326,7 +390,8 @@ export class Fight {
 		return this.getAllUnits().some((u) => u.uid == id);
 	}
 
-	getSideUnits(side: FightSideEnum): FightUnit[] {
+	/** 返回阵营数组的只读视图，不复制；需要排序或洗牌时使用 getSideUnitsCopy。 */
+	getSideUnits(side: FightSideEnum): readonly FightUnit[] {
 		return this.AllUnits[side];
 	}
 	getSideUnitsCopy(side: FightSideEnum): FightUnit[] {
@@ -367,6 +432,7 @@ export class Fight {
 		assert(!attack?.isDied());
 
 		const sel = skill.getSel();
+		// 嘲讽，只对enemy和duiwei起作用
 		const taunt = this.getTauntTarget(attack, skill);
 		if (taunt) return taunt;
 
@@ -378,10 +444,12 @@ export class Fight {
 			return skill.canTarget(attack) ? attack : undefined;
 		}
 
-		// des_or_random
+		assert(sel.target === TargetSelectEnum.friend || sel.target === TargetSelectEnum.enemy || sel.target === TargetSelectEnum.any);
+
 		const side = sel.target == TargetSelectEnum.friend ? attack.side : EnemySide(attack.side);
-		//const except = sel.includeAttack ? null : attack;
-		const units = this.getSideUnitsBySkill(side, skill);
+		const units = (sel.target === TargetSelectEnum.any ? this.getAllUnits() : this.getSideUnitsCopy(side))
+			.filter(u=>skill.canTarget(u));
+
 		if (!units.length) return null;
 
 		if (sel.sortAttr) {
@@ -393,11 +461,14 @@ export class Fight {
 	}
 
 	// 群体选择不经过主目标，也不受嘲讽重定向；人数足够时保持阵营顺序。
-	// 群攻只有TargetSelectEnum.friend,emeny两种
+	// 群体按己方、敌方或任意阵营选择。
 	selectGroupTargets(attack: FightUnit, skill: FightSkill): FightUnit[] {
 		const sel = skill.getSel();
 		const side = sel.target == TargetSelectEnum.friend ? attack.side : EnemySide(attack.side);
-		const units = this.getSideUnitsBySkill(side, skill);
+		const units =
+			sel.target === TargetSelectEnum.any
+				? this.getAllUnits().filter((unit) => skill.canTarget(unit))
+				: this.getSideUnitsBySkill(side, skill);
 		// const units = this.getAllUnits().filter(target => this.isLegalTarget(attack, target, skill));
 		const num = sel.num ?? 1;
 
@@ -457,8 +528,17 @@ export class Fight {
 		if (!target || !skill.canTarget(target)) {
 			return false;
 		}
+		if (skill.isMimicAny()) return this.hasMimicRecord(target);
+
+		if (skill.getFunc() === 'entrust') {
+			if (target === unit || target.side !== unit.side) {
+				return false;
+			}
+		}
 
 		const sel = skill.getSel();
+		if (sel.target === TargetSelectEnum.any) return true;
+
 		if (sel.target === TargetSelectEnum.self) return target === unit;
 
 		const side = sel.target === TargetSelectEnum.friend ? unit.side : EnemySide(unit.side);
@@ -507,6 +587,11 @@ export class Fight {
 
 	// 输入入口按共享配置选择检查模式，显式调用checkOnline/checkPC仍保留各自规则。
 	checkInput(unit: FightUnit, input: FightInput): boolean {
+		if (input?.ignoreCostCD === true) {
+			unit.hintClient('客户端不能设置免消耗和冷却标记');
+			return false;
+		}
+
 		if (input?.ultimate) {
 			unit.hintClient('大招由破盾后自动施放');
 			return false;
@@ -519,6 +604,8 @@ export class Fight {
 
 	// 网游先收指令再行动：允许死亡单位输入、普攻守尸，目标与资源留到执行时复验。
 	checkOnline(unit: FightUnit, input: FightInput): boolean {
+		if (input?.ignoreCostCD === true) return false;
+
 		return this.validateInput(unit, input);
 	}
 
@@ -538,12 +625,32 @@ export class Fight {
 
 		const skill = input.cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) : undefined;
 		const cost = skill?.getCost();
-		if (cost && !unit.canCost(cost)) {
+		if (input.ignoreCostCD !== true && cost && !unit.canCost(cost)) {
 			return false;
 		}
 
 		if (skill?.getFunc() === 'normal' && unit.isForbid('attack')) {
 			unit.hintClient('当前无法普通攻击');
+			return false;
+		}
+		if (
+			skill?.getFunc() === 'mimic' &&
+			!skill.isMimicAny() &&
+			!this.canMimic(unit, input.ignoreCostCD === true ? undefined : skill.getCost())
+		) {
+			unit.hintClient('没有可模仿的攻击，或当前无法使用原攻击');
+			return false;
+		}
+		if (
+			skill?.isMimicAny() &&
+			input.target !== undefined &&
+			!this.canMimic(
+				unit,
+				input.ignoreCostCD === true ? undefined : skill.getCost(),
+				this.getUnitById(input.target),
+			)
+		) {
+			unit.hintClient('当前无法模仿该单位的行动');
 			return false;
 		}
 
@@ -620,6 +727,9 @@ export class Fight {
 		const targets = candidates.filter((target) => {
 			if (!skill.canTarget(target)) {
 				hint ??= skill.getTargetHint(target);
+				return false;
+			}
+			if (skill.isMimicAny() && !this.canMimic(unit, undefined, target)) {
 				return false;
 			}
 
@@ -711,12 +821,22 @@ export class Fight {
 			}
 
 			const cd = unit.getSkillCd(input.skill);
-			if (cd > 0) {
+			if (cd > 0 && input.ignoreCostCD !== true) {
 				unit.hintClient(`[${skill.getName()}]冷却中，还需 ${cd} 回合`);
 				return false;
 			}
 
 			if (!skill.getSel()) return false;
+
+			if (skill.isMimicAny() && skill.isMulti()) {
+				unit.hintClient('高级模仿只能选择一个行动来源');
+				return false;
+			}
+
+			if (skill.getFunc() === 'entrust' && (!this.canEntrust(unit) || skill.isMulti())) {
+				unit.hintClient('托付只能在PC普通行动中使用，且只能指定一名队友');
+				return false;
+			}
 		} else if (
 			(input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none) &&
 			unit.isForbid('attack')
@@ -837,15 +957,25 @@ export class Fight {
 	}
 
 	executeUnit(unit: FightUnit, input: FightInput): FightContex {
-		return this.resolveAction(() => this._executeUnit(unit, input));
+		const root = !this.isInAction();
+		return this.resolveAction(() => {
+			const skill =
+				input.cmd === FightCmdEnum.skill ? unit.findSkill(input.skill) : undefined;
+			const ctx = this._executeUnit(unit, input);
+			// 在动作收尾前记录，随后自动施放的大招可作为更新的攻击覆盖它。
+			if (root) this.mimic.record(input, ctx, skill);
+			return ctx;
+		});
 	}
 
-	exeDismiss(unit: FightUnit, tid: number): FightContex {
+	exeDismiss(unit: FightUnit, tid: number, ctx?: FightContex): FightContex {
 		const target = this.getUnitById(tid);
 		if (!target) return;
 
-		const ctx = { ...initFightContex(this), attack: unit, actionStarted: true };
-		const units = this.getSideUnits(target.side);
+		ctx ??= { ...initFightContex(this), attack: unit };
+		ctx.actionStarted = true;
+		ctx.defend = null;
+		const units = this.AllUnits[target.side];
 		units.splice(units.indexOf(target), 1);
 		this.dismissedUids.add(target.uid);
 		target.leaveFight();
@@ -854,13 +984,18 @@ export class Fight {
 		return ctx;
 	}
 
-	exeDefend(unit: FightUnit) {
+	exeDefend(unit: FightUnit, ctx?: FightContex) {
 		unit.doDefend();
-		return { ...initFightContex(this), attack: unit, actionStarted: true };
+		ctx ??= { ...initFightContex(this), attack: unit };
+		ctx.actionStarted = true;
+		ctx.defend = null;
+		return ctx;
 	}
 
-	exeRunaway(unit: FightUnit): FightContex {
-		const ctx = { ...initFightContex(this), attack: unit, actionStarted: true };
+	exeRunaway(unit: FightUnit, ctx?: FightContex): FightContex {
+		ctx ??= { ...initFightContex(this), attack: unit };
+		ctx.actionStarted = true;
+		ctx.defend = null;
 		const success = this.randomLess(getRunwayRate(unit.attr.grade ?? 0, this.xls.runawayGrade));
 		ctx.msgs.push(['runaway', unit.uid, success]);
 		if (success) {
@@ -874,38 +1009,40 @@ export class Fight {
 		return ctx;
 	}
 
-	exeProtect(unit: FightUnit, tid: number): FightContex {
+	exeProtect(unit: FightUnit, tid: number, ctx?: FightContex): FightContex {
 		const des = this.getUnitById(tid);
 		if (!des) return;
 
-		const ctx: FightContex = { fight: this, attack: unit, defend: des, msgs: [], effects: [] };
+		ctx ??= { ...initFightContex(this), attack: unit };
+		ctx.defend = des;
 		ctx.actionStarted = true;
 		ctx.msgs.push(['protect', unit.uid, des.uid]);
 		des.addBuff(unit, 'protect', this.globalData.protectBuff, 1, ctx);
 		return ctx;
 	}
 
-	_executeUnit(unit: FightUnit, input: FightInput): FightContex {
+	_executeUnit(unit: FightUnit, input: FightInput, ctx?: FightContex): FightContex {
 		let cmd = input.cmd;
 		let tid = input.target;
 
 		switch (cmd) {
 			case FightCmdEnum.dismiss:
-				return this.exeDismiss(unit, tid);
+				return this.exeDismiss(unit, tid, ctx);
 			case FightCmdEnum.protect:
-				return this.exeProtect(unit, tid);
+				return this.exeProtect(unit, tid, ctx);
 			case FightCmdEnum.defend:
-				return this.exeDefend(unit);
+				return this.exeDefend(unit, ctx);
 			case FightCmdEnum.runaway:
-				return this.exeRunaway(unit);
+				return this.exeRunaway(unit, ctx);
 		}
-		return this.exeSkillAttack(unit, input);
+		return this.exeSkillAttack(unit, input, ctx);
 	}
 
 	//only none, attack, skill below
-	exeSkillAttack(unit: FightUnit, input: FightInput): FightContex {
+	exeSkillAttack(unit: FightUnit, input: FightInput, ctx?: FightContex): FightContex {
 		let cmd = input.cmd;
 		let tid = input.target;
+		ctx ??= { ...initFightContex(this), attack: unit };
 
 		let des = tid !== undefined ? this.getUnitById(tid) : undefined;
 		// 预处理,没有来得及发指令的单位.
@@ -920,14 +1057,9 @@ export class Fight {
 					? unit.getAttackSkill()
 					: undefined;
 		if (actionSkill?.isMulti()) {
-			const ctx: FightContex = {
-				fight: this,
-				attack: unit,
-				defend: null,
-				msgs: [],
-				effects: [],
-			};
-			if (cmd === FightCmdEnum.skill) skillFunc(unit, null, input.skill, ctx);
+			ctx.defend = null;
+			if (cmd === FightCmdEnum.skill)
+				skillFunc(unit, null, input.skill, ctx, input.ignoreCostCD === true);
 			else {
 				ctx.actionStarted = true;
 				attackFunc(unit, null, ctx);
@@ -956,7 +1088,7 @@ export class Fight {
 			unit.hintClient('没有可用目标');
 			return;
 		}
-		const ctx: FightContex = { fight: this, attack: unit, defend: des, msgs: [], effects: [] };
+		ctx.defend = des;
 		return this.exeSkillAttackContext(unit, input, des, ctx);
 	}
 
@@ -978,7 +1110,7 @@ export class Fight {
 		}
 
 		if (cmd == FightCmdEnum.skill) {
-			skillFunc(unit, des, input.skill, ctx);
+			skillFunc(unit, des, input.skill, ctx, input.ignoreCostCD === true);
 			return ctx;
 		}
 	}

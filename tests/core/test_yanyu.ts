@@ -17,7 +17,7 @@ import {
 	fightMsg,
 	FightResultEnum,
 } from '../../src';
-import { FightLoopYanYu } from '../../src/fight/Online/FightLoopYanYu';
+import { FightLoopYanYu } from '../../src/fight/Loop/FightLoopYanYu';
 
 const skillId = 99960;
 function attr(speed: number): FightAttr {

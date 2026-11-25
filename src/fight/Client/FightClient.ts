@@ -5,7 +5,7 @@ import { strict as assert } from 'node:assert';
 import { isDeepStrictEqual } from 'node:util';
 import { fightMsg, FightActionDisplay } from '../struct';
 import { Fight } from '../Fight';
-import { FightLoop } from '../FightLoop';
+import { FightLoop } from '../Loop/FightLoop';
 import { FightUnit } from '../Unit/FightUnit';
 import { FightResultEnum, FightSideEnum } from '../struct';
 

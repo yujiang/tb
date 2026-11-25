@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { Fight } from '../../src/fight/Fight';
 import { BaseAttack, FightAttr } from '../../src/fight/FightAttr';
 import { FightSide } from '../../src/fight/FightSide';
-import { FightLoopWest } from '../../src/fight/Online/FightLoopWest';
+import { FightLoopWest } from '../../src/fight/Loop/FightLoopWest';
 import { FightUnitMonster } from '../../src/fight/Unit/FightUnitMonster';
 import { FightUnitSummon, FightUnitUser } from '../../src/fight/Unit/FightUnitUser';
 import { BuffData, initBuffs, OverlapEnum } from '../../src/fight/Buffs/BuffDatas';

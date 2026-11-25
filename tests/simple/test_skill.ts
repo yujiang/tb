@@ -1,4 +1,4 @@
-import { FightLoopWest } from '../../src/fight/Online/FightLoopWest';
+import { FightLoopWest } from '../../src/fight/Loop/FightLoopWest';
 import { BaseAttack, FinalAttack } from '../../src/fight/FightAttr';
 import { initSkills, SkillData } from '../../src/fight/Skills/SkillDatas';
 import { MapShapeEnum, SelectParam, TargetSelectEnum } from '../../src/fight/struct';
