@@ -110,6 +110,7 @@ function spreadAttr(
 		return target.uid;
 	});
 	ctx.msgs.push(['spread', ids]);
+	attacker.recordSkillUse(skill, ctx, 'spread');
 	for (const target of targets) {
 		func(attacker, target, skill, 'spread', ctx);
 	}

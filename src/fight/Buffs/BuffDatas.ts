@@ -1,4 +1,5 @@
 import { StaticData } from './StaticData';
+import type { SkillUseType } from '../struct';
 
 export enum OverlapEnum {
 	NOT = 0, // 不叠加
@@ -21,6 +22,7 @@ export enum BuffTurnEnum {
 // 但是1~5并不互斥，可以同时存在，所以没有type字段
 
 export type FightUnitEvent =
+	| 'useSkill'
 	| 'beforeAttack'
 	| 'taunt'
 	| 'beforeHurt'
@@ -39,6 +41,7 @@ export type FightUnitEvent =
 	| 'speed';
 // taunt(unit, ctx, buff)：本次普通行动实际受所选嘲讽约束，完整技能/反应链执行后发出；未命中或发动失败仍计次，预检/费用不足/跳过不发。
 // beforeAttack(unit, ctx, attacker, skill, startAttack)：需要移动的主目标物理攻击已发动、尚未判定命中；追击/溅射/陷阱自身不发。同步调用startAttack()可提前发出原攻击的skill消息（自动去重），以表现出手后踩陷阱。
+// useSkill(unit, ctx, skill, type, skillCount, typeCount)：技能实际发动后、命中及效果前，次数已更新且本次Buff增伤已汇总；type为SkillUseType，后两项为本场该技能ID与该来源的累计次数。群攻/溅射每次施放只发一次，未命中仍发，发动失败不发。
 // break(unit, ctx, attacker, allBroken)：盾正数变 0 时；allBroken 为该瞬间本阵营全体存活单位破盾的快照。
 // hp(unit, ctx, attacker, previous, current)：真实生命值变化，含受伤、分担、治疗及生命费用；费用在整笔扣费完成后通知，attacker为本人，不发hurt。
 // hurt(unit, ctx, attacker, damage, pending)：最后一项提供 HurtOptions/source；分担伤害仍不发 hurt。
@@ -47,12 +50,21 @@ export type FightUnitEvent =
 export type BuffFuncEnum = 'poison' | 'heal';
 
 export interface BuffData extends StaticData {
-	/** 特殊实现名：buqu/relife/taunt/reflect/rest/protect/trap；省略或未知名使用普通 FightBuff；trap监听主目标近身物理攻击，times为踩中次数，0不限次数；rest等同提供休息状态。 */
+	/** 特殊实现名：buqu/relife/taunt/reflect/rest/protect/trap/damageByUse；省略或未知名使用普通FightBuff；damageByUse按出手次数增加同类型伤害，配置见damageUse；trap按来袭技能isMove判断近身物理攻击，死亡清理由dieNotRemove控制；rest等同提供休息状态。 */
 	class?: string;
 	/** 自动复活恢复的最大生命比例，数值 (0, 1]，缺省 0.2；仅 relife 读取。 */
 	relifeRatio?: number;
 	/** 反射是否只转移魔法伤害，缺省 true；false 也转移物理伤害。仅 reflect 读取，治疗转移不受此字段限制。 */
 	reflectMagicOnly?: boolean;
+	/** 按本场出手次数增加本次伤害倍率，仅class=damageByUse读取；省略时为协战每次+0.05、最多+0.5，当前这次也计入，只增强指定类型的攻击，不修改技能表或单位基础属性。 */
+	damageUse?: {
+		/** 统计并增强的出手类型；缺省support；可用SkillUseType中的类型，其他类型不受加成。 */
+		type?: SkillUseType;
+		/** 每次发动增加的伤害倍率，非负有限数，缺省0.05；0表示不增加，与技能damageRate相加。 */
+		rate?: number;
+		/** 累计增加的倍率上限，非负有限数，缺省0.5；0表示不增加，不是无限。 */
+		max?: number;
+	};
 
 	/** 同 ID 重复添加：NOT 保留旧实例，REPLACE 替换，RELPACE_BYPOWER 按 power 再等级比较；详见枚举实际拼写。 */
 	overlap: OverlapEnum;
@@ -64,7 +76,7 @@ export interface BuffData extends StaticData {
 
 	/** 事件使用次数，类型必填，0 不按次数到期；普通 Buff 在 event 后扣减；嘲讽按实际诱导的普通行动扣减；不屈/自动复活固定一次。 */
 	times: number;
-	/** 普通次数Buff的计次事件；必须带ctx，attr/speed不是该签名；嘲讽固定监听taunt，trap固定监听beforeAttack，两者忽略本字段且只在实际触发时计次；其他特殊类也可固定监听。 */
+	/** 普通次数Buff的计次事件；必须带ctx，attr/speed不是该签名；嘲讽固定taunt，trap固定beforeAttack，damageByUse固定useSkill，忽略本字段且只在匹配类型实际触发时计次；其他特殊类也可固定监听。 */
 	event: FightUnitEvent;
 	/** 监听优先级，小的先执行，同级按注册顺序；普通/反射默认0，保护500，不屈/自动复活1000。 */
 	prior?: number;

@@ -227,10 +227,16 @@ export class FightSkill {
 		return f.randomLess(d2 / 100);
 	}
 
-	calcHurt(f: Fight, defender: FightUnit, ctx: FightContex, attacker: FightUnit = ctx.attack) {
+	calcHurt(
+		f: Fight,
+		defender: FightUnit,
+		ctx: FightContex,
+		attacker: FightUnit = ctx.attack,
+		damageRateAdd = 0,
+	) {
 		const ismagic = this.isMagic();
 		const dft = ismagic ? defender.attr.magic : defender.attr.physic;
-		const rate = this.xls.damageRate ?? 1;
+		const rate = (this.xls.damageRate ?? 1) + damageRateAdd;
 		assert.ok(Number.isFinite(rate) && rate >= 0, 'damageRate must be finite and nonnegative');
 		const property = this.xls.skillProp ?? attacker?.attr.weaponProp;
 		const propertyBonus = defender.getHurtMul(property, attacker?.attr.weapon) - 1;

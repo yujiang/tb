@@ -4,6 +4,8 @@ import { BuffData, BuffTurnEnum } from './BuffDatas';
 import { findForbidStatusByAction } from './FightStatus';
 import { buffFunc } from './BuffFuncType';
 import { FightStatic } from './StaticData';
+import type { FightSkill } from '../Skills/FightSkill';
+import type { SkillUseType } from '../struct';
 
 export const MAX_POWER = 9999;
 export const MAX_LEVEL = 100;
@@ -80,6 +82,11 @@ export class FightBuff extends FightStatic {
 	// 特殊目标约束由具体 Buff 提供，普通 Buff 不改变目标。
 	getTauntTarget(): FightUnit | undefined {
 		return undefined;
+	}
+
+	// Buff只提供自己的额外伤害倍率，由单位统一汇总，不修改技能或单位基础属性。
+	getDamageRate(unit: FightUnit, skill: FightSkill, type: SkillUseType): number {
+		return 0;
 	}
 
 	blocksAction(): boolean {

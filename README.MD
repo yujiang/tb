@@ -143,13 +143,23 @@ for (const group of plan.groups) {
 
 未命中消息将“未命中”三个字显示为蓝色，并保留行首人名及技能名的配色；每个回合标题及每条单位“行动”消息前增加一个空行，打印输出和保存文本均保留。关闭颜色时输出纯文本。
 
-协战与反击一样先学习再装配：`a.addSkill(supportId, level); a.supportSkill = supportId`，通过 `a.getSupportSkill()` 查询；战斗中可随时改装。被动配置 `supportSkill: supportId` 或 `fbackSkill: fbackId` 只装配相应技能 ID，不自动学习、不覆盖已有技能实例或等级；宿主需另外加载单位已学的主动技能。协战技能目前使用攻击类 `func: "normal"`（省略也是 normal），读取协战者自己的基础物理/魔法攻击，复用技能倍率、等级成长、命中、吸血、反伤、连击、连招与反击流程，和反击一样不额外支付主动技能费用。
+协战通过 `a.setSupportSkill(supportId)` 装配，通过 `a.getSupportSkill()` 查询；战斗中可随时改装，0卸下。装配入口检查技能已注册且 `func: 'normal'`（省略也是normal），非攻击配置在改变装配前断言失败。允许先装配后学习，未学时不参与协战；`a.addSkill(supportId, level)` 学习后使用对应等级。被动配置 `supportSkill: supportId` 或 `fbackSkill: fbackId` 只装配相应技能ID，不自动学习、不覆盖已有技能实例或等级。协战读取协战者自己的基础物理/魔法攻击，复用技能倍率、等级成长、命中、吸血、反伤、连击、连招与反击流程，和反击一样不额外支付主动技能费用。
+
+普通攻击、攻击技能、反击及协战通过公共 `canAttackSkill` 检查 `action` 禁止状态，不在各入口重复维护；额外的反击专用限制仍由调用方传入 `fback`。已布置陷阱自主结算仍不检查持有者行动能力。
 
 主攻技能默认允许协战，只有 `nosupport: true` 时禁止；该字段省略或 false 均表示不禁止。主攻成功命中且目标仍存活时，在原技能的溅射及后续反应流程之前，从同阵营、存活、未禁止 attack、未被休息等 Buff 阻止行动、且本回合尚未协战的其他单位中随机选一人；只有装备有效协战技能的单位入选。只有一个候选时不消耗选人随机数，多个候选通过战斗随机源等概率选择，再由技能流程判定一次该协战技能的 `rand`。失败不换人重试；选中并尝试就消耗机会，rand 失败或未命中均不返还。每个协战者每个全局回合最多尝试一次，死亡复活、改装及额外输入机会都不刷新次数。
 
 协战继承本次实际主目标，不重新选择或被嘲讽改向；目标已死亡则跳过，不攻击尸体或换人。协战及其整条后续反应链不会再召唤其他协战者；返回原攻击后继续原有后续规则。连招中间不插入协战，只按末段的 `nosupport` 禁止字段决定是否尝试。协战命中或未命中消息仍用原格式，第五项标记 `"support"`，简报和 MUD 显示 `【协战】`。次数属于服务端规则状态，客户端仍只根据实际消息更新显示，无需同步技能装配或次数。
 
 协战表现推荐通过填表收敛：协战技能配置 `nofback: true, nodback: true`（必须显式禁止，省略表示允许），避免引出目标反击及普通反伤；其链接的子技能也需逐个保持对应配置。主攻技能的开关独立配置，程序不额外强制覆盖。`nodback` 不控制反射 Buff。
+
+单位维护本场技能实际发动次数：`unit.getSkillUseCount(skillId)` 按技能ID查询，`unit.getSkillTypeUseCount('support')`、`unit.getSkillTypeUseCount('fback')` 分别查询协战、反击累计次数。未使用返回0，默认普攻及内置反击等无表ID攻击统一归入ID0，可按类型区分。`SkillUseType` 包含 `normal`（普通行动，包括普攻和主动技能）、`support/fback/next/combo/kill/spread/trap`。概率失败、费用/CD/状态/目标校验失败不计数；实际发动后未命中或被陷阱中断仍计数。群攻、一次溅射各按一次施放计数；子技能独立计数，模仿本身与实际回放分别计数，Buff周期效果不算单位再次使用技能。
+
+越战越勇Buff使用 `class: 'damageByUse'`，默认只增强协战：按本场累计协战次数，每次给本次协战加0.05伤害倍率，最高+0.5，当前这次也享受。可显式配置 `damageUse: { type: 'support', rate: 0.05, max: 0.5 }`，改type为fback即可做同类反击增伤。加成与技能damageRate相加，不影响其他出手类型或技能表；Buff移除后停止增伤，再次添加读取本场历史次数。持续时间及死亡保留沿用Buff配置，times:0表示不按次数消耗，正数仅在匹配类型发动时消耗，最后一次仍有加成。详见 [Buff与被动](document/wiki/Buff与被动.md)。
+
+增伤由Buff的 `getDamageRate(unit, skill, type)` 返回贡献，单位 `getDamageRate(skill, type)` 统一求和。每次发动更新次数后收集一次，再发useSkill通知；本次伤害使用收集结果，群体目标共用，不修改技能对象，也没有add/reset步骤。这样普通属性Buff仍按现有属性管线生效，多个增伤Buff独立提供值；Buff到期不会丢失最后一次已收集的加成。
+
+`useSkill(unit, ctx, skill, type, skillCount, typeCount)` 在计数更新后、命中及效果前同步发出，Buff可监听它实现按使用次数成长。次数包含当前这次，跨回合、死亡复活和改装保留；同一Fight内重绑单位不清零，绑定不同Fight时清零。群体与溅射共用本次施放的计数入口，嵌套反击等各自独立，不通过ctx全局标记去重。计数是服务端状态，不额外发送资源或客户端消息；事件产生的资源变化与Buff变化仍走现有同步入口。
 
 普通主动攻击技能的发动概率判定失败时，发送 `["skillFailed", 行动者ID, 目标ID, 技能ID, 技能名称]`，简报显示 `[技能名称]未发动（发动概率判定失败）`，与发动后未命中的情况区分。不会因此自动改用普通攻击。
 
@@ -700,6 +710,8 @@ loop.onInput(player.uid, { turn: fight.turn, cmd: FightCmdEnum.dismiss, target: 
 
 血轴的旧`attackRate`配置已移除，示例Buff 2101/2102需由宿主先调用initBuffs注册。运行中调用`addRule(rule, prior, ctx)`、`removeRule(rule, ctx)`、`setRules(list, ctx)`或`clearRules(ctx)`时，传入当前动作ctx并由循环广播其msgs，确保初始低血量阶段和规则移除的Buff变化也同步客户端；初始化可省略ctx，由初始单位快照携带Buff。显式移除规则只停止规则监听，已经添加的Buff保留并按自身生命周期处理；战斗结束仅解绑规则监听，Buff展示状态仍与客户端最终快照一致。
 # 陷阱
+
+是否踩中按来袭技能的 `incoming.isMove()` 判断，不在陷阱内重复检查攻击者当前能否攻击、移动。陷阱自主结算，不依赖持有者存活或行动能力；死亡时是否移除仍按 Buff 的 `dieNotRemove` 配置处理。
 
 陷阱使用 `class: 'trap'` 的 Buff，布置技能通过 `func: 'nohurt'`、`sel.target: self` 和 `addBuff` 添加到自己身上；Buff 用 `skill/skillLevel` 引用触发伤害，`times: 1` 表示一次性陷阱。对持有者的移动型主目标物理攻击会在命中前踩中；魔法、原地攻击、追击和溅射跳过。陷阱合并持有者当前属性，复用单次攻击的伤害与附加Buff，不要求学会、不收费/CD；若给攻击者附加缠绕使其不能移动，或攻击者死亡、不能攻击，原攻击中断，否则继续。消息先通知原攻击出手，再通知踩中、伤害和状态，出手只发一次。配置与事件签名见 [Buff与被动](document/wiki/Buff与被动.md)。
 

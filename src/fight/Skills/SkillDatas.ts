@@ -86,7 +86,7 @@ export interface SkillData {
 	attackSkill?: number;
 	/** 效果处理时给施放者装配已学反击技能；缺省不变，当前此入口忽略 0。 */
 	fbackSkill?: number;
-	/** 效果处理时给施放者装配已学协战技能；缺省不变，当前此入口忽略 0。 */
+	/** 效果处理时装配协战技能；须已注册且func为normal（省略同normal），否则断言失败；只装配不学习，未学时不参与协战；缺省不变，当前此入口忽略0。 */
 	supportSkill?: number;
 	/** 效果处理时给施放者装配已学破盾大招；缺省不变，0 卸下，仍需自身打破敌方最后一面盾后自动触发。 */
 	ultimateSkill?: number;

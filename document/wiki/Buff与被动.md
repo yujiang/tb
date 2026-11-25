@@ -40,9 +40,13 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 
 | 字段 | 含义 | 缺省与边界 |
 | --- | --- | --- |
-| `class` | 特殊实现类名 | buqu/relife/taunt/reflect/rest/protect/trap；省略或未知名称走普通 FightBuff |
+| `class` | 特殊实现类名 | buqu/relife/taunt/reflect/rest/protect/trap/damageByUse；省略或未知名称走普通 FightBuff |
 | `relifeRatio` | 自动复活的最大生命恢复比例 | 仅 relife 使用；数值 (0, 1]，缺省 0.2 |
 | `reflectMagicOnly` | 反射只转移魔法伤害 | 仅 reflect 使用；缺省 true，false 时也转移物理伤害；治疗转移不受影响 |
+| `damageUse` | 出手次数增伤配置 | 仅damageByUse使用；省略为协战每次+0.05伤害倍率，最多+0.5，当前这次也计入；只增强同类型攻击 |
+| `damageUse.type` | 统计并增强的出手类型 | 缺省support；可用SkillUseType中的normal/support/fback/next/combo/kill/spread/trap，其他类型不受影响 |
+| `damageUse.rate` | 每次增加的伤害倍率 | 非负有限数，缺省0.05，显式0有效；与技能damageRate相加，不是再乘1.05 |
+| `damageUse.max` | 累计加成上限 | 非负有限数，缺省0.5；显式0表示无加成，不是无限 |
 | `overlap` | 同 ID 重复添加规则 | NOT=0、REPLACE=1、RELPACE_BYPOWER=2；类型必填 |
 | `turnType` | 持续时间/周期边界 | 缺省 thisTurn=0，inputTurn=1，afterTurn=2 |
 | `lastTurn` | 对应边界持续次数 | 必填；正数最后一次生效后移除，0 不按回合到期，不是秒数 |
@@ -68,14 +72,25 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 | `rest` | 不读取 | 兼容提供休息状态；新配置直接用 status:["休息"] 即可，持续时间由 turnType/lastTurn 配置 |
 | `protect` | 不读取 | 挂在被保护者身上，施加者承担一半合格直接攻击伤害；比例固定，不用参数调节 |
 | `trap` | `skill`、`skillLevel`、`times` | 挂在受保护者身上，移动型主目标物理攻击命中前触发；魔法、原地攻击、追击、溅射与陷阱自身不触发。times 为踩中次数，0 不限次数；固定监听 beforeAttack，忽略 event |
+| `damageByUse` | `damageUse` | 越战越勇，通过getDamageRate返回min(本场该类型累计次数×rate,max)，默认仅增强协战；忽略event，仅times正数时监听useSkill按匹配类型扣次数，最后一次仍有效 |
 
 不屈/自动复活固定使用一次，不是填 times=10 就能变成十次。反射在成功转移时扣 times；保护当前按持续时间移除，不使用普通次数消耗流程。特殊类的 event/prior 行为应按类说明配置，不能只套普通 Buff 的计次规则。
 
-陷阱通过普通技能配置布置：`func: 'nohurt'`、`sel.target: self`、`nomove: 1`、`addBuff: [[陷阱BuffID, 等级, 1]]`。陷阱 Buff 配置 `class: 'trap'`、`skill`、`skillLevel`，一次性陷阱填 `times: 1`，持续时间沿用 `lastTurn/turnType`。触发技能通常填 `nomove: 1`，可用 `addBuff` 给踩中者添加 `status: ['缠绕']` 的 Buff。
+陷阱通过普通技能配置布置：`func: 'nohurt'`、`sel.target: self`、`nomove: 1`、`addBuff: [[陷阱BuffID, 等级, 1]]`。陷阱 Buff 配置 `class: 'trap'`、`skill`、`skillLevel`，一次性陷阱填 `times: 1`，持续时间沿用 `lastTurn/turnType`。可用触发技能的 `addBuff` 给踩中者添加 `status: ['缠绕']` 的 Buff。
+
+是否踩中取决于来袭技能的 `incoming.isMove()`，表示这次攻击需要跑过来，不是检查攻击者此刻能否移动或攻击。只要陷阱实例仍有效，触发和伤害不依赖持有者存活、攻击或移动能力；触发技能也不要求配置为原地技能。死亡清理仍遵守 `dieNotRemove`：默认死亡移除，配置 true 才保留陷阱，不能把死亡时已经移除的实例继续使用。
 
 `beforeAttack(unit, ctx, attacker, skill, startAttack)` 在需要移动的主目标物理攻击发动后、命中判定前同步发出。陷阱先调用 `startAttack()` 发原攻击的 `skill` 消息（同次自动去重），再发 `['buffTrigger', 持有者UID, BuffID, 'trap', 踩中者UID]` 及陷阱技能伤害/状态。因此客户端先看见出手，再看见踩陷阱；若踩中后死亡、不能攻击或不能移动，原攻击中断，不产生原攻击伤害。否则继续原命中及伤害结算。未发动的原技能不踩陷阱；攻击未命中仍可能踩中，陷阱技能自身的发动概率与命中照常计算，踩中即消耗一次。
 
 `hp(unit, ctx, source, previousHp, currentHp)` 表达真实生命变化，受伤、保护分担、治疗和生命费用都会通知。生命费用的 source 为本人，在整笔费用及消息完成后通知，不触发 beforeHurt/hurt；零费用、预检或支付失败不通知。普通受伤另发 hurt，保护分担仍不发 hurt。因此血线机制监听 hp，按受伤次数触发的机制监听 hurt，不把生命费用算成受伤。
+
+`useSkill(unit, ctx, skill, type, skillCount, typeCount)` 表达技能实际发动，在计数更新后、命中和效果前发出。后两项是本场该技能ID及该出手类型的累计次数，包含当前这次；类型见 [技能使用次数](./技能配置.md#单位技能使用次数)。例如越战越勇Buff可读取 `unit.getSkillTypeUseCount('support')` 或 `unit.getSkillTypeUseCount('fback')`；只统计某技能则读 `unit.getSkillUseCount(id)`。群攻/溅射每次施放只发一次事件，发动失败不发，未命中仍发；普通次数Buff也可用 `event: 'useSkill'` 按发动次数消耗。
+
+越战越勇可配置 `class: 'damageByUse', damageUse: { type: 'support', rate: 0.05, max: 0.5 }`，省略damageUse也使用这组默认值；其余基础Buff字段照常填写，持续增益通常填times:0。第一次协战加0.05，第十次达到+0.5；普通攻击、反击和协战后的连击/溅射不继承该加成。伤害倍率与原技能倍率相加，例如原0.4变为0.45，再按原伤害公式处理。发动失败不计，未命中计入次数。移除或死亡清理后不再增强；重新添加读取本场历史次数，不从零重新叠层。次数本身不会因Buff消失而重置。
+
+增伤沿用“Buff提供贡献、单位统一汇总”的方式：`buff.getDamageRate(unit, skill, type)` 只返回该Buff的额外倍率，`unit.getDamageRate(skill, type)` 汇总当前Buff。读取不改变技能、计数或配置，重复读取不会累加；Buff移除后自然不参与下一次汇总。普通攻击属性Buff仍走原属性合并，与倍率加成独立生效。
+
+实际发动时先更新单位次数，再收集当前Buff的倍率，然后发送useSkill处理事件和次数到期；因此当前这次享受新次数的加成，次数耗尽的最后一次也保留本次已收集的效果。`recordSkillUse` 返回本次额外倍率，群体/溅射的 `createSkillUse` 入口只收集一次并返回相同结果；伤害计算接收这个值，不把倍率累加进技能对象，不需要reset。常驻times:0的越战越勇不注册监听；times正数时仅监听useSkill消耗次数，并在移除时解绑。
 
 ### 覆盖与驱散不是同一个比较
 
@@ -110,7 +125,7 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 | `addbuff` | 初始化给自身添加的 Buff | `[Buff ID, Buff等级][]`；可省略；等级不自动取被动等级，保留小写命名 |
 | `attackSkill` | 初始化装配替代普攻 | 缺省不变，0 卸下；只装配不学习、不改技能等级 |
 | `fbackSkill` | 初始化装配反击 | 缺省不变；当前此入口忽略 0，模板显式装配仍可用 0 卸下 |
-| `supportSkill` | 初始化装配协战 | 缺省不变，0 卸下；技能须另行学习 |
+| `supportSkill` | 初始化装配协战 | 缺省不变，0卸下；必须是已注册的normal技能（func省略同normal），否则装配时断言失败；不自动学习，未学时不参与协战 |
 | `ultimateSkill` | 初始化装配破盾大招 | 缺省不变，0 卸下；由自身破盾后自动触发 |
 
 初始化可能早于绑定 fight，不能依赖已有战斗上下文。已有单位追加被动后会重算属性。被动附加的 Buff 是否死亡保留、可驱散与显示，由该 BuffData 决定，不由“来源是被动”自动推导。

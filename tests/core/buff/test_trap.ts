@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { FightCmdEnum, FightSkill, initFightContex, initSkills, SkillData } from '../../../src';
 import { chainIds } from '../../fixtures/skill_chain';
-import { setupTrap as setup, trapId, hitId, placeId } from '../../fixtures/trap';
+import { setupTrap as setup, trapId, hitId, placeId, rootId } from '../../fixtures/trap';
 import { magicAttackFunc } from '../../../src/fight/Skills/Funcs/NomalSkill';
 
 // 主目标物理攻击先受到陷阱技能伤害，无缠绕则继续；陷阱等级、次数和客户端同步均生效。
@@ -153,4 +153,44 @@ test('trap: a physical trap hit does not trigger the attackers trap', () => {
 	s.cast();
 	assert.equal(s.actor.findBuff(trapId)?.times, 1);
 	assert.equal(s.target.findBuff(trapId), undefined);
+});
+
+// 攻击已经跑过来后，即使前序事件缠绕攻击者，仍会踩中陷阱；原攻击由外层检查中断。
+test('trap: incoming movement determines triggering after the attacker becomes rooted', () => {
+	const s = setup();
+	s.place();
+	s.target.onContex('beforeAttack', (unit, ctx, attacker) => {
+		attacker.addBuff(unit, 'test', rootId, 1, ctx);
+	}, -1);
+	s.cast();
+	assert.equal(s.actor.attr.point.hp, 950);
+	assert.equal(s.target.attr.point.hp, 1000);
+	assert.equal(s.target.findBuff(trapId), undefined);
+});
+
+// 攻击接近过程中持有者死亡，死亡保留的陷阱仍结算伤害，不依赖持有者存活。
+test('trap: a retained trap still deals damage after its holder dies during approach', () => {
+	const s = setup(false, { dieNotRemove: true });
+	s.place();
+	s.target.onContex('beforeAttack', (unit, ctx, attacker) => {
+		unit.onHurt(attacker, 'test', 1000, ctx);
+	}, -1);
+	s.cast();
+	assert.equal(s.target.isDied(), true);
+	assert.equal(s.actor.attr.point.hp, 950);
+	assert.equal(s.target.findBuff(trapId), undefined);
+});
+
+// 原地攻击即使收到命中前事件也不触发陷阱，判断技能是否移动而非当前能否移动。
+test('trap: stationary incoming skills do not trigger its event handler', () => {
+	const s = setup(false, {}, { nomove: 1 });
+	s.place();
+	const ctx = initFightContex(s.fight);
+	let started = false;
+	s.target.emitContext('beforeAttack', ctx, s.actor, new FightSkill(s.skills[0], 1), () => {
+		started = true;
+	});
+	assert.equal(started, false);
+	assert.equal(s.actor.attr.point.hp, 1000);
+	assert.equal(s.target.findBuff(trapId)?.times, 1);
 });

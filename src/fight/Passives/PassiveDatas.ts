@@ -13,7 +13,7 @@ export interface PassiveData extends StaticData {
 	attackSkill?: number;
 	/** 初始化时装配已学反击技能；缺省不变，当前此入口忽略0，模板显式装配仍可用0卸下。 */
 	fbackSkill?: number;
-	/** 初始化时装配已学协战技能；缺省不变，0 卸下，不学习或改等级。 */
+	/** 初始化装配协战技能；须已注册且func为normal（省略同normal），否则断言失败；缺省不变，0卸下，不学习或改等级，未学时不参与协战。 */
 	supportSkill?: number;
 	/** 初始化时装配已学破盾大招；缺省不变，0 卸下，不学习或改等级。 */
 	ultimateSkill?: number;

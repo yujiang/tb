@@ -2,6 +2,15 @@ import { FightContex } from '../../Fight';
 import { FightUnit } from '../../Unit/FightUnit';
 import { FightSkill } from '../FightSkill';
 import { afterSelfBuff } from './NoHurt';
+import { SkillUseType } from '../../struct';
+
+type GroupSkillFunc = (
+	attacker: FightUnit,
+	target: FightUnit,
+	skill: FightSkill,
+	ctx: FightContex,
+	useSkill: () => number,
+) => boolean;
 
 // 整组目标属于同一次动作，复用各类技能的单体结算，保留共享反应预算和动作结束回调。
 // 群攻与溅射不同，溅射不追击连击反击~
@@ -9,18 +18,20 @@ export function multiFunc(
 	attacker: FightUnit,
 	skill: FightSkill,
 	ctx: FightContex,
-	func: (attacker: FightUnit, target: FightUnit, skill: FightSkill, ctx: FightContex) => boolean,
+	func: GroupSkillFunc,
 	force = false,
+	useType: SkillUseType = 'normal',
 ) {
-	return ctx.fight.resolveAction(() => multi(attacker, skill, ctx, func, force));
+	return ctx.fight.resolveAction(() => multi(attacker, skill, ctx, func, force, useType));
 }
 
 function multi(
 	attacker: FightUnit,
 	skill: FightSkill,
 	ctx: FightContex,
-	func: (attacker: FightUnit, target: FightUnit, skill: FightSkill, ctx: FightContex) => boolean,
+	func: GroupSkillFunc,
 	force = false,
+	useType: SkillUseType = 'normal',
 ) {
 	const targets = ctx.fight.selectGroupTargets(attacker, skill);
 	if (!targets.length) {
@@ -33,13 +44,14 @@ function multi(
 		return false;
 	}
 
+	const useSkill = attacker.createSkillUse(skill, ctx, useType);
 	const single = skill.forSingleTarget();
 	const previous = ctx.defend;
 	for (const target of targets) {
 		if (attacker.isDied()) break;
 		if (!ctx.fight.isLegalTarget(attacker, target, skill)) continue;
 		ctx.defend = target;
-		func(attacker, target, single, ctx);
+		func(attacker, target, single, ctx, useSkill);
 	}
 	afterSelfBuff(attacker, skill, ctx);
 	ctx.defend = previous;

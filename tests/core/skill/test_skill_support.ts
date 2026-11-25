@@ -24,6 +24,33 @@ import { magicAttackFunc } from '../../../src/fight/Skills/Funcs/NomalSkill';
 
 const ids = { root: 99210, support: 99211, next: 99212, back: 99213, passive: 99214 };
 
+for (const func of ['heal', 'poison', 'nohurt', 'relife', 'observe', 'entrust', 'mimic']) {
+	// 协战装配入口拒绝非normal技能，失败时保留原装配，避免把其他效果作为攻击执行。
+	test(`support: equipment rejects a ${func} skill before changing the equipped slot`, () => {
+		const s = setup();
+		const invalidId = 10018201;
+		initSkills([{ ...s.skills[1], id: invalidId, func }]);
+		s.a.addSkill(invalidId, 1);
+		assert.throws(() => s.a.setSupportSkill(invalidId), /normal/);
+		assert.equal(s.a.supportSkill, ids.support);
+	});
+}
+
+// 装配验证使用注册配置，允许先装配未学的normal技能，后续学习生效且不重置次数，0仍可卸下。
+test('support: equipment validates config without learning a missing normal skill', () => {
+	const s = setup();
+	const skillId = 10018202;
+	initSkills([{ ...s.skills[1], id: skillId, func: 'normal' }]);
+	s.a.setSupportSkill(skillId);
+	assert.equal(s.a.getSupportSkill(), undefined);
+	s.a.addSkill(skillId, 2);
+	assert.equal(s.a.getSupportSkill()?.level, 2);
+	s.a.lastSupportTurn = s.fight.turn;
+	s.a.setSupportSkill(0);
+	assert.equal(s.a.supportSkill, 0);
+	assert.equal(s.a.lastSupportTurn, s.fight.turn);
+});
+
 for (const protectable of [false, true]) {
 	// 测试：主攻禁止保护时，协战仍独立读取自己的 noprotect 禁止字段，不继承主攻配置。
 	test(`support: protection uses the support skill's own flag (${protectable})`, () => {

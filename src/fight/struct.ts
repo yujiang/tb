@@ -3,6 +3,9 @@ export enum FightSideEnum {
 	defend = 1,
 }
 
+/** 技能实际发动来源：normal普通行动，support协战，fback反击，next连击，combo连招，kill追击，spread溅射，trap陷阱；只用于本场使用次数统计。 */
+export type SkillUseType = 'normal' | 'support' | 'fback' | 'next' | 'combo' | 'kill' | 'spread' | 'trap';
+
 export enum FightResultEnum {
 	ongoing = -1,
 	attack = 0,

@@ -8,9 +8,18 @@ import { getSkillData } from '../SkillDatas';
 import { trySupport } from '../FightSupport';
 import { multiFunc } from './Multi';
 import { isDebugReaction } from '../../FightDebug';
-import { canAttack, canUseAttackMovement } from '../AttackChecks';
+import { canAttackSkill } from '../AttackChecks';
 
 export type AttackReaction = 'next' | 'combo' | 'kill' | 'fback' | 'support';
+
+interface AttackOptions {
+	/** 同次群攻或溅射共用的发动入口，返回本次汇总的增伤倍率；缺省按当前攻击段单独处理。 */
+	useSkill?: () => number;
+	/** 是否作为主目标攻击触发命中前事件；缺省true，溅射和陷阱填false。 */
+	mainTarget?: boolean;
+	/** 是否检查施放者存活及攻击/移动能力；缺省true，已布置陷阱自主触发时填false，目标资格仍检查。 */
+	checkAttacker?: boolean;
+}
 
 // 只传给同一条 combo 的后续段，避免追击、反击或事件中的嵌套动作混入伤害。
 interface ComboDamage {
@@ -67,16 +76,14 @@ export function skillAttack(
 	reaction?: AttackReaction,
 	combo?: ComboDamage,
 	force = false,
-	mainTarget = true,
+	options: AttackOptions = {},
 ) {
 	// assert(skill);
 	const f = ctx.fight;
-	if (
-		!canAttack(attacker) ||
-		defender.isDied() ||
-		!skill.canTarget(defender) ||
-		!canUseAttackMovement(attacker, skill)
-	) {
+	const valid = options.checkAttacker === false
+		? !defender.isDied() && skill.canTarget(defender)
+		: canAttackSkill(attacker, defender, skill);
+	if (!valid) {
 		return false;
 	}
 
@@ -91,6 +98,10 @@ export function skillAttack(
 		return false;
 	}
 
+	const damageRate = options.useSkill
+		? options.useSkill()
+		: attacker.recordSkillUse(skill, ctx, reaction ?? 'normal');
+
 	// 陷阱需要先表现接近目标的出手动作；正常路径仍在命中后通知，且同一攻击只发一次。
 	let started = false;
 	const startAttack = () => {
@@ -104,14 +115,9 @@ export function skillAttack(
 		);
 	};
 	// 前方陷阱在近身主目标攻击命中前结算；追击、溅射和陷阱自身不参与。
-	if (mainTarget && reaction !== 'kill' && skill.isPhysic() && !skill.getNoMove()) {
+	if (options.mainTarget !== false && reaction !== 'kill' && skill.isPhysic() && skill.isMove()) {
 		defender.emitContext('beforeAttack', ctx, attacker, skill, startAttack);
-		if (
-			!canAttack(attacker) ||
-			!canUseAttackMovement(attacker, skill) ||
-			defender.isDied() ||
-			!skill.canTarget(defender)
-		) {
+		if (!canAttackSkill(attacker, defender, skill)) {
 			return false;
 		}
 	}
@@ -134,7 +140,7 @@ export function skillAttack(
 
 	const ismagic = skill.isMagic();
 
-	let damage = skill.calcHurt(f, defender, ctx, attacker);
+	let damage = skill.calcHurt(f, defender, ctx, attacker, damageRate);
 	damage = defender.onHurt(attacker, 'skill', damage, ctx, {
 		magic: ismagic,
 		source: 'skill',
@@ -270,18 +276,20 @@ export function magicAttackFunc(
 	ctx: FightContex,
 	reaction?: AttackReaction,
 	combo?: ComboDamage,
+	useSkill?: () => number,
 ): boolean {
 	if (magic.isMulti() && reaction !== 'combo' && reaction !== 'support') {
 		return multiFunc(
 			attacker,
 			magic,
 			ctx,
-			(actor, target, single, context) =>
-				magicAttackFunc(actor, target, single, context, reaction),
+			(actor, target, single, context, useSkill) =>
+				magicAttackFunc(actor, target, single, context, reaction, undefined, useSkill),
 			isDebugReaction(reaction),
+			reaction ?? 'normal',
 		);
 	}
-	return ctx.fight.resolveAction(() => magicAttack(attacker, defender, magic, ctx, reaction, combo));
+	return ctx.fight.resolveAction(() => magicAttack(attacker, defender, magic, ctx, reaction, combo, useSkill));
 }
 
 function magicAttack(
@@ -291,6 +299,7 @@ function magicAttack(
 	ctx: FightContex,
 	reaction?: AttackReaction,
 	combo?: ComboDamage,
+	useSkill?: () => number,
 ): boolean
 {
 	const chain = combo ?? (usesCombo(magic) ? { target: defender, damage: 0 } : undefined);
@@ -303,7 +312,7 @@ function magicAttack(
 		defender.onContex('die', onDeath);
 	}
 	try {
-		const rt = skillAttack(attacker, defender, magic, ctx, reaction, chain);
+		const rt = skillAttack(attacker, defender, magic, ctx, reaction, chain, false, { useSkill });
 		if (!rt) return false;
 
 		// 协战、溅射会复用 ctx，先保存本次主目标的实际伤害；连招读取累计伤害。
@@ -360,6 +369,7 @@ function spread(
 	ctx.msgs.push(['spread', ids]);
 
 	// 副目标只执行单次攻击结算，是否允许保护由溅射子技能配置决定。
+	const useSkill = attacker.createSkillUse(spreadSkill, ctx, 'spread');
 	for (const target of targets) {
 		skillAttack(
 			attacker,
@@ -369,7 +379,7 @@ function spread(
 			undefined,
 			combo,
 			isDebugReaction('spread'),
-			false,
+			{ mainTarget: false, useSkill },
 		);
 	}
 }

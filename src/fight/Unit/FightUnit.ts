@@ -9,6 +9,7 @@ import {
 	IdRand,
 	SkillCost,
 	SpeedSkill,
+	SkillUseType,
 } from '../struct';
 import { FightSkill } from '../Skills/FightSkill';
 import { getSkillData } from '../Skills/SkillDatas';
@@ -21,6 +22,7 @@ import EventEmitter from 'node:events';
 import { OrderedEventEmitter } from '../../public/OrderedEventEmitter';
 import { fightConsts } from '../FightConsts';
 import { getDebugHurtHpLimit } from '../FightDebug';
+import { strict as assert } from 'node:assert';
 
 export enum UnitType {
 	user,
@@ -387,6 +389,11 @@ export abstract class FightUnit {
 	fight: Fight;
 	side: FightSideEnum;
 	setFight(fight: Fight, side: FightSideEnum) {
+		if (this.fight !== fight) {
+			this.skillUseCounts.clear();
+			this.skillTypeUseCounts.clear();
+		}
+
 		this.lastAfterTurn = 0;
 		this.lastSupportTurn = -1;
 		this.fight = fight;
@@ -654,6 +661,50 @@ export abstract class FightUnit {
 		this.fbackSkill = id;
 	}
 
+	private readonly skillUseCounts = new Map<number, number>();
+	private readonly skillTypeUseCounts = new Map<SkillUseType, number>();
+
+	/** 本场指定技能ID实际发动次数；未使用返回0，默认普攻及内置反击等无表ID技能统一使用0。 */
+	getSkillUseCount(id: number): number {
+		return this.skillUseCounts.get(id) ?? 0;
+	}
+
+	/** 本场指定出手类型的累计发动次数，跨技能ID统计；未使用返回0。 */
+	getSkillTypeUseCount(type: SkillUseType): number {
+		return this.skillTypeUseCounts.get(type) ?? 0;
+	}
+
+	/** 汇总当前所有Buff对指定出手的额外伤害倍率；只读取贡献值，不累加到技能对象。 */
+	getDamageRate(skill: FightSkill, type: SkillUseType): number {
+		let rate = 0;
+		for (const buff of this.buffs.values()) rate += buff.getDamageRate(this, skill, type);
+		return rate;
+	}
+
+	// 技能管线在实际发动时调用；更新次数后汇总本次增伤，再发事件处理Buff到期，保留最后一次效果。
+	recordSkillUse(skill: FightSkill, ctx: FightContex, type: SkillUseType = 'normal'): number {
+		const skillCount = this.getSkillUseCount(skill.getId()) + 1;
+		const typeCount = this.getSkillTypeUseCount(type) + 1;
+		this.skillUseCounts.set(skill.getId(), skillCount);
+		this.skillTypeUseCounts.set(type, typeCount);
+		const damageRate = this.getDamageRate(skill, type);
+		this.emitContext('useSkill', ctx, skill, type, skillCount, typeCount);
+		return damageRate;
+	}
+
+	// 每次施放独立的计数入口；群攻和溅射的多个目标共用它，嵌套技能各自新建。
+	createSkillUse(skill: FightSkill, ctx: FightContex, type: SkillUseType = 'normal'): () => number {
+		let used = false;
+		let damageRate = 0;
+		return () => {
+			if (used) return damageRate;
+
+			used = true;
+			damageRate = this.recordSkillUse(skill, ctx, type);
+			return damageRate;
+		};
+	}
+
 	// 装配协战技能；改装、死亡与复活都不重置当回合次数。
 	supportSkill = 0;
 	lastSupportTurn = -1;
@@ -661,6 +712,14 @@ export abstract class FightUnit {
 		return this.findSkill(this.supportSkill);
 	}
 	setSupportSkill(id: number) {
+		if (id !== 0) {
+			const data = getSkillData(id);
+			assert.ok(
+				data && (data.func || 'normal') === 'normal',
+				`Support skill ${id} must be a registered normal skill`,
+			);
+		}
+
 		this.supportSkill = id;
 	}
 

@@ -114,7 +114,10 @@ export function skillFunc(
 	if (!ignoreCostCD) attacker.startSkillCd(skill, ctx);
 
 	if (skill.isMulti() && func !== skillAttackFunc) {
-		return multiFunc(attacker, skill, ctx, func);
+		return multiFunc(attacker, skill, ctx, (actor, target, single, context, useSkill) => {
+			useSkill();
+			return func(actor, target, single, context);
+		});
 	}
 
 	const taunt = !skill.isMulti() ? f.getTauntBuff(attacker, skill) : undefined;
@@ -124,6 +127,7 @@ export function skillFunc(
 		ctx.msgs.push(['skillFailed', attacker.uid, defender.uid, skill.getId()]);
 		result = false;
 	} else {
+		if (func !== skillAttackFunc) attacker.recordSkillUse(skill, ctx);
 		result = func(attacker, defender, skill, ctx);
 	}
 	// 普通攻击类在整条反应链结束后处理自身效果；其余技能在本次执行完成后处理。

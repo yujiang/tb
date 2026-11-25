@@ -3,7 +3,7 @@ import { FightUnit } from '../Unit/FightUnit';
 import { FightSkill } from './FightSkill';
 import { magicAttackFunc } from './Funcs/NomalSkill';
 import { SkillData } from './SkillDatas';
-import { canAttack, canUseAttackMovement } from './AttackChecks';
+import { canAttackSkill} from './AttackChecks';
 
 // 优先用装备的技能反击，最后采用attackBack
 
@@ -50,21 +50,13 @@ function attackFback(attacker: FightUnit, defender: FightUnit, ctx: FightContex)
 	return magicAttackFunc(attacker, defender, skill, ctx, 'fback');
 }
 
-function canCounterattack(unit: FightUnit): boolean {
-	return canAttack(unit) && !unit.isForbid('fback');
-}
-
 export function skillFBack(
 	attacker: FightUnit,
 	defender: FightUnit,
 	skill: FightSkill,
 	ctx: FightContex,
 ) {
-	if (
-		!canCounterattack(attacker) ||
-		!skill.canTarget(defender) ||
-		!canUseAttackMovement(attacker, skill)
-	) {
+	if (!canAttackSkill(attacker,defender,skill,'fback')) {
 		return false;
 	}
 
@@ -83,7 +75,7 @@ export function tryFBack(attacker: FightUnit, defender: FightUnit, ctx: FightCon
 		return skillFBack(attacker, defender, fback, ctx);
 	}
 
-	if (!canCounterattack(attacker) || !canUseAttackMovement(attacker)) {
+	if (!canAttackSkill(attacker, defender, null, 'fback')) {
 		return false;
 	}
 
