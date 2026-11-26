@@ -1,5 +1,5 @@
 import { FightContex } from '../Fight';
-import { FightUnit, PendingHurt, UnitContextEventFunc, UnitEventFunc } from '../Unit/FightUnit';
+import { FightUnit, PendingHurt, UnitContextEventFunc } from '../Unit/FightUnit';
 import { BuffData, BuffTurnEnum } from './BuffDatas';
 import { findForbidStatusByAction } from './FightStatus';
 import { buffFunc } from './BuffFuncType';
@@ -28,8 +28,9 @@ export class FightBuff extends FightStatic {
 		this.times = xls.times || 0;
 	}
 
-	func: UnitContextEventFunc;
-	onEvent(unit: FightUnit, ctx: FightContex, ...args: any[]) {
+	// 普通次数Buff按配置选择事件；特殊类覆盖为对应事件类型，绑定处保留完整检查。
+	func: UnitContextEventFunc<any>;
+	onEvent(unit: FightUnit, ctx: FightContex, ...args: unknown[]) {
 		this.consumeTimes(unit, ctx);
 	}
 

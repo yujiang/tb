@@ -1,12 +1,12 @@
 import { FightBuff } from '../FightBuff';
-import type { FightContex } from '../../Fight';
-import type { FightUnit } from '../../Unit/FightUnit';
+import type { FightUnit, UnitContextEventFunc, UnitEventArgs } from '../../Unit/FightUnit';
 import { FightSkill } from '../../Skills/FightSkill';
 import { getSkillData } from '../../Skills/SkillDatas';
 import { skillAttack } from '../../Skills/Funcs/NomalSkill';
 
 // 陷阱挂在受保护单位身上；布置和触发分别走普通技能与命中前事件。
 export class BuffTrap extends FightBuff {
+	override func: UnitContextEventFunc<'beforeAttack'>;
 	override onAdded(unit: FightUnit) {
 		this.func = this.onEvent.bind(this);
 		unit.onContex('beforeAttack', this.func, this.xls.prior ?? 0);
@@ -17,13 +17,7 @@ export class BuffTrap extends FightBuff {
 		this.func = null;
 	}
 
-	override onEvent(
-		unit: FightUnit,
-		ctx: FightContex,
-		attacker: FightUnit,
-		incoming: FightSkill,
-		startAttack: () => void,
-	) {
+	override onEvent(...[unit, ctx, attacker, incoming, startAttack]: UnitEventArgs<'beforeAttack'>) {
 		if (
 			unit.findBuff(this.getId()) !== this ||
 			!incoming.isMove()

@@ -83,13 +83,14 @@ export function tryFBack(attacker: FightUnit, defender: FightUnit, ctx: FightCon
 }
 
 // 尝试吸血
+// bloodP:技能填多少就是多少，没有才用人物身上的，好像也没毛病
 export function tryBlood(
 	attacker: FightUnit,
 	defender: FightUnit,
 	magic: boolean,
 	damage: number,
+	bloodP: number | undefined,
 	ctx: FightContex,
-	bloodP?: number,
 ) {
 	const p =
 		bloodP ?? (magic ? attacker.attr.magic.final.bloodP : attacker.attr.physic.final.bloodP);

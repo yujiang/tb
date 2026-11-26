@@ -35,8 +35,8 @@ function setup() {
 	return { fight, unit: a.units[0], ctx: initFightContex(fight) };
 }
 
-function listen(unit: FightUnit, listener: UnitContextEventFunc, prior = 0) {
-	unit.onContex('hurt', listener, prior);
+function listen(unit: FightUnit, listener: UnitContextEventFunc<'beforeHurt'>, prior = 0) {
+	unit.onContex('beforeHurt', listener, prior);
 }
 
 // 测试：上下文监听按优先级从小到大执行，同优先级保持注册顺序。
@@ -64,15 +64,15 @@ test('context events: smaller priorities run first and ties keep registration or
 	listen(unit, () => calls.push('zero-first'));
 	listen(unit, () => calls.push('zero-second'), 0);
 	listen(unit, () => calls.push('negative-second'), -10);
-	unit.on('hurt', (receivedUnit, receivedCtx, attacker, damage) => {
+	unit.on('beforeHurt', (receivedUnit, receivedCtx, attacker, damage) => {
 		assert.equal(receivedUnit, unit);
 		assert.equal(receivedCtx, ctx);
 		assert.equal(attacker, unit);
 		assert.equal(damage.damage, 40);
 		calls.push('unit-observer');
 	});
-	fight.onUnitEvent('hurt', () => calls.push('fight-observer'));
-	unit.emitContext('hurt', ctx, unit, pending);
+	fight.onUnitEvent('beforeHurt', () => calls.push('fight-observer'));
+	unit.emitContext('beforeHurt', ctx, unit, pending);
 	assert.deepEqual(calls, [
 		'first',
 		'negative-second',
@@ -95,15 +95,15 @@ test('context events: removed and re-added listeners wait for the next emission'
 		calls.push('first');
 		if (!changed) {
 			changed = true;
-			unit.offContex('hurt', later);
+			unit.offContex('beforeHurt', later);
 			listen(unit, later);
 			listen(unit, () => calls.push('new'));
 		}
 	});
 	listen(unit, later);
-	unit.emitContext('hurt', ctx);
+	unit.emitContext('beforeHurt', ctx, unit, { damage: 0 });
 	assert.deepEqual(calls, ['first']);
-	unit.emitContext('hurt', ctx);
+	unit.emitContext('beforeHurt', ctx, unit, { damage: 0 });
 	assert.deepEqual(calls, ['first', 'first', 'later', 'new']);
 });
 
@@ -119,11 +119,11 @@ test('context events: exceptions stop the chain and ordinary events keep their s
 	listen(unit, () => {
 		after = true;
 	});
-	fight.onUnitEvent('hurt', () => {
+	fight.onUnitEvent('beforeHurt', () => {
 		global = true;
 	});
 	assert.throws(
-		() => unit.emitContext('hurt', ctx),
+		() => unit.emitContext('beforeHurt', ctx, unit, { damage: 0 }),
 		(error) => error === failure,
 	);
 	assert.equal(after, false);
@@ -159,7 +159,7 @@ test('buffs: configured priorities order counted events and removals', () => {
 	initBuffs([buff(97501, 1000), buff(97502, 0), buff(97503, -10), buff(97504)]);
 	for (const id of [97501, 97502, 97503, 97504]) unit.addBuff(unit, 'test', id, 1, ctx);
 	ctx.msgs.length = 0;
-	unit.emitContext('hurt', ctx, unit, 0);
+	unit.emitContext('hurt', ctx, unit, 0, { damage: 0 });
 	assert.deepEqual(
 		ctx.msgs.filter((msg) => msg[0] === 'removeBuff').map((msg) => msg[4]),
 		[97503, 97502, 97504, 97501],

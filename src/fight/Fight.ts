@@ -5,6 +5,7 @@ import { FightSide } from './FightSide';
 import { FightUnit, UnitEventFunc, sortByAttr } from './Unit/FightUnit';
 import { FightUnitSummon } from './Unit/FightUnitUser';
 import { FightUnitEvent } from './Buffs/BuffDatas';
+import type { FightUnitEventMap } from './Buffs/BuffDatas';
 import {
 	EnemySide,
 	FightCmdEnum,
@@ -1156,13 +1157,13 @@ export class Fight {
 
 	// ***event start
 	private emitUnit = new EventEmitter();
-	emitUnitEvent(event: FightUnitEvent, unit: FightUnit, ...args: any[]) {
+	emitUnitEvent<E extends FightUnitEvent>(event: E, unit: FightUnit, ...args: FightUnitEventMap[NoInfer<E>]) {
 		this.emitUnit.emit(event, unit, ...args);
 	}
-	onUnitEvent(event: FightUnitEvent, func: UnitEventFunc) {
+	onUnitEvent<E extends FightUnitEvent>(event: E, func: UnitEventFunc<NoInfer<E>>) {
 		this.emitUnit.on(event, func);
 	}
-	offUnitEvent(event: FightUnitEvent, func: UnitEventFunc) {
+	offUnitEvent<E extends FightUnitEvent>(event: E, func: UnitEventFunc<NoInfer<E>>) {
 		this.emitUnit.off(event, func);
 	}
 

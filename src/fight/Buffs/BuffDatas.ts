@@ -1,5 +1,9 @@
 import { StaticData } from './StaticData';
 import type { SkillUseType } from '../struct';
+import type { FightContex } from '../Fight';
+import type { FightUnit, PendingHurt, PendingHeal } from '../Unit/FightUnit';
+import type { FightSkill } from '../Skills/FightSkill';
+import type { FightBuff } from './FightBuff';
 
 export enum OverlapEnum {
 	NOT = 0, // 不叠加
@@ -21,31 +25,47 @@ export enum BuffTurnEnum {
 // 5. 特殊的buff，通过class选择实现
 // 但是1~5并不互斥，可以同时存在，所以没有type字段
 
-export type FightUnitEvent =
-	| 'useSkill'
-	| 'beforeAttack'
-	| 'taunt'
-	| 'beforeHurt'
-	| 'beforeHeal'
-	| 'afterTurn'
-	| 'die'
-	| 'dismiss'
-	| 'relife'
-	| 'hurt'
-	| 'heal'
-	| 'hp'
-	| 'break'
-	| 'addBuff'
-	| 'removeBuff'
-	| 'attr'
-	| 'speed';
-// taunt(unit, ctx, buff)：本次普通行动实际受所选嘲讽约束，完整技能/反应链执行后发出；未命中或发动失败仍计次，预检/费用不足/跳过不发。
-// beforeAttack(unit, ctx, attacker, skill, startAttack)：需要移动的主目标物理攻击已发动、尚未判定命中；追击/溅射/陷阱自身不发。同步调用startAttack()可提前发出原攻击的skill消息（自动去重），以表现出手后踩陷阱。
-// useSkill(unit, ctx, skill, type, skillCount, typeCount)：技能实际发动后、命中及效果前，次数已更新且本次Buff增伤已汇总；type为SkillUseType，后两项为本场该技能ID与该来源的累计次数。群攻/溅射每次施放只发一次，未命中仍发，发动失败不发。
-// break(unit, ctx, attacker, allBroken)：盾正数变 0 时；allBroken 为该瞬间本阵营全体存活单位破盾的快照。
-// hp(unit, ctx, attacker, previous, current)：真实生命值变化，含受伤、分担、治疗及生命费用；费用在整笔扣费完成后通知，attacker为本人，不发hurt。
-// hurt(unit, ctx, attacker, damage, pending)：最后一项提供 HurtOptions/source；分担伤害仍不发 hurt。
-// dismiss(unit, ctx, operator)：单位已永久离场并解绑内部监听，operator是执行移除指令的单位，不触发die。
+/** 单位事件参数契约；下列元组不含首项unit，普通上下文事件包含ctx，attr/speed不含ctx。 */
+export interface FightUnitEventMap {
+	/** 嘲讽先影响选目标，此通知在完整动作/反应链后发出；仅实际诱导才发，含未命中和发动失败，用于扣次数。 */
+	taunt: [ctx: FightContex, buff: FightBuff];
+	/** 发动判定通过后、效果前；计数已含本次且增伤已汇总。群攻/溅射每次只发一次，未命中仍发。 */
+	useSkill: [ctx: FightContex, skill: FightSkill, type: SkillUseType, skillCount: number, typeCount: number];
+	/** 移动型主目标物理攻击命中前；追击/溅射/陷阱自身不发。startAttack同步提前通知出手，自动去重。 */
+	beforeAttack: [ctx: FightContex, attacker: FightUnit, skill: FightSkill, startAttack: () => void];
+	/** 扣血前，可修改pending.damage或设置cancelled；后续监听读取前序修改。 */
+	beforeHurt: [ctx: FightContex, attacker: FightUnit, pending: PendingHurt];
+	/** 治疗前，可修改pending.heal或设置cancelled；revive标记用于避免转移复活恢复。 */
+	beforeHeal: [ctx: FightContex, healer: FightUnit, pending: PendingHeal];
+	/** 盾从正数变0时；allBroken是此刻本阵营存活单位全破盾的快照，不是动态查询。 */
+	break: [ctx: FightContex, attacker: FightUnit, allBroken: boolean];
+	/** 真实HP变化，先于hurt/heal；含保护分担和生命费用，费用source为本人，不额外发hurt。 */
+	hp: [ctx: FightContex, source: FightUnit, previous: number, current: number];
+	/** 已扣血后的通知；damage为实际扣血，pending只读提供来源等信息；保护分担不发hurt。 */
+	hurt: [ctx: FightContex, attacker: FightUnit, damage: number, pending: Readonly<PendingHurt>];
+	/** 治疗及HP变化后；amount为取整后的申请治疗量，可能包含溢出，实际回血通过hp事件读取。 */
+	heal: [ctx: FightContex, healer: FightUnit, why: string, amount: number];
+	/** 已标记死亡并完成死亡Buff清理后；真实死亡通知，自动复活仍等完整动作结束。 */
+	die: [ctx: FightContex, attacker: FightUnit, why: string];
+	/** 已解除死亡标记，复活回血尚未结算；healer为复活来源。 */
+	relife: [ctx: FightContex, healer: FightUnit, why: string];
+	/** 新Buff已加入并绑定监听；buff是本次实际新增实例，初始化无ctx时不发。 */
+	addBuff: [ctx: FightContex, attacker: FightUnit, why: string, buff: FightBuff];
+	/** Buff已移除并解绑后；buff是已移除实例，why表示移除原因。 */
+	removeBuff: [ctx: FightContex, attacker: FightUnit, why: string, buff: FightBuff];
+	/** 属性重算完成，只传unit，不携带ctx或Buff参数。 */
+	attr: [];
+	/** 当前速度已改变，传新速度；不携带ctx或Buff参数。 */
+	speed: [speed: number];
+	/** 已从阵营移除且解绑内部监听，不触发die；operator是执行移除指令者。 */
+	dismiss: [ctx: FightContex, operator: FightUnit];
+	/** 单位回合后处理完成时，turn为本次全局回合号。 */
+	afterTurn: [ctx: FightContex, turn: number];
+}
+
+export type FightUnitEvent = keyof FightUnitEventMap;
+export type FightUnitPlainEvent = 'attr' | 'speed';
+export type FightUnitContextEvent = Exclude<FightUnitEvent, FightUnitPlainEvent>;
 
 export type BuffFuncEnum = 'poison' | 'heal';
 
@@ -77,7 +97,7 @@ export interface BuffData extends StaticData {
 	/** 事件使用次数，类型必填，0 不按次数到期；普通 Buff 在 event 后扣减；嘲讽按实际诱导的普通行动扣减；不屈/自动复活固定一次。 */
 	times: number;
 	/** 普通次数Buff的计次事件；必须带ctx，attr/speed不是该签名；嘲讽固定taunt，trap固定beforeAttack，damageByUse固定useSkill，忽略本字段且只在匹配类型实际触发时计次；其他特殊类也可固定监听。 */
-	event: FightUnitEvent;
+	event: FightUnitContextEvent;
 	/** 监听优先级，小的先执行，同级按注册顺序；普通/反射默认0，保护500，不屈/自动复活1000。 */
 	prior?: number;
 

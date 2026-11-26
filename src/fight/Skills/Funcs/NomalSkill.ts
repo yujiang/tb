@@ -154,7 +154,7 @@ export function skillAttack(
 	afterHurt(attacker, defender, skill, ctx);
 	if (damage > 1) {
 		if (skill.canBlood()) {
-			tryBlood(attacker, defender, ismagic, damage, ctx, skill.getFinal().bloodP);
+			tryBlood(attacker, defender, ismagic, damage, skill.getBloodP(), ctx);
 		}
 		if (!combo && skill.canDBack()) {
 			tryDBack(attacker, defender, ismagic, damage, ctx);

@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import type { FightContex } from './Fight';
 import type { FightAttr } from './FightAttr';
 import type { FightUnit, UnitContextEventFunc } from './Unit/FightUnit';
-import type { FightUnitEvent } from './Buffs/BuffDatas';
+import type { FightUnitContextEvent } from './Buffs/BuffDatas';
 import { getDefaultSkill } from './Skills/FightSkill';
 import { EnemySide, FightCmdEnum, FightInput } from './struct';
 
@@ -36,7 +36,7 @@ export class FightBehavior<T extends { type: string; skill?: number }> {
 	}
 
 	private owner: FightUnit | undefined;
-	private listeners: { event: FightUnitEvent; listener: UnitContextEventFunc }[] = [];
+	private listeners: { event: FightUnitContextEvent; listener: UnitContextEventFunc<any> }[] = [];
 	bind(unit: FightUnit) {
 		assert.ok(
 			!this.owner || this.owner === unit,
@@ -64,10 +64,10 @@ export class FightBehavior<T extends { type: string; skill?: number }> {
 	protected isBoundTo(unit: FightUnit) {
 		return this.owner === unit;
 	}
-	protected listen(
+	protected listen<E extends FightUnitContextEvent>(
 		unit: FightUnit,
-		event: FightUnitEvent,
-		listener: UnitContextEventFunc,
+		event: E,
+		listener: UnitContextEventFunc<NoInfer<E>>,
 		prior = 0,
 	) {
 		unit.onContex(event, listener, prior);

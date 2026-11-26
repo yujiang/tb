@@ -229,6 +229,10 @@ Buff 已支持周期回血/扣血和事件次数限制：`func` 配置 `heal` �
 
 带上下文的单位事件通过 `unit.onContex(event, listener, prior = 0)` 注册，回调签名仍为 `(unit, ctx, ...args)`；`prior` 为有限数值，小的先执行，支持负数，同优先级严格按注册顺序执行。Buff 配置 `prior` 控制其事件监听优先级，省略时为 `0`。`unit.offContex(event, listener)` 根据原函数解绑；重复注册同一函数时只解绑最近的一次。公开的 `OrderedEventEmitter` 提供同样的 `on/off/emit/listenerCount` 基础能力，`unit.contextEmitter.listenerCount(event)` 可检查上下文监听是否清理。
 
+事件参数由 `FightUnitEventMap` 统一定义，`FightUnitEvent` 从其键推导，不再另写一份事件名列表。`on/off`、`onContex/offContex`、`emit/emitContext` 及Fight的单位事件收发入口都按事件名检查参数；普通 `emit` 只发attr/speed，`emitContext`只发带ctx的事件。`BuffData.event`也只接受上下文事件。内部Node发射器不直接公开，宿主通过上述入口监听和解绑。
+
+例如 `unit.onContex('beforeHurt', (unit, ctx, attacker, pending) => { pending.damage *= 0.8; })` 中每项都有自动类型提示，pending是可修改的待结算伤害；`hurt`则接收实际damage数值和只读pending。特殊Buff可以写 `override onEvent(...[unit, ctx, attacker, pending]: UnitEventArgs<'beforeHurt'>)`，不必逐项猜类型；保存监听引用时用 `UnitContextEventFunc<'beforeHurt'>`。完整时机和签名见 [单位事件契约](document/wiki/Buff与被动.md#单位事件参数契约)。
+
 每次触发固定监听实例名单：本次新增的等待下一次触发，执行前已解绑的跳过，同一函数移除后重加也不会让旧实例执行；嵌套触发独立取得当时的名单。监听同步执行，异常向外抛出并停止后续通知。普通 `on/off/emit` 仍使用 Node 的 `EventEmitter`；`emitContext` 先按优先级执行单位上下文监听，再通知普通单位监听和 `fight.onUnitEvent`，优先级不跨这三个范围排序。
 
 `beforeHurt` 在防御减伤之后、扣血及发送 `hurt` 消息之前触发，回调为 `(unit, ctx, attacker, pending: PendingHurt)`。监听可修改 `pending.damage`，后面的监听读取修改后的值；整个链结束后才向下取整并限制到当前生命值，不能先将过量伤害截断再做比例减伤。伤害对象是本次调用的局部数据，不占用反应链共享的 `ctx.damage`。普通伤害、周期扣血及反伤都会经过这个入口。
@@ -328,6 +332,8 @@ attackLevel: { attack: 5 },
 ```
 
 `attackRate: 0` 可表达只使用技能固定值及成长。尚未合并单位的原始技能数值仍只有固定加成和等级成长（单位项为 0），不会把原始配置也乘上倍率；周期 Buff 等现有原始数值读取路径保持这一规则。
+
+`SkillData.bloodP` 是本次技能的固定吸血比例：`1`固定100%，`0`明确不吸血，可填大于1的非负有限数。省略时，`skill.getBloodP()`沿用人物对应物理/魔法属性、技能`final.bloodP`与`finalLevel.bloodP × level`合并后的比例。因此`final.bloodP: 0.1`仍表达增加10%，与固定比例兼容；固定值不随finalLevel成长，也不改变人物属性，各子技能读取自己的配置，noblood仍优先禁止。吸血保持实际扣血基数及既有触发条件，回血通过onHeal产生消息。内部`tryBlood(attacker, defender, magic, damage, bloodP, ctx)`以ctx为最后一项，bloodP传undefined时沿用人物分组比例。
 
 `SkillData.damageRate` 是有限、非负的最终伤害倍率，默认 `1`，显式 `0` 有效；在普通伤害公式完成后，与相克、暴击加成按加法合并（相克加 0.5，暴击加 0.5 加暴击增伤减免后的有效值，其余加 0），进入 `onHurt` 前乘以合并倍率，再按正常减伤、反射、实际扣血、吸血和反伤流程处理。它与 `attackRate` 可以组合：`attackRate` 在减去防御之前缩放单位攻击力，`damageRate` 在普通伤害公式之后缩放最终伤害。各段 `attack/attackLevel` 等仍从对应单位属性合并，不改基础属性；倍率不改变配置或累计成长。没有属性相克时，0.4、0.7、1.0 的名义总倍率为 2.1；相克时各段分别增加 0.5，零 damageRate 也不屏蔽属性或暴击加成，但逐段取整、属性差异、减伤及剩余生命会影响实际总和。
 

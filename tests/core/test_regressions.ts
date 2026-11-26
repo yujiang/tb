@@ -191,7 +191,7 @@ test('regression: lifesteal and reflection respect fractional ratios and source'
 	u.attr.point.hp = 50;
 	u.attr.physic.final.bloodP = 0.2;
 	v.attr.physic.final.dbackP = 0.2;
-	tryBlood(u, v, false, 10, c);
+	tryBlood(u, v, false, 10, undefined, c);
 	assert.equal(u.getHp(), 52);
 	tryDBack(u, v, false, 10, c);
 	assert.equal(u.getHp(), 50);

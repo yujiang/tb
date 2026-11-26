@@ -2,14 +2,14 @@
 import { FightBuff } from '../FightBuff';
 import type {
 	FightUnit,
-	PendingHurt,
-	PendingHeal,
 	UnitContextEventFunc,
+	UnitEventArgs,
 } from '../../Unit/FightUnit';
 import { FightContex } from '../../Fight';
 
 export class BuffReflect extends FightBuff {
-	private healListener: UnitContextEventFunc;
+	override func: UnitContextEventFunc<'beforeHurt'>;
+	private healListener: UnitContextEventFunc<'beforeHeal'>;
 
 	override onAdded(unit: FightUnit) {
 		this.func = this.onReflectHurt.bind(this);
@@ -29,12 +29,7 @@ export class BuffReflect extends FightBuff {
 		this.consumeTimes(unit, ctx);
 	}
 
-	private onReflectHurt(
-		unit: FightUnit,
-		ctx: FightContex,
-		attacker: FightUnit,
-		pending: PendingHurt,
-	) {
+	private onReflectHurt(...[unit, ctx, attacker, pending]: UnitEventArgs<'beforeHurt'>) {
 		if (this.isHpPendingInvalid(unit,pending) || pending.reflected ){
 			return;
 		}
@@ -66,12 +61,7 @@ export class BuffReflect extends FightBuff {
 		});
 	}
 
-	private onReflectHeal(
-		unit: FightUnit,
-		ctx: FightContex,
-		_healer: FightUnit,
-		pending: PendingHeal,
-	) {
+	private onReflectHeal(...[unit, ctx, _healer, pending]: UnitEventArgs<'beforeHeal'>) {
 		if (
 			unit.isDied() ||
 			pending.cancelled ||

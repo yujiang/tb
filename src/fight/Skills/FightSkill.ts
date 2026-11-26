@@ -30,6 +30,10 @@ export class FightSkill {
 				`${field} must be finite and nonnegative`,
 			);
 		}
+		assert.ok(
+			Number.isFinite(xls.bloodP ?? 0) && (xls.bloodP ?? 0) >= 0,
+			'bloodP must be finite and nonnegative',
+		);
 		// 未与单位属性合并的技能（周期 Buff、复活、普攻）也能直接读取等级数值。
 		this.attack = this.mergeAttackData({
 			rand: 0,
@@ -61,8 +65,13 @@ export class FightSkill {
 	hasTag(tag: string) {
 		return this.xls.tags?.indexOf(tag) >= 0;
 	}
+	// 只有物理近战才吸血
 	canBlood() {
+		// return this.isPhysic() && this.isMove() && !this.xls.noblood;
 		return !this.xls.noblood;
+	}
+	getBloodP(): number {
+		return this.xls.bloodP ?? this.getFinal().bloodP;
 	}
 	canDBack() {
 		return !this.xls.nodback;

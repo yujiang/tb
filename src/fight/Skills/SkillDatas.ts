@@ -48,6 +48,8 @@ export interface SkillData {
 	attackLevel?: Partial<BaseAttack>;
 	/** 每级最终属性加成：finalLevel × 技能等级；缺省无成长。 */
 	finalLevel?: Partial<FinalAttack>;
+	/** 本次技能固定吸血比例，非负有限数，1为100%、0明确不吸血，可大于1；省略才使用人物属性与技能final/finalLevel合并后的bloodP。只覆盖本次吸血，不修改人物属性或其他final字段，不随finalLevel成长；各子技能独立读取，noblood仍优先禁止。 */
+	bloodP?: number;
 
 	// rate作用与skill的最后一步
 	/** 非负有限数，缺省 1；只缩放单位 attack 数值，再叠加技能固定值和等级成长。 */

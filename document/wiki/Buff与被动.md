@@ -112,6 +112,46 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 
 普通次数 Buff 使用 `(unit, ctx, ...args)` 的上下文事件，如 beforeHurt、beforeHeal、hurt、heal、hp、die、relife、break、afterTurn、addBuff、removeBuff。`attr/speed` 是普通属性事件，不带同样的 ctx 参数，不适合普通次数 Buff。
 
+### 单位事件参数契约
+
+源码的 `FightUnitEventMap` 是事件名与参数的唯一类型定义；每项JSDoc说明触发时机与修改权限。`FightUnitEvent` 从表的键推导，收发方法根据事件名自动提示并检查参数。`BuffData.event`只接受 `FightUnitContextEvent`，不接受attr/speed；`unit.emit`仅用于普通事件，`unit.emitContext`用于上下文事件，后者按优先级监听、单位普通监听、Fight监听依次转发。
+
+以下参数省略开头的 `unit, ctx`；attr/speed例外，只有unit前缀。
+
+| 事件 | 后续参数 | 时机和用途 |
+| --- | --- | --- |
+| taunt | buff | 嘲讽先影响选目标，实际诱导通知在完整动作/反应链后发，含未命中/发动失败；查询不发事件 |
+| useSkill | skill, type, skillCount, typeCount | 已发动、效果前；次数已含本次，增伤已汇总；失败不发，未命中仍发，群体只发一次 |
+| beforeAttack | attacker, skill, startAttack | 移动型主目标物理攻击命中前；可同步调用startAttack提前通知出手，追击/溅射/陷阱自身不发 |
+| beforeHurt | attacker, pending | 扣血前；可修改pending.damage及cancelled |
+| beforeHeal | healer, pending | 治疗前；可修改pending.heal及cancelled |
+| break | attacker, allBroken | 盾正数变0时；allBroken为此刻全破盾快照 |
+| hp | source, previous, current | 实际HP已变化，先于hurt/heal；含分担、费用和治疗 |
+| hurt | attacker, damage, pending | 扣血后的通知；damage是实际扣血，pending只读提供来源信息，分担不发 |
+| heal | healer, why, amount | 治疗完成后；amount是取整后的申请治疗量，可能含溢出，实际回血读hp事件 |
+| die | attacker, why | 已标记死亡并清理死亡Buff，自动复活仍等完整动作结束 |
+| relife | healer, why | 已解除死亡标记，复活回血尚未结算 |
+| addBuff | attacker, why, buff | 新实例已加入并绑定；初始化无ctx时不发 |
+| removeBuff | attacker, why, buff | 实例已移除并解绑，buff是旧实例 |
+| attr | 无ctx、无其他参数 | 属性已重算；普通事件，只传unit |
+| speed | 无ctx，后续speed | 速度变化，传新速度；普通事件 |
+| dismiss | operator | 已离场并解绑内部监听，不发die |
+| afterTurn | turn | 单位回合后Buff处理完成；同一边界不重复 |
+
+特殊Buff可直接引用对应事件的完整参数元组，变量类型自动推导：
+
+```ts
+override func: UnitContextEventFunc<'beforeHurt'>;
+
+override onEvent(...[unit, ctx, attacker, pending]: UnitEventArgs<'beforeHurt'>) {
+	pending.damage *= 0.8;
+}
+```
+
+`UnitEventArgs<E>`包括unit及事件的全部参数，`UnitContextEventFunc<E>`用于保存回调引用；忽略不用的尾部参数是允许的。错绑事件、错误参数数量或类型会在编译时报错。`hurt`的pending在类型上只读，beforeHurt/beforeHeal的pending允许修改；这不代表运行时深冻结。泛型省略时代表通用监听，特殊处理器应显式指定事件名。
+
+有序发射器可用第二个泛型参数提供参数表：`OrderedEventEmitter<'change', { change: [value: number] }>`；单位的contextEmitter已绑定完整事件表。底层异构监听存储仍有类型擦除，业务收发和特殊Buff处理器不能依赖它绕过公开契约。
+
 `dismiss(unit, ctx, operator)`是永久离场事件，单位已从战斗列表移除并解绑Buff和行为监听，不触发die或removeBuff。此时Buff已停止监听，不用它配置离场单位自身的次数消耗；宿主可监听战斗级事件处理离场。
 
 `break` 仅在盾正数变为 0 时发出，附带该瞬间全体破盾快照；直接击杀未破盾的单位不算 break。`hp` 只表达实际生命变化，包含保护分担与截断后的治疗；分担不发普通 hurt 事件。

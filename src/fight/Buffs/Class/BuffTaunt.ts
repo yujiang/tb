@@ -2,10 +2,10 @@
 // 当施展一个对象是敌方的技能时，自动把主目标变为嘲讽者，而不是禁止他。
 
 import { FightBuff } from '../FightBuff';
-import type { FightContex } from '../../Fight';
-import type { FightUnit } from '../../Unit/FightUnit';
+import type { FightUnit, UnitContextEventFunc, UnitEventArgs } from '../../Unit/FightUnit';
 
 export class BuffTaunt extends FightBuff {
+	override func: UnitContextEventFunc<'taunt'>;
 	override onAdded(unit: FightUnit) {
 		if (this.times <= 0) return;
 
@@ -18,7 +18,7 @@ export class BuffTaunt extends FightBuff {
 		this.func = null;
 	}
 
-	override onEvent(unit: FightUnit, ctx: FightContex, selected: FightBuff) {
+	override onEvent(...[unit, ctx, selected]: UnitEventArgs<'taunt'>) {
 		if (selected === this) super.onEvent(unit, ctx);
 	}
 

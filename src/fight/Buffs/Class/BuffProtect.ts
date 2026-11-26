@@ -1,9 +1,9 @@
 // 挂在被保护者身上，施加者承担攻击伤害的一半；到期由 BuffData 配置。
 import { FightBuff } from '../FightBuff';
-import type { FightContex } from '../../Fight';
-import type { FightUnit, PendingHurt } from '../../Unit/FightUnit';
+import type { FightUnit, UnitContextEventFunc, UnitEventArgs } from '../../Unit/FightUnit';
 
 export class BuffProtect extends FightBuff {
+	override func: UnitContextEventFunc<'beforeHurt'>;
 	override onAdded(unit: FightUnit) {
 		this.func = this.onEvent.bind(this);
 		unit.onContex('beforeHurt', this.func, this.xls.prior ?? 500);
@@ -14,7 +14,7 @@ export class BuffProtect extends FightBuff {
 		this.func = null;
 	}
 
-	override onEvent(unit: FightUnit, ctx: FightContex, attacker: FightUnit, pending: PendingHurt) {
+	override onEvent(...[unit, ctx, attacker, pending]: UnitEventArgs<'beforeHurt'>) {
 		if (this.isHpPendingInvalid(unit,pending) || 
 			pending.source !== 'skill' ||
 			pending.noprotect  //禁止分担

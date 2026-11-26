@@ -432,7 +432,7 @@ test('rule turn speed: explicit position overrides speed rate', () => {
 	assert.equal(extra.inserted, true);
 	assert.equal(extra.speedRate, undefined);
 	s.target.attr.speed = 1;
-	s.target.emit('speed');
+	s.target.emit('speed', s.target.getSpeed());
 	assert.equal(s.loop.actions[0].id, extra.id);
 });
 

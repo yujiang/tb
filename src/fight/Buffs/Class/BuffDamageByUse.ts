@@ -1,13 +1,13 @@
 import { strict as assert } from 'node:assert';
 import { FightBuff } from '../FightBuff';
 import type { BuffData } from '../BuffDatas';
-import type { FightContex } from '../../Fight';
-import type { FightUnit } from '../../Unit/FightUnit';
+import type { FightUnit, UnitContextEventFunc, UnitEventArgs } from '../../Unit/FightUnit';
 import type { SkillUseType } from '../../struct';
 import type { FightSkill } from '../../Skills/FightSkill';
 
 // 越战越勇：读取本场累计出手次数，只增强同类型的本次技能，不再维护独立层数。
 export class BuffDamageByUse extends FightBuff {
+	override func: UnitContextEventFunc<'useSkill'>;
 	constructor(xls: BuffData, level: number, attacker: FightUnit, turn: number) {
 		super(xls, level, attacker, turn);
 		for (const value of [xls.damageUse?.rate ?? 0.05, xls.damageUse?.max ?? 0.5]) {
@@ -42,7 +42,7 @@ export class BuffDamageByUse extends FightBuff {
 	}
 
 	// 事件只处理次数消耗；本次增伤已在事件前统一汇总，最后一次不会丢失。
-	override onEvent(unit: FightUnit, ctx: FightContex, skill: FightSkill, type: SkillUseType) {
+	override onEvent(...[unit, ctx, skill, type]: UnitEventArgs<'useSkill'>) {
 		if (unit.findBuff(this.getId()) !== this || !this.matchesType(type)) {
 			return;
 		}

@@ -1,9 +1,10 @@
 // 不屈，如果要死亡，hp=>1
 import { FightBuff } from '../FightBuff';
-import type { Fight, FightContex } from '../../Fight';
-import type { FightUnit, PendingHurt } from '../../Unit/FightUnit';
+import type { Fight } from '../../Fight';
+import type { FightUnit, UnitContextEventFunc, UnitEventArgs } from '../../Unit/FightUnit';
 
 export class BuffBuqu extends FightBuff {
+	override func: UnitContextEventFunc<'beforeHurt'>;
 	// 记录在战斗与单位上，移除、替换或复活后重新附加 Buff 也不会刷新机会。
 	// 使用 WeakMap<Fight 可以不修改Fight的字段，把他变得庞大，好像也可以；但是一般我不这样做。
 	private static used = new WeakMap<Fight, WeakSet<FightUnit>>();
@@ -21,7 +22,7 @@ export class BuffBuqu extends FightBuff {
 		}
 	}
 
-	override onEvent(unit: FightUnit, ctx: FightContex, attacker: FightUnit, pending: PendingHurt) {
+	override onEvent(...[unit, ctx, attacker, pending]: UnitEventArgs<'beforeHurt'>) {
 		if (pending.cancelled) return;
 
 		let used = BuffBuqu.used.get(ctx.fight);

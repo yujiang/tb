@@ -2,9 +2,10 @@
 import { FightBuff } from '../FightBuff';
 import type { BuffData } from '../BuffDatas';
 import type { Fight, FightContex } from '../../Fight';
-import type { FightUnit } from '../../Unit/FightUnit';
+import type { FightUnit, UnitContextEventFunc, UnitEventArgs } from '../../Unit/FightUnit';
 
 export class BuffRelife extends FightBuff {
+	override func: UnitContextEventFunc<'die'>;
 	private static used = new WeakMap<Fight, WeakSet<FightUnit>>();
 	private readonly ratio: number;
 
@@ -29,7 +30,7 @@ export class BuffRelife extends FightBuff {
 		}
 	}
 
-	override onEvent(unit: FightUnit, ctx: FightContex) {
+	override onEvent(...[unit, ctx]: UnitEventArgs<'die'>) {
 		if (!unit.isDied()) return;
 
 		ctx.fight.afterAction(() => this.revive(unit, ctx));

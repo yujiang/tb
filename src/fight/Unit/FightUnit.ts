@@ -16,6 +16,7 @@ import { getSkillData } from '../Skills/SkillDatas';
 import { createBuff, FightBuff } from '../Buffs/FightBuff';
 import { findForbidStatusByAction, findForbidStatusByBeaction } from '../Buffs/FightStatus';
 import { BuffTurnEnum, FightUnitEvent, getBuffData, OverlapEnum } from '../Buffs/BuffDatas';
+import type { FightUnitEventMap, FightUnitContextEvent, FightUnitPlainEvent } from '../Buffs/BuffDatas';
 import { createPassiveSkills, PassiveSkill } from '../Passives/PassiveSkill';
 import { calcAttr } from '../Skills/Calc';
 import EventEmitter from 'node:events';
@@ -30,8 +31,16 @@ export enum UnitType {
 	monster, //npc
 }
 
-export type UnitEventFunc = (unit: FightUnit, ...args: any[]) => void;
-export type UnitContextEventFunc = (unit: FightUnit, ctx: FightContex, ...args: any[]) => void;
+/** 完整监听参数，含首项unit；指定事件名即可推导后续参数。 */
+export type UnitEventArgs<E extends FightUnitEvent> = [unit: FightUnit, ...args: FightUnitEventMap[E]];
+export type UnitEventFunc<E extends FightUnitEvent = FightUnitEvent> = (unit: FightUnit, ...args: FightUnitEventMap[E]) => void;
+type ContextEventTailMap = {
+	[E in FightUnitContextEvent]: FightUnitEventMap[E] extends [FightContex, ...infer Args] ? Args : never;
+};
+export type UnitContextEventFunc<E extends FightUnitContextEvent = FightUnitContextEvent> = (
+	unit: FightUnit, ctx: FightContex, ...args: ContextEventTailMap[E]
+) => void;
+export type UnitEventListenerMap = { [E in FightUnitEvent]: UnitEventArgs<E> };
 
 // 每次受伤独立创建，后续监听读取前一个监听修改后的伤害。
 export type HurtSource = 'skill' | 'buff' | 'dback' | 'share' | 'reflect';
@@ -346,30 +355,31 @@ export abstract class FightUnit {
 		this.emitContext('heal', ctx, attacker, why, hp);
 	}
 
-	emitter = new EventEmitter();
-	readonly contextEmitter = new OrderedEventEmitter<FightUnitEvent>();
-	emitContext(event: FightUnitEvent, ctx: FightContex, ...args: any[]) {
-		this.contextEmitter.emit(event, this, ctx, ...args);
-		this.emitter.emit(event, this, ctx, ...args);
-		this.fight?.emitUnitEvent(event, this, ctx, ...args);
-	}
-
-	emit(event: FightUnitEvent, ...args: any[]) {
+	private emitter = new EventEmitter();
+	readonly contextEmitter = new OrderedEventEmitter<FightUnitContextEvent, UnitEventListenerMap>();
+	emitContext<E extends FightUnitContextEvent>(event: E, ...args: FightUnitEventMap[NoInfer<E>]) {
+		// 泛型索引在此展开为完整参数元组；收发入口均已由同一事件表约束。
+		this.contextEmitter.emit<E>(event, ...[this, ...args] as unknown as UnitEventListenerMap[E]);
 		this.emitter.emit(event, this, ...args);
 		this.fight?.emitUnitEvent(event, this, ...args);
 	}
 
-	on(event: FightUnitEvent, listener: UnitEventFunc) {
+	emit<E extends FightUnitPlainEvent>(event: E, ...args: FightUnitEventMap[NoInfer<E>]) {
+		this.emitter.emit(event, this, ...args);
+		this.fight?.emitUnitEvent(event, this, ...args);
+	}
+
+	on<E extends FightUnitEvent>(event: E, listener: UnitEventFunc<NoInfer<E>>) {
 		this.emitter.on(event, listener);
 	}
-	onContex(event: FightUnitEvent, listener: UnitContextEventFunc, prior = 0) {
-		this.contextEmitter.on(event, listener, prior);
+	onContex<E extends FightUnitContextEvent>(event: E, listener: UnitContextEventFunc<NoInfer<E>>, prior = 0) {
+		this.contextEmitter.on<E>(event, listener as unknown as (...args: UnitEventListenerMap[E]) => void, prior);
 	}
-	off(event: FightUnitEvent, listener: UnitEventFunc) {
+	off<E extends FightUnitEvent>(event: E, listener: UnitEventFunc<NoInfer<E>>) {
 		this.emitter.off(event, listener);
 	}
-	offContex(event: FightUnitEvent, listener: UnitContextEventFunc) {
-		this.contextEmitter.off(event, listener);
+	offContex<E extends FightUnitContextEvent>(event: E, listener: UnitContextEventFunc<NoInfer<E>>) {
+		this.contextEmitter.off<E>(event, listener as unknown as (...args: UnitEventListenerMap[E]) => void);
 	}
 
 	pos: number;

@@ -8,11 +8,14 @@ interface ListenerEntry {
 }
 
 // 同步有序事件：小优先级先执行，同优先级保持注册顺序。
-export class OrderedEventEmitter<Event extends string | symbol = string> {
+export class OrderedEventEmitter<
+	Event extends string | symbol = string,
+	Args extends Record<Event, any[]> = Record<Event, any[]>,
+> {
 	private events = new Map<Event, ListenerEntry[]>();
 	private nextOrder = 0;
 
-	on(event: Event, listener: OrderedEventListener, prior = 0): this {
+	on<E extends Event>(event: E, listener: (...args: Args[NoInfer<E>]) => void, prior = 0): this {
 		if (!Number.isFinite(prior)) throw new RangeError('prior must be a finite number');
 		const entries = this.events.get(event) ?? [];
 		entries.push({ listener, prior, order: this.nextOrder++, active: true });
@@ -21,7 +24,7 @@ export class OrderedEventEmitter<Event extends string | symbol = string> {
 		return this;
 	}
 
-	off(event: Event, listener: OrderedEventListener): this {
+	off<E extends Event>(event: E, listener: (...args: Args[NoInfer<E>]) => void): this {
 		const entries = this.events.get(event);
 		if (!entries) return this;
 
@@ -40,7 +43,7 @@ export class OrderedEventEmitter<Event extends string | symbol = string> {
 		return this;
 	}
 
-	emit(event: Event, ...args: any[]): boolean {
+	emit<E extends Event>(event: E, ...args: Args[NoInfer<E>]): boolean {
 		const entries = this.events.get(event);
 		if (!entries?.length) return false;
 

@@ -243,7 +243,7 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
 			) {
 				slowed = true;
 				s.boss.attr.speed = 80;
-				s.boss.emit('speed');
+				s.boss.emit('speed', s.boss.getSpeed());
 				// 消息回调中的修改留到下一行动出队前重排，不依赖 speed 监听。
 				assert.deepEqual(
 					s.loop.processUnits.map((unit) => unit.uid),
@@ -316,7 +316,7 @@ test('extraAction: speed changes preserve dynamic insertions and zero speed entr
 		.filter((action) => action.speedRate !== undefined)
 		.map((action) => action.id);
 	s.boss.attr.speed = 80;
-	s.boss.emit('speed');
+	s.boss.emit('speed', s.boss.getSpeed());
 	assert.equal(s.loop.actions[0].id, inserted);
 	assert.equal(s.loop.actions[s.loop.actions.length - 1].speedRate, 0);
 	assert.deepEqual(
