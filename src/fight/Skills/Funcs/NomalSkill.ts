@@ -80,9 +80,11 @@ export function skillAttack(
 ) {
 	// assert(skill);
 	const f = ctx.fight;
-	const valid = options.checkAttacker === false
-		? !defender.isDied() && skill.canTarget(defender)
-		: canAttackSkill(attacker, defender, skill);
+	ctx.blocked = false;
+	const valid =
+		options.checkAttacker === false
+			? !defender.isDied() && skill.canTarget(defender)
+			: canAttackSkill(attacker, defender, skill);
 	if (!valid) {
 		return false;
 	}
@@ -139,9 +141,16 @@ export function skillAttack(
 	ctx.effects = [];
 
 	const ismagic = skill.isMagic();
+	const blocked = skill.physicParryTest(f, defender);
+	ctx.blocked = blocked;
+	if (blocked) ctx.msgs.push(['block', defender.uid, attacker.uid]);
 
-	let damage = skill.calcHurt(f, defender, ctx, attacker, damageRate);
+	let damage = skill.calcHurt(f, defender, ctx, attacker, damageRate, !blocked);
+	const originalDamage = ctx.damageBeforeReduction ?? damage;
+	if (blocked) damage *= 0.5;
+
 	damage = defender.onHurt(attacker, 'skill', damage, ctx, {
+		originalDamage,
 		magic: ismagic,
 		source: 'skill',
 		noprotect: !skill.canProtect(),
@@ -161,6 +170,7 @@ export function skillAttack(
 		}
 	}
 	ctx.damage = damage;
+	ctx.blocked = blocked;
 	return true;
 }
 
@@ -289,7 +299,9 @@ export function magicAttackFunc(
 			reaction ?? 'normal',
 		);
 	}
-	return ctx.fight.resolveAction(() => magicAttack(attacker, defender, magic, ctx, reaction, combo, useSkill));
+	return ctx.fight.resolveAction(() =>
+		magicAttack(attacker, defender, magic, ctx, reaction, combo, useSkill),
+	);
 }
 
 function magicAttack(
@@ -300,8 +312,7 @@ function magicAttack(
 	reaction?: AttackReaction,
 	combo?: ComboDamage,
 	useSkill?: () => number,
-): boolean
-{
+): boolean {
 	const chain = combo ?? (usesCombo(magic) ? { target: defender, damage: 0 } : undefined);
 	const ownsChain = !combo && !!chain;
 	const onDeath = () => {
@@ -312,11 +323,14 @@ function magicAttack(
 		defender.onContex('die', onDeath);
 	}
 	try {
-		const rt = skillAttack(attacker, defender, magic, ctx, reaction, chain, false, { useSkill });
+		const rt = skillAttack(attacker, defender, magic, ctx, reaction, chain, false, {
+			useSkill,
+		});
 		if (!rt) return false;
 
 		// 协战、溅射会复用 ctx，先保存本次主目标的实际伤害；连招读取累计伤害。
 		const damage = chain?.damage ?? ctx.damage;
+		const blocked = ctx.blocked;
 		if (!attacker.isDied()) {
 			if (!usesCombo(magic) && !chain?.interrupted && magic.canSupport()) {
 				trySupport(attacker, defender, ctx);
@@ -336,6 +350,8 @@ function magicAttack(
 			) {
 				tryDBack(attacker, defender, magic.isMagic(), chain.damage, ctx);
 			}
+			// 协战、溅射和反伤可能复用ctx；反击只读取当前主目标本段的格挡结果。
+			ctx.blocked = blocked;
 			afterSkillAttack(attacker, defender, magic, ctx, chain, damage);
 		}
 		afterSelfBuff(attacker, magic, ctx);

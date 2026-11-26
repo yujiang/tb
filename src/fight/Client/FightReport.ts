@@ -27,7 +27,7 @@ const colors = {
 	cyan: '\x1b[36m',
 	purple: '\x1b[35m',
 };
-type ReportColor = keyof typeof colors;
+export type ReportColor = keyof typeof colors;
 
 export class FightReport {
 	readonly lines: string[] = [];
@@ -417,6 +417,12 @@ export class FightReport {
 					this.write(`战斗结束：${msg[3] ? '逃跑，' : ''}${result}`);
 					break;
 				}
+				case 'block':
+					this.write(`${name(msg[1])} 招架住 ${name(msg[2])} 的攻势`);
+					break;
+				case 'mitigate':
+					this.write(`${name(msg[1])} 减免 ${msg[3] - msg[4]} 点伤害`);
+					break;
 				case 'summon':
 					this.write(`${name(msg[1])} 召唤 ${name(msg[3].uid)}，加入战斗`);
 					break;

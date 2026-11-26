@@ -55,6 +55,8 @@ export interface XlsAttrData {
 	healAttack: number;
 	/** 物理命中点数，100表示100%，不是1。 */
 	hit: number;
+	/** 物理招架点数，可省略，默认0关闭；命中后按攻击命中与本值计算招架，成功不暴击且完整技能伤害减半。 */
+	parry?: number;
 	/** 暴击概率0～1，0表示无暴击。 */
 	critP: number;
 	/** 怒气上限点数；初始怒气0。 */
@@ -80,7 +82,10 @@ export interface XlsUnitData extends Omit<MonsterData, 'attr' | 'ai' | 'rules'> 
 }
 
 /** 玩家表不提供普攻/反击/协战/大招装配字段；被动技能仍可装配。 */
-export interface XlsUserData extends Omit<XlsUnitData, 'attackSkill' | 'fbackSkill' | 'supportSkill' | 'ultimateSkill'> {
+export interface XlsUserData extends Omit<
+	XlsUnitData,
+	'attackSkill' | 'fbackSkill' | 'supportSkill' | 'ultimateSkill'
+> {
 	/** 出战宠物的summon表ID，省略不出战；0有效，可同时列于summons，但本场不再作为备用宠物。 */
 	fightSummon?: number;
 	/** 可替换宠物的summon表ID数组，省略空；除初始fightSummon外按需创建，每个配置本场只可召唤一次。 */
@@ -133,7 +138,11 @@ let xlsContext: {
 };
 
 /** 统一初始化共享表、全局UID分配器和随机源；随机源返回[0,1)，可注册为()=>fight.random()。不重置宿主UID计数。 */
-export function initFightXls(tables: FightXlsTables, allocateUid: () => number, random: () => number) {
+export function initFightXls(
+	tables: FightXlsTables,
+	allocateUid: () => number,
+	random: () => number,
+) {
 	assert.equal(typeof allocateUid, 'function', 'A global UID allocator is required');
 	assert.equal(typeof random, 'function', 'A random source is required');
 	initSkills(Object.values(tables.skill));
@@ -149,33 +158,81 @@ function findRow<T>(rows: Record<number, T>, id: number, name: string): T {
 }
 
 /** 显式attr优先；否则严格匹配类型、等级、难度，不近似匹配也不回退其他类型。 */
-export function resolveXlsAttr(tables: FightXlsTables, type: XlsUnitType, unit: XlsUnitData): FightAttr {
+export function resolveXlsAttr(
+	tables: FightXlsTables,
+	type: XlsUnitType,
+	unit: XlsUnitData,
+): FightAttr {
 	let row: XlsAttrData;
 	if (unit.attr !== undefined) {
 		row = findRow(tables.attr, unit.attr, 'attr');
 		assert.equal(row.type, type, `Attribute type mismatch for ${type} ${unit.id}`);
 	} else {
-		assert.ok(Number.isSafeInteger(unit.grade) && unit.grade >= 0, 'grade must be a nonnegative integer');
-		assert.ok(Number.isSafeInteger(unit.diff) && unit.diff >= 1 && unit.diff <= 5, 'diff must be in 1..5');
-		const matches = Object.values(tables.attr).filter(value => value.type === type && value.grade === unit.grade && value.diff === unit.diff);
-		assert.equal(matches.length, 1, `Expected one attr for ${type}/${unit.grade}/${unit.diff}, found ${matches.length}`);
+		assert.ok(
+			Number.isSafeInteger(unit.grade) && unit.grade >= 0,
+			'grade must be a nonnegative integer',
+		);
+		assert.ok(
+			Number.isSafeInteger(unit.diff) && unit.diff >= 1 && unit.diff <= 5,
+			'diff must be in 1..5',
+		);
+		const matches = Object.values(tables.attr).filter(
+			(value) =>
+				value.type === type && value.grade === unit.grade && value.diff === unit.diff,
+		);
+		assert.equal(
+			matches.length,
+			1,
+			`Expected one attr for ${type}/${unit.grade}/${unit.diff}, found ${matches.length}`,
+		);
 		row = matches[0];
 	}
 	const base = (attack: number, defend = 0, rand = 0): BaseAttack => ({
-		rand, hit: row.hit, dodge: 0, attack, defend, hurt: 0, hurtP: 0,
-		hurtAnti: 0, hurtPAnti: 0, critP: row.critP, critPAnit: 0, critDeep: 0, critDeepAnit: 0,
+		rand,
+		hit: row.hit,
+		dodge: 0,
+		parry: row.parry ?? 0,
+		attack,
+		defend,
+		hurt: 0,
+		hurtP: 0,
+		hurtAnti: 0,
+		hurtPAnti: 0,
+		critP: row.critP,
+		critPAnit: 0,
+		critDeep: 0,
+		critDeepAnit: 0,
 	});
 	const group = (attack: number, defend: number) => ({
-		base: base(attack, defend, 1), next: base(attack, defend), kill: base(attack, defend),
-		spread: base(attack, defend), fback: base(attack, defend),
+		base: base(attack, defend, 1),
+		next: base(attack, defend),
+		kill: base(attack, defend),
+		spread: base(attack, defend),
+		fback: base(attack, defend),
 		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	return Object.assign(new FightAttr(), {
-		point: { hp: row.hp, hpMax: row.hp, mp: row.mp, mpMax: row.mp, sp: 0, spMax: row.spMax, jp: 0, jpMax: row.jpMax },
-		speed: row.speed, grade: row.grade, career: row.career, weapon: row.weapon,
-		charProp: row.charProp, weaponProp: row.weaponProp, damageLimit: row.damageLimit,
-		physic: group(row.physicAttack, row.physicDefend), magic: group(row.magicAttack, row.magicDefend),
-		heal: base(row.healAttack), poison: base(0),
+		point: {
+			hp: row.hp,
+			hpMax: row.hp,
+			mp: row.mp,
+			mpMax: row.mp,
+			sp: 0,
+			spMax: row.spMax,
+			jp: 0,
+			jpMax: row.jpMax,
+		},
+		speed: row.speed,
+		grade: row.grade,
+		career: row.career,
+		weapon: row.weapon,
+		charProp: row.charProp,
+		weaponProp: row.weaponProp,
+		damageLimit: row.damageLimit,
+		physic: group(row.physicAttack, row.physicDefend),
+		magic: group(row.magicAttack, row.magicDefend),
+		heal: base(row.healAttack),
+		poison: base(0),
 	});
 }
 
@@ -188,12 +245,20 @@ export function createSideByXls(id: number): FightSide {
 	const zhen = findRow(tables.zhen, row.zhen, 'zhen');
 	assert.ok(zhen.mapsize?.length === 2, 'Formation mapsize is required');
 	const map = { nx: zhen.mapsize[0], ny: zhen.mapsize[1] };
-	assert.ok(Number.isSafeInteger(map.nx) && map.nx > 0 && Number.isSafeInteger(map.ny) && map.ny > 0, 'Invalid map dimensions');
+	assert.ok(
+		Number.isSafeInteger(map.nx) && map.nx > 0 && Number.isSafeInteger(map.ny) && map.ny > 0,
+		'Invalid map dimensions',
+	);
 	const positions = zhen.pos;
 	assert.ok(positions.length >= row.ids.length, 'Formation has too few positions');
 	const reserved = new Set(positions.slice(0, row.ids.length));
 	assert.equal(reserved.size, row.ids.length, 'Occupied position in formation');
-	assert.ok([...reserved].every(pos => Number.isSafeInteger(pos) && pos >= 0 && pos < map.nx * map.ny), 'Invalid formation position');
+	assert.ok(
+		[...reserved].every(
+			(pos) => Number.isSafeInteger(pos) && pos >= 0 && pos < map.nx * map.ny,
+		),
+		'Invalid formation position',
+	);
 	const occupied = new Set<number>();
 	const uids = new Set<number>();
 	const side = new FightSide();
@@ -204,21 +269,31 @@ export function createSideByXls(id: number): FightSide {
 		const uid = allocateUid();
 		assert.ok(Number.isSafeInteger(uid) && !uids.has(uid), `Invalid or repeated UID: ${uid}`);
 		uids.add(uid);
-		const display = { name: template.name, character: template.character };
-		const Unit = type === 'user' ? FightUnitUser : type === 'summon' ? FightUnitSummon : FightUnitMonster;
-		const unit = new Unit(uid, attr, display);
+		const Unit =
+			type === 'user'
+				? FightUnitUser
+				: type === 'summon'
+					? FightUnitSummon
+					: FightUnitMonster;
+		const unit = new Unit(uid, attr, template);
 		applyUnitTemplate(unit, { ...template, attr });
 		if (unit instanceof FightUnitMonster) {
 			unit.monsterId = template.id;
 			if (template.extraAction) unit.setExtraActions(template.extraAction);
 			if (template.inputSkill !== undefined) unit.inputSkill = template.inputSkill;
 			if (template.aiId !== undefined) unit.setAI(findRow(tables.ai, template.aiId, 'ai'));
-			if (template.ruleIds) unit.setRules(template.ruleIds.map(ruleId => findRow(tables.rule, ruleId, 'rule')));
+			if (template.ruleIds)
+				unit.setRules(
+					template.ruleIds.map((ruleId) => findRow(tables.rule, ruleId, 'rule')),
+				);
 		}
 		return unit;
 	};
 	const create = (type: XlsUnitType, templateId: number, pos: number): FightUnit => {
-		assert.ok(Number.isSafeInteger(pos) && pos >= 0 && pos < map.nx * map.ny, `Invalid ${type} position: ${pos}`);
+		assert.ok(
+			Number.isSafeInteger(pos) && pos >= 0 && pos < map.nx * map.ny,
+			`Invalid ${type} position: ${pos}`,
+		);
 		assert.ok(!occupied.has(pos), `Occupied position: ${pos}`);
 		occupied.add(pos);
 		const unit = makeUnit(type, templateId);
@@ -235,7 +310,10 @@ export function createSideByXls(id: number): FightSide {
 			for (const summonId of user.summons ?? []) {
 				if (summonId === user.fightSummon) continue;
 
-				(owner as FightUnitUser).summons.set(summonId, () => makeUnit('summon', summonId) as FightUnitSummon);
+				(owner as FightUnitUser).summons.set(
+					summonId,
+					() => makeUnit('summon', summonId) as FightUnitSummon,
+				);
 			}
 			if (user.fightSummon !== undefined) {
 				const summonPos = selectSummonPos(pos, map, occupied, reserved, random);

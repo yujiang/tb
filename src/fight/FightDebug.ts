@@ -3,7 +3,7 @@ export interface FightDebugData {
 	hit?: boolean;
 	/** 默认false；物理攻击必定未命中，优先于hit和alwaysHit，但不覆盖不能闪避状态；魔法不做物理命中判定。 */
 	miss?: boolean;
-	/** 默认false；具备暴击判定资格的攻击与治疗必定暴击，沿用原暴击公式；毒伤不判暴击。 */
+	/** 默认false；具备暴击判定资格的攻击与治疗必定暴击，沿用原暴击公式；招架成功及毒伤不判暴击。 */
 	crit?: boolean;
 	/** 默认false；已有连击或连招子技能必定发动，覆盖零概率；不创建未配置子技能，不绕过反应上限。 */
 	next?: boolean;

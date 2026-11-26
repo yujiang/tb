@@ -3,6 +3,7 @@ import { FightAttr, getAttackMul, PropEnum, WeaponEnum } from '../FightAttr';
 import {
 	FightCmdEnum,
 	FightDisplay,
+	FightDisplayInput,
 	FightInput,
 	FightSideEnum,
 	IdLevelArray,
@@ -16,13 +17,18 @@ import { getSkillData } from '../Skills/SkillDatas';
 import { createBuff, FightBuff } from '../Buffs/FightBuff';
 import { findForbidStatusByAction, findForbidStatusByBeaction } from '../Buffs/FightStatus';
 import { BuffTurnEnum, FightUnitEvent, getBuffData, OverlapEnum } from '../Buffs/BuffDatas';
-import type { FightUnitEventMap, FightUnitContextEvent, FightUnitPlainEvent } from '../Buffs/BuffDatas';
+import type {
+	FightUnitEventMap,
+	FightUnitContextEvent,
+	FightUnitPlainEvent,
+} from '../Buffs/BuffDatas';
 import { createPassiveSkills, PassiveSkill } from '../Passives/PassiveSkill';
 import { calcAttr } from '../Skills/Calc';
 import EventEmitter from 'node:events';
 import { OrderedEventEmitter } from '../../public/OrderedEventEmitter';
 import { fightConsts } from '../FightConsts';
 import { getDebugHurtHpLimit } from '../FightDebug';
+import { createUnitDisplay } from './CreateUnitDisplay';
 import { strict as assert } from 'node:assert';
 
 export enum UnitType {
@@ -32,13 +38,23 @@ export enum UnitType {
 }
 
 /** 完整监听参数，含首项unit；指定事件名即可推导后续参数。 */
-export type UnitEventArgs<E extends FightUnitEvent> = [unit: FightUnit, ...args: FightUnitEventMap[E]];
-export type UnitEventFunc<E extends FightUnitEvent = FightUnitEvent> = (unit: FightUnit, ...args: FightUnitEventMap[E]) => void;
+export type UnitEventArgs<E extends FightUnitEvent> = [
+	unit: FightUnit,
+	...args: FightUnitEventMap[E],
+];
+export type UnitEventFunc<E extends FightUnitEvent = FightUnitEvent> = (
+	unit: FightUnit,
+	...args: FightUnitEventMap[E]
+) => void;
 type ContextEventTailMap = {
-	[E in FightUnitContextEvent]: FightUnitEventMap[E] extends [FightContex, ...infer Args] ? Args : never;
+	[E in FightUnitContextEvent]: FightUnitEventMap[E] extends [FightContex, ...infer Args]
+		? Args
+		: never;
 };
 export type UnitContextEventFunc<E extends FightUnitContextEvent = FightUnitContextEvent> = (
-	unit: FightUnit, ctx: FightContex, ...args: ContextEventTailMap[E]
+	unit: FightUnit,
+	ctx: FightContex,
+	...args: ContextEventTailMap[E]
 ) => void;
 export type UnitEventListenerMap = { [E in FightUnitEvent]: UnitEventArgs<E> };
 
@@ -46,6 +62,8 @@ export type UnitEventListenerMap = { [E in FightUnitEvent]: UnitEventArgs<E> };
 export type HurtSource = 'skill' | 'buff' | 'dback' | 'share' | 'reflect';
 
 export interface HurtOptions {
+	/** 本次减伤前的理论伤害，仅用于表现通知；省略取onHurt传入值，不参与实际结算。 */
+	originalDamage?: number;
 	magic?: boolean;
 	reflected?: boolean; // 已反射的伤害不再次反射
 	source?: HurtSource; // 默认 skill（含普攻）；其他伤害来源不能触发保护
@@ -90,7 +108,7 @@ export abstract class FightUnit {
 	constructor(
 		id: number,
 		attr: FightAttr,
-		display: FightDisplay,
+		display: FightDisplayInput,
 		passiveSkills: IdLevelArray = [],
 	) {
 		this.uid = id;
@@ -100,7 +118,7 @@ export abstract class FightUnit {
 		this.attrOri.damageLimit ??= 0;
 		this.attrOri.spHurtRate ??= fightConsts.spHurtRate;
 		this.attrOri.spOutputRate ??= fightConsts.spOutputRate;
-		this.display = display;
+		this.display = createUnitDisplay(display);
 		this.setPassiveSkills(passiveSkills);
 		this.calcAttr();
 	}
@@ -222,6 +240,7 @@ export abstract class FightUnit {
 	): number {
 		if (this.isDied()) return 0;
 
+		const originalDamage = options.originalDamage ?? hp;
 		if (this.isDefend()) {
 			hp *= 0.5;
 		}
@@ -248,6 +267,9 @@ export abstract class FightUnit {
 		};
 		this.emitContext('beforeHurt', ctx, attacker, pending);
 		if (pending.cancelled || this.isDied()) {
+			if (pending.cancelled && !this.isDied()) {
+				this.reportMitigation(attacker, originalDamage, 0, ctx);
+			}
 			return 0;
 		}
 
@@ -268,6 +290,18 @@ export abstract class FightUnit {
 				if (this.shieldMax !== max) shieldMsg.push(null, this.shieldMax);
 			}
 		}
+		const point = this.attr.point;
+		const previousHp = point.hp;
+		// 锁血只限制本次可扣生命；当前血量已低于锁血线时不能因受伤回血。
+		const availableHp = Math.max(0, previousHp - Math.max(0, this.minHp));
+		// 受伤前回调仍可能增加伤害，最终扣血再次遵守生效的上限。
+		const damage = hurtLimit > 0 ? Math.min(pending.damage, hurtLimit) : pending.damage;
+		this.reportMitigation(
+			attacker,
+			originalDamage,
+			this.minHp > 0 ? Math.min(damage, availableHp) : damage,
+			ctx,
+		);
 		if (pending.share) {
 			const share = pending.share;
 			ctx.msgs.push(['buffTrigger', this.uid, share.buffId, 'protect', share.unit.uid]);
@@ -281,12 +315,6 @@ export abstract class FightUnit {
 				results,
 			);
 		}
-		const point = this.attr.point;
-		const previousHp = point.hp;
-		// 锁血只限制本次可扣生命；当前血量已低于锁血线时不能因受伤回血。
-		const availableHp = Math.max(0, previousHp - Math.max(0, this.minHp));
-		// 受伤前回调仍可能增加伤害，最终扣血再次遵守生效的上限。
-		const damage = hurtLimit > 0 ? Math.min(pending.damage, hurtLimit) : pending.damage;
 		const actual = Math.min(availableHp, Math.max(0, Math.floor(damage)));
 		point.hp -= actual;
 
@@ -312,6 +340,17 @@ export abstract class FightUnit {
 			}
 		});
 		return actual;
+	}
+
+	private reportMitigation(
+		attacker: FightUnit,
+		originalDamage: number,
+		damage: number,
+		ctx: FightContex,
+	) {
+		const before = Math.max(0, Math.floor(originalDamage));
+		const after = Math.max(0, Math.floor(damage));
+		if (before > after) ctx.msgs.push(['mitigate', this.uid, attacker.uid, before, after]);
 	}
 
 	// 加入仇恨列表
@@ -356,10 +395,16 @@ export abstract class FightUnit {
 	}
 
 	private emitter = new EventEmitter();
-	readonly contextEmitter = new OrderedEventEmitter<FightUnitContextEvent, UnitEventListenerMap>();
+	readonly contextEmitter = new OrderedEventEmitter<
+		FightUnitContextEvent,
+		UnitEventListenerMap
+	>();
 	emitContext<E extends FightUnitContextEvent>(event: E, ...args: FightUnitEventMap[NoInfer<E>]) {
 		// 泛型索引在此展开为完整参数元组；收发入口均已由同一事件表约束。
-		this.contextEmitter.emit<E>(event, ...[this, ...args] as unknown as UnitEventListenerMap[E]);
+		this.contextEmitter.emit<E>(
+			event,
+			...([this, ...args] as unknown as UnitEventListenerMap[E]),
+		);
 		this.emitter.emit(event, this, ...args);
 		this.fight?.emitUnitEvent(event, this, ...args);
 	}
@@ -372,14 +417,28 @@ export abstract class FightUnit {
 	on<E extends FightUnitEvent>(event: E, listener: UnitEventFunc<NoInfer<E>>) {
 		this.emitter.on(event, listener);
 	}
-	onContex<E extends FightUnitContextEvent>(event: E, listener: UnitContextEventFunc<NoInfer<E>>, prior = 0) {
-		this.contextEmitter.on<E>(event, listener as unknown as (...args: UnitEventListenerMap[E]) => void, prior);
+	onContex<E extends FightUnitContextEvent>(
+		event: E,
+		listener: UnitContextEventFunc<NoInfer<E>>,
+		prior = 0,
+	) {
+		this.contextEmitter.on<E>(
+			event,
+			listener as unknown as (...args: UnitEventListenerMap[E]) => void,
+			prior,
+		);
 	}
 	off<E extends FightUnitEvent>(event: E, listener: UnitEventFunc<NoInfer<E>>) {
 		this.emitter.off(event, listener);
 	}
-	offContex<E extends FightUnitContextEvent>(event: E, listener: UnitContextEventFunc<NoInfer<E>>) {
-		this.contextEmitter.off<E>(event, listener as unknown as (...args: UnitEventListenerMap[E]) => void);
+	offContex<E extends FightUnitContextEvent>(
+		event: E,
+		listener: UnitContextEventFunc<NoInfer<E>>,
+	) {
+		this.contextEmitter.off<E>(
+			event,
+			listener as unknown as (...args: UnitEventListenerMap[E]) => void,
+		);
 	}
 
 	pos: number;
@@ -703,7 +762,11 @@ export abstract class FightUnit {
 	}
 
 	// 每次施放独立的计数入口；群攻和溅射的多个目标共用它，嵌套技能各自新建。
-	createSkillUse(skill: FightSkill, ctx: FightContex, type: SkillUseType = 'normal'): () => number {
+	createSkillUse(
+		skill: FightSkill,
+		ctx: FightContex,
+		type: SkillUseType = 'normal',
+	): () => number {
 		let used = false;
 		let damageRate = 0;
 		return () => {

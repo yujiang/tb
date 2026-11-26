@@ -35,6 +35,7 @@ function attr(hp = 1000): FightAttr {
 		rand,
 		hit: 100,
 		dodge: 0,
+		parry: 0,
 		attack: 10,
 		defend: 0,
 		hurt: 0,

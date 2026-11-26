@@ -34,6 +34,7 @@ function base(attack = 100): BaseAttack {
 		rand: 1,
 		hit: 90,
 		dodge: 5,
+		parry: 0,
 		defend: 30,
 		critP: 0.2,
 		critPAnit: 0,

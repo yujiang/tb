@@ -2,6 +2,7 @@
   "8001": {
     "id": 8001,
     "name": "刀客",
+    "character": 8001,
     "attr": 6001,
     "grade": 60,
     "diff": 1,
@@ -21,11 +22,16 @@
     "summons": [
       9001,
       9002
-    ]
+    ],
+    "weaponName": "雁翎刀",
+    "wugong": 3004,
+    "neigong": 3005,
+    "qinggong": 3006
   },
   "8002": {
     "id": 8002,
     "name": "方士",
+    "character": 8002,
     "grade": 70,
     "diff": 2,
     "skills": [
@@ -48,11 +54,16 @@
     "summons": [
       9002,
       9003
-    ]
+    ],
+    "weaponName": "桃木符",
+    "wugong": 3004,
+    "neigong": 3005,
+    "qinggong": 3006
   },
   "8003": {
     "id": 8003,
     "name": "医者",
+    "character": 8003,
     "grade": 60,
     "diff": 3,
     "skills": [
@@ -74,6 +85,10 @@
     "fightSummon": 9003,
     "summons": [
       9003
-    ]
+    ],
+    "weaponName": "药杖",
+    "wugong": 3004,
+    "neigong": 3005,
+    "qinggong": 3006
   }
 }

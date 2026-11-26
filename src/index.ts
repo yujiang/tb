@@ -7,6 +7,8 @@ export * from './fight/Client/FightClient';
 export * from './fight/Client/FightPreParse';
 export * from './fight/Client/FightReport';
 export * from './fight/Client/FightMud';
+export * from './fight/Client/FightRenderUnit';
+export * from './fight/Client/FightMudUnit';
 export * from './fight/Client/FightMudDatas';
 export * from './fight/FightAttr';
 export * from './fight/Loop/FightLoop';

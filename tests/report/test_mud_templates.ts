@@ -5,41 +5,63 @@ import {
 	fightMsg,
 	initSkills,
 	TargetSelectEnum,
-	MudCharacter,
-	MudTexts,
+	CharacterData,
 	resolveMudText,
 } from '../../src';
 
-type Tables = {
-	xlsCharacter: Record<string, MudCharacter>;
-	xlsText: Record<string, MudTexts>;
-	xlsSkillDesc: Record<number, MudTexts>;
-};
 const skillId = 99100,
 	counterId = 99101;
+function initial(character = 100): fightMsg[] {
+	const unit = (uid: number, name: string, character: number, weaponName: string) => ({
+		uid,
+		pos: 0,
+		dead: false,
+		display: { name, character, weaponName },
+		point: { hp: 100, hpMax: 100, mp: 100, mpMax: 100 },
+		buffs: [] as number[][],
+	});
+	return [
+		['start', 99100],
+		['side', 0, [unit(0, '张三丰', character, '青钢剑')]],
+		['side', 1, [unit(1, '李虎', 200, '钢刀')]],
+	];
+}
+function tables(): { xlsCharacter: Record<number, CharacterData> } {
+	initSkills(
+		[skillId, counterId].map((id) => ({
+			id,
+			name: id === skillId ? '破空掌' : '回风剑',
+			magic: false,
+			rand: 1,
+			attack: {},
+			final: {},
+			sel: { target: TargetSelectEnum.enemy },
+		})),
+	);
+	return { xlsCharacter: { 100: { id: 100 }, 200: { id: 200 } } };
+}
 
-// 测试：组合匹配消耗各项特征，重复条件不能借用同一个值，同具体程度保持表中顺序。
-test('mud templates: duplicate traits require separate fields and ties keep table order', () => {
+// 每个事件只按人物编号直接取文案，未知编号或空白字段不借用其他人物配置。
+test('mud templates: direct character lookup falls back per field without trait matching', () => {
 	const data = tables();
-	data.xlsText['普通+普通'] = { 出手文本: '重复匹配' };
-	data.xlsText['男+剑'] = { 出手文本: '第一组合' };
-	data.xlsText['剑+男'] = { 出手文本: '第二组合' };
-	assert.equal(resolveMudText(data, '出手文本', 100), '第一组合');
-	data.xlsCharacter[100].武功 = '普通';
-	assert.equal(resolveMudText(data, '出手文本', 100), '重复匹配');
-	assert.equal(resolveMudText(data, '出手文本', '不存在'), undefined);
+	data.xlsCharacter[100].受伤文本 = '甲受伤';
+	data.xlsCharacter[200].死亡文本 = [' ', '乙倒下'];
+	assert.equal(resolveMudText(data, '受伤文本', 100), '甲受伤');
+	assert.equal(resolveMudText(data, '死亡文本', 100), undefined);
+	assert.equal(resolveMudText(data, '死亡文本', 200), '乙倒下');
+	assert.equal(resolveMudText(data, '受伤文本', 999), undefined);
 });
 
-// 测试：治疗、复活与未命中文案使用实际数值及对应颜色，未知占位符保留原文。
-test('mud templates: heal revival and miss templates keep their colors and actual healing', () => {
+// 治疗、复活与闪避读取对应承受者文案，使用实际恢复量并保留未知占位符及颜色。
+test('mud templates: heal revival and miss keep affected character colors and actual healing', () => {
 	const data = tables();
-	data.xlsText[200] = {
-		治疗文本: '{人物}恢复{治疗}，生命{生命}/{最大生命}。{自定义}',
-		复活文本: '{人物}重新起身。',
-	};
-	data.xlsSkillDesc[skillId] = { 未命中文本: '{施放者}以{技能}攻向{目标}，{未命中}。' };
-	const output: string[] = [];
-	const mud = new FightMud((line) => output.push(line), true, data);
+	Object.assign(data.xlsCharacter[200], {
+		治疗文本: '$N恢复{治疗}，生命{生命}/{最大生命}。{自定义}',
+		复活文本: '$N重新起身。',
+		未命中文本: '$N避开$n，{未命中}。',
+	});
+	const output: string[] = [],
+		mud = new FightMud((line) => output.push(line), true, data);
 	mud.onMsg([
 		...initial(),
 		['hurt', 'buff', 1, 0, 20, 80, []],
@@ -47,29 +69,15 @@ test('mud templates: heal revival and miss templates keep their colors and actua
 		['miss', skillId, 0, 1],
 		['relife', 1],
 	]);
-	assert.match(mud.toString(), /恢复20，生命100\/100。\{自定义\}/);
+	assert.match(mud.toString(), /李虎.*恢复20，生命100\/100。\{自定义\}/);
 	assert.ok(output.some((line) => line.includes('\x1b[32m20\x1b[0m')));
 	assert.ok(output.some((line) => line.includes('\x1b[34m未命中\x1b[0m')));
 	assert.ok(output.some((line) => line.startsWith('\x1b[92m') && line.includes('重新起身')));
 });
 
-function initial(character: number | string = 100): fightMsg[] {
-	const unit = (uid: number, name: string, character: number | string) => ({
-		uid,
-		pos: 0,
-		dead: false,
-		display: { name, character },
-		point: { hp: 100, hpMax: 100, mp: 100, mpMax: 100 },
-		buffs: [] as number[][],
-	});
-	return [
-		['start', 99100],
-		['side', 0, [unit(0, '张三丰', character)]],
-		['side', 1, [unit(1, '李虎', 200)]],
-	];
-}
-
-function tables(): Tables {
+// 技能action优先控制出招，人物只覆盖自己的受伤与死亡，不能误取施放者的角色文案。
+test('mud templates: skill action and victim character have separate responsibilities', () => {
+	const data = tables();
 	initSkills([
 		{
 			id: skillId,
@@ -79,36 +87,14 @@ function tables(): Tables {
 			attack: {},
 			final: {},
 			sel: { target: TargetSelectEnum.enemy },
-		},
-		{
-			id: counterId,
-			name: '回风剑',
-			magic: false,
-			rand: 1,
-			attack: {},
-			final: {},
-			sel: { target: TargetSelectEnum.enemy },
+			action: '技能出手：$N使出{技能}攻向$n。',
 		},
 	]);
-	return {
-		xlsCharacter: {
-			100: { 武功: '绝顶', sex: '男', 年纪: '老年', 相貌: '普通', 兵器: '剑', 门派: '武当' },
-			200: { 武功: '菜鸟', sex: '男', 年纪: '少年', 相貌: '英俊', 兵器: '刀', 门派: '华山' },
-		},
-		xlsText: {},
-		xlsSkillDesc: {},
-	};
-}
-
-// 测试：技能、人物专属与特征组合按每个事件分别回退，受伤和死亡使用受伤者的人物配置。
-test('mud templates: per-event precedence is skill, character, matching traits, then builtin', () => {
-	const data = tables();
-	data.xlsSkillDesc[skillId] = { 出手文本: '技能出手：{施放者}以{技能}攻向{目标}。' };
-	data.xlsText[100] = { 出手文本: '施放者专属不应出现。', 受伤文本: '施放者受伤不应出现。' };
-	data.xlsText[200] = { 受伤文本: '人物受伤：{人物}的{兵器}脱手，受到{伤害}点伤害。' };
-	data.xlsText['菜鸟+男+少年+英俊+刀'] = {
-		死亡文本: '组合死亡：{人物}倒在{施放者}的{技能}之下。',
-	};
+	Object.assign(data.xlsCharacter[100], { 出手文本: '错误角色出手', 受伤文本: '错误施放者受伤' });
+	Object.assign(data.xlsCharacter[200], {
+		受伤文本: '$N手中的$w微颤，受到{伤害}点伤害。',
+		死亡文本: '$N倒在$n的{技能}之下。',
+	});
 	const mud = new FightMud(() => {}, false, data);
 	mud.onMsg([
 		...initial(),
@@ -116,87 +102,45 @@ test('mud templates: per-event precedence is skill, character, matching traits, 
 		['hurt', 'skill', 1, 0, 100, 0, []],
 		['die', 1],
 	]);
-	const text = mud.toString();
-	assert.match(text, /技能出手：张三丰.*\[破空掌\].*李虎/);
-	assert.match(text, /人物受伤：李虎.*刀.*100点伤害/);
-	assert.match(text, /组合死亡：李虎.*张三丰.*\[破空掌\]/);
-	assert.doesNotMatch(text, /不应出现/);
+	assert.match(mud.toString(), /技能出手：张三丰.*破空掌.*李虎/);
+	assert.match(mud.toString(), /李虎.*钢刀.*100点伤害/);
+	assert.match(mud.toString(), /李虎.*倒在张三丰.*破空掌/);
+	assert.doesNotMatch(mud.toString(), /错误/);
 });
 
-// 测试：技能受伤和死亡文案优先于受伤人物的专属文案，角色特征可分别引用施放者与目标。
-test('mud templates: skill text overrides victim-specific text and substitutes both character profiles', () => {
+// 按display.character查找而非运行uid，零编号有效，未配置技能action时可用人物出手文本。
+test('mud templates: character zero is independent from unit UID', () => {
 	const data = tables();
-	data.xlsText[200] = { 受伤文本: '人物受伤不应出现', 死亡文本: '人物死亡不应出现' };
-	data.xlsSkillDesc[skillId] = {
-		受伤文本:
-			'技能受伤：{人物}被{施放者门派}的{施放者兵器}击中，{目标门派}的{目标兵器}无力招架，损失{伤害}。',
-		死亡文本: '技能死亡：{目标}倒在{施放者}面前，生命{生命}/{最大生命}。',
-	};
-	const mud = new FightMud(() => {}, false, data);
-	mud.onMsg([
-		...initial(),
-		['skill', skillId, 0, 1],
-		['hurt', 'skill', 1, 0, 100, 0, []],
-		['die', 1],
-	]);
-	assert.match(mud.toString(), /技能受伤：李虎.*武当的剑.*华山的刀.*100/);
-	assert.match(mud.toString(), /技能死亡：李虎.*张三丰.*生命0\/100/);
-	assert.doesNotMatch(mud.toString(), /不应出现/);
-});
-
-// 测试：特征越具体优先级越高，门派条件可选，未配置文本的字段继续回退到较通用组合。
-test('mud templates: trait specificity includes optional faction and falls back per field', () => {
-	const data = tables();
-	data.xlsText['剑'] = {
-		出手文本: '兵器通用：{人物}挥剑。',
-		未命中文本: '兵器未中：{人物}{未命中}。',
-	};
-	data.xlsText['绝顶+男+老年+普通+剑'] = { 出手文本: '五项组合：{人物}出剑。' };
-	data.xlsText['绝顶+男+老年+普通+剑+武当'] = { 出手文本: '六项组合：{人物}来自{门派}。' };
-	const mud = new FightMud(() => {}, false, data);
-	mud.onMsg([...initial(), ['skill', skillId, 0, 1], ['miss', skillId, 0, 1]]);
-	assert.match(mud.toString(), /六项组合：张三丰.*武当/);
-	assert.match(mud.toString(), /兵器未中：张三丰.*未命中/);
-	assert.doesNotMatch(mud.toString(), /兵器通用|五项组合/);
-});
-
-// 测试：人物专属按 display.character 而非单位 uid 查询，零编号同样有效。
-test('mud templates: character lookup uses display.character including zero rather than unit ID', () => {
-	const data = tables();
-	data.xlsCharacter[0] = data.xlsCharacter[100];
-	data.xlsText[0] = { 出手文本: '零号人物：{人物}出手。' };
+	data.xlsCharacter[0] = { id: 0, 出手文本: '零号人物：$N出手。' };
 	const mud = new FightMud(() => {}, false, data);
 	mud.onMsg([...initial(0), ['skill', skillId, 0, 1]]);
 	assert.match(mud.toString(), /零号人物：张三丰/);
 	const other = new FightMud(() => {}, false, data);
-	other.onMsg([...initial(100), ['skill', skillId, 0, 1]]);
+	other.onMsg([...initial(), ['skill', skillId, 0, 1]]);
 	assert.doesNotMatch(other.toString(), /零号人物/);
 });
 
-// 测试：空白单元格继续回退，缺少人物或技能表时仍保留默认描写，模板不修改输入或表数据。
-test('mud templates: blank cells and missing data fall back without mutating tables or messages', () => {
+// 缺失、空白和全空数组逐事件回退，渲染不能修改人物表或传入的消息。
+test('mud templates: blank character fields fall back without mutation', () => {
 	const data = tables();
-	data.xlsSkillDesc[skillId] = { 出手文本: '   ' };
-	data.xlsText[100] = { 出手文本: '' };
-	data.xlsText['剑'] = { 出手文本: '通用剑招：{人物}对{目标}出手。' };
-	const before = structuredClone(data);
-	const messages: fightMsg[] = [...initial(), ['skill', skillId, 0, 1]];
-	const wire = structuredClone(messages);
+	data.xlsCharacter[100].出手文本 = [' ', ''];
+	const before = structuredClone(data),
+		messages: fightMsg[] = [...initial(), ['skill', skillId, 0, 1]],
+		wire = structuredClone(messages);
 	const mud = new FightMud(() => {}, false, data);
 	mud.onMsg(messages);
-	assert.match(mud.toString(), /通用剑招：张三丰/);
+	assert.match(mud.toString(), /凝神蓄势.*破空掌/);
 	assert.deepEqual(data, before);
 	assert.deepEqual(messages, wire);
-	const fallback = new FightMud(() => {}, false, {});
-	fallback.onMsg(messages);
-	assert.match(fallback.toString(), /凝神蓄势.*\[破空掌\]/);
 });
 
-// 测试：嵌套攻击按出招与受伤配对关联技能，不能把内层技能错误套到外层伤害和死亡。
-test('mud templates: nested attacks pair their own skill descriptions with damage and death', () => {
+// 嵌套攻击仍按出招与伤害配对，死亡专属文案引用的是实际致死那层技能。
+test('mud templates: nested attacks retain the actual fatal skill for character death prose', () => {
 	const data = tables();
-	data.xlsSkillDesc[skillId] = { 受伤文本: '外层伤害{伤害}。', 死亡文本: '外层死亡。' };
-	data.xlsSkillDesc[counterId] = { 受伤文本: '内层伤害{伤害}。', 死亡文本: '内层死亡。' };
+	Object.assign(data.xlsCharacter[200], {
+		受伤文本: '$N受{技能}之伤{伤害}。',
+		死亡文本: '$N死于{技能}。',
+	});
 	const mud = new FightMud(() => {}, false, data);
 	mud.onMsg([
 		...initial(),
@@ -206,15 +150,16 @@ test('mud templates: nested attacks pair their own skill descriptions with damag
 		['hurt', 'skill', 1, 0, 90, 0, []],
 		['die', 1],
 	]);
-	assert.match(mud.toString(), /内层伤害10[\s\S]*外层伤害90[\s\S]*外层死亡/);
-	assert.doesNotMatch(mud.toString(), /内层死亡/);
+	assert.match(mud.toString(), /回风剑.*之伤10[\s\S]*破空掌.*之伤90[\s\S]*死于\[破空掌\]/);
 });
 
-// 测试：反伤和分担伤害不借用最近技能的文案，受害人物专属文案仍可生效。
-test('mud templates: reaction damage does not reuse unrelated skill descriptions', () => {
+// 反伤等反应伤害使用受害人物专属文案，不能借用最近一次普通技能的编号。
+test('mud templates: reaction damage uses its affected character without stale skill context', () => {
 	const data = tables();
-	data.xlsSkillDesc[skillId] = { 受伤文本: '技能受伤', 死亡文本: '错误技能死亡' };
-	data.xlsText[100] = { 受伤文本: '人物反应受伤{伤害}', 死亡文本: '人物反应死亡' };
+	Object.assign(data.xlsCharacter[100], {
+		受伤文本: '$N反应受伤{伤害}，技能{技能}',
+		死亡文本: '$N反应死亡{技能}',
+	});
 	const mud = new FightMud(() => {}, false, data);
 	mud.onMsg([
 		...initial(),
@@ -223,20 +168,19 @@ test('mud templates: reaction damage does not reuse unrelated skill descriptions
 		['hurt', 'dback', 0, 1, 100, 0, []],
 		['die', 0],
 	]);
-	assert.match(mud.toString(), /人物反应受伤100[\s\S]*人物反应死亡/);
-	assert.doesNotMatch(mud.toString(), /错误技能死亡/);
+	assert.match(mud.toString(), /张三丰.*反应受伤100，技能\n张三丰.*反应死亡/);
 });
 
-// 测试：模板中的技能和数字保留原配色，零伤害不套用吐血描写，死亡仍整句暗红。
-test('mud templates: placeholders preserve colors and zero damage never uses injury prose', () => {
+// 角色模板保留技能和数值配色，零伤害不触发受创描写，死亡依然整句暗红。
+test('mud templates: zero damage and color conventions remain intact', () => {
 	const data = tables();
-	data.xlsSkillDesc[skillId] = {
-		出手文本: '{施放者}施展{技能}。',
-		受伤文本: '{人物}吐血，受到{伤害}。',
-		死亡文本: '{人物}倒下。',
-	};
-	const output: string[] = [];
-	const mud = new FightMud((line) => output.push(line), true, data);
+	Object.assign(data.xlsCharacter[100], { 出手文本: '$N施展{技能}。' });
+	Object.assign(data.xlsCharacter[200], {
+		受伤文本: '$N吐血，受到{伤害}。',
+		死亡文本: '$N倒下。',
+	});
+	const output: string[] = [],
+		mud = new FightMud((line) => output.push(line), true, data);
 	mud.onMsg([
 		...initial(),
 		['skill', skillId, 0, 1, 'combo'],
@@ -262,26 +206,25 @@ test('mud templates: placeholders preserve colors and zero damage never uses inj
 				line.endsWith('\x1b[0m'),
 		),
 	);
-	assert.ok(!mud.toString().includes('\x1b['));
 });
 
-// 测试：分批接收或一次接收获得相同模板结果，新战斗清空技能关联，不能串用上一场技能死亡文案。
-test('mud templates: batch boundaries preserve causality and new battle clears pending descriptions', () => {
+// 新战斗清除旧致死上下文，单条与整批消息得出相同人物文案。
+test('mud templates: batching and start reset preserve character causality', () => {
 	const data = tables();
-	data.xlsSkillDesc[skillId] = { 受伤文本: '对应伤害{伤害}', 死亡文本: '旧技能死亡' };
-	data.xlsText[200] = { 死亡文本: '人物死亡' };
+	data.xlsCharacter[200].死亡文本 = '$N死于{技能}';
 	const messages: fightMsg[] = [
 		...initial(),
 		['skill', skillId, 0, 1],
 		['hurt', 'skill', 1, 0, 100, 0, []],
+		...initial(),
 		['die', 1],
 	];
 	const batch = new FightMud(() => {}, false, data),
 		single = new FightMud(() => {}, false, data);
 	batch.onMsg(messages);
 	for (const msg of messages) single.onMsg(msg);
+
 	assert.equal(batch.toString(), single.toString());
-	batch.onMsg([...initial(), ['die', 1]]);
-	assert.match(batch.toString(), /人物死亡/);
-	assert.doesNotMatch(batch.toString(), /旧技能死亡/);
+	assert.match(batch.toString(), /李虎.*死于$/);
+	assert.doesNotMatch(batch.toString(), /破空掌/);
 });

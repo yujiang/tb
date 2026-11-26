@@ -43,5 +43,41 @@
       "attack": 10
     },
     "final": {}
+  },
+  "3004": {
+    "id": 3004,
+    "name": "回风剑意",
+    "desc": "仅提供武学表现，不改变战斗属性",
+    "status": [],
+    "tags": [],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "action": "$N手中$w一晃，施展{技能}，架住了$n的来势。"
+  },
+  "3005": {
+    "id": 3005,
+    "name": "护体真气",
+    "desc": "仅提供武学表现，不改变战斗属性",
+    "status": [],
+    "tags": [],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "action": "$N气息一沉，运起{技能}，卸去{减伤}点伤害。"
+  },
+  "3006": {
+    "id": 3006,
+    "name": "掠水步",
+    "desc": "仅提供武学表现，不改变战斗属性",
+    "status": [],
+    "tags": [],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "action": "$N施展{技能}，蜻蜓点水一般滑了过去。"
   }
 }

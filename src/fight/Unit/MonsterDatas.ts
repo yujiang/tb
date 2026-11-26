@@ -1,11 +1,12 @@
 import { FightAttr } from '../FightAttr';
-import { FightDisplay, IdLevelArray, SpeedSkill } from '../struct';
+import { FightDisplayInput, IdLevelArray, SpeedSkill } from '../struct';
 import { RuleData } from '../Rules/RuleDatas';
 import { AIData } from '../AI/AIDatas';
 
-export interface MonsterData extends FightDisplay {
+export interface MonsterData extends FightDisplayInput {
 	/** 怪物模板 ID，0 有效；不是运行单位 uid；同模板可以重复生成，uid 由宿主分配。 */
 	id: number;
+
 	/** 完整初始 FightAttr，可来自同结构 JSON；生成时恢复为 FightAttr 并深拷贝，各实例独立。 */
 	attr: FightAttr;
 	/** 已学主动技能 [技能 ID, 等级][]，缺省空；0 级有效，必须先注册对应技能。 */

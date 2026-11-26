@@ -2,6 +2,7 @@
   "9001": {
     "id": 9001,
     "name": "灵狼",
+    "character": 9001,
     "attr": 6021,
     "grade": 60,
     "diff": 1,
@@ -20,11 +21,16 @@
     "attackSkill": 0,
     "fbackSkill": 0,
     "supportSkill": 0,
-    "ultimateSkill": 0
+    "ultimateSkill": 0,
+    "weaponName": "利爪",
+    "wugong": 0,
+    "neigong": 0,
+    "qinggong": 0
   },
   "9002": {
     "id": 9002,
     "name": "灵狐",
+    "character": 9002,
     "grade": 70,
     "diff": 2,
     "skills": [
@@ -46,11 +52,16 @@
     "attackSkill": 0,
     "fbackSkill": 0,
     "supportSkill": 0,
-    "ultimateSkill": 0
+    "ultimateSkill": 0,
+    "weaponName": "狐爪",
+    "wugong": 0,
+    "neigong": 0,
+    "qinggong": 0
   },
   "9003": {
     "id": 9003,
     "name": "药灵",
+    "character": 9003,
     "grade": 60,
     "diff": 3,
     "skills": [
@@ -67,6 +78,10 @@
     "attackSkill": 0,
     "fbackSkill": 0,
     "supportSkill": 0,
-    "ultimateSkill": 0
+    "ultimateSkill": 0,
+    "weaponName": "藤枝",
+    "wugong": 0,
+    "neigong": 0,
+    "qinggong": 0
   }
 }

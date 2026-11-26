@@ -99,6 +99,7 @@ function skillData(id: number, func: string, extra: Partial<SkillData> = {}): Sk
 			rand: 1,
 			hit: 100,
 			dodge: 0,
+			parry: 0,
 			attack: 0,
 			defend: 0,
 			hurt: 0,

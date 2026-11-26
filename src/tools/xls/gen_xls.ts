@@ -9,7 +9,7 @@ import { Utils } from '../public/Utils';
 // import { XLS_FUNC_KEY } from '../servers/game/xls/xlsFunc';
 
 // const chalk = require('chalk/safe');
-import * as chalk from 'chalk';
+import chalk from 'chalk';
 import { StringUtils } from '../public/stringUtils';
 
 export const XLS_FUNC_KEY = 'f';

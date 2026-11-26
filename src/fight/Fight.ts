@@ -86,7 +86,10 @@ export function getFightGlobalData(): Readonly<FightGlobalData> {
 export function setFightGlobalData(data: Partial<FightGlobalData>) {
 	const next = { ...gData, ...data };
 	const loopType = next.loopType ?? 'pc';
-	assert.ok(loopType === 'pc' || loopType === 'yanyu' || loopType === 'west', 'loopType must be pc, yanyu or west');
+	assert.ok(
+		loopType === 'pc' || loopType === 'yanyu' || loopType === 'west',
+		'loopType must be pc, yanyu or west',
+	);
 
 	gData.maxTurn = next.maxTurn;
 	gData.waitInputSec = next.waitInputSec;
@@ -130,6 +133,10 @@ export interface FightContex {
 	//crit?: boolean; // 是否暴击
 
 	damage?: number; // 伤害值
+	/** 最近一次公式的减伤前理论伤害，仅供转交受伤入口产生表现通知；每次公式重写，不改变结算。 */
+	damageBeforeReduction?: number;
+	/** 当前攻击段是否成功格挡；每段重新设置，反击判定读取主目标本段结果，不累计连招前段或副目标。 */
+	blocked?: boolean;
 	actionStarted?: boolean; // 根单位行动已通过目标、禁止及费用检查；用于完整行动后统一集气
 	actionEntrusted?: boolean; // 当前普通行动位已交给队友，本次托付不额外推动集气。
 
@@ -380,7 +387,11 @@ export class Fight {
 				assert.deepEqual(attack.mapsize, des.mapsize, 'Side map sizes must match');
 			}
 			if (this.map) {
-				assert.deepEqual([this.map.nx, this.map.ny], [...mapsize], 'Fight map size must match formation');
+				assert.deepEqual(
+					[this.map.nx, this.map.ny],
+					[...mapsize],
+					'Fight map size must match formation',
+				);
 			} else {
 				this.createMap(mapsize[0], mapsize[1]);
 			}
@@ -417,7 +428,9 @@ export class Fight {
 	}
 	/** 当前在场宠物，包含死亡尚未移除的宠物；主人UID为0同样有效。 */
 	getFightSummon(user: FightUnit): FightUnitSummon | undefined {
-		return this.getSideUnits(user.side).find(value => value instanceof FightUnitSummon && value.user === user.uid) as FightUnitSummon | undefined;
+		return this.getSideUnits(user.side).find(
+			(value) => value instanceof FightUnitSummon && value.user === user.uid,
+		) as FightUnitSummon | undefined;
 	}
 	getAllUnits(): FightUnit[] {
 		return this.AllUnits.flat();
@@ -466,11 +479,16 @@ export class Fight {
 			return skill.canTarget(attack) ? attack : undefined;
 		}
 
-		assert(sel.target === TargetSelectEnum.friend || sel.target === TargetSelectEnum.enemy || sel.target === TargetSelectEnum.any);
+		assert(
+			sel.target === TargetSelectEnum.friend ||
+				sel.target === TargetSelectEnum.enemy ||
+				sel.target === TargetSelectEnum.any,
+		);
 
 		const side = sel.target == TargetSelectEnum.friend ? attack.side : EnemySide(attack.side);
-		const units = (sel.target === TargetSelectEnum.any ? this.getAllUnits() : this.getSideUnitsCopy(side))
-			.filter(u=>skill.canTarget(u));
+		const units = (
+			sel.target === TargetSelectEnum.any ? this.getAllUnits() : this.getSideUnitsCopy(side)
+		).filter((u) => skill.canTarget(u));
 
 		if (!units.length) return null;
 
@@ -797,9 +815,10 @@ export class Fight {
 				return false;
 			}
 
-			return !!this.map && (
-				!!this.getFightSummon(unit) ||
-				this.getSideUnits(unit.side).length < this.map.nx * this.map.ny
+			return (
+				!!this.map &&
+				(!!this.getFightSummon(unit) ||
+					this.getSideUnits(unit.side).length < this.map.nx * this.map.ny)
 			);
 		}
 
@@ -1011,10 +1030,26 @@ export class Fight {
 		if (!this.validateInput(unit, { cmd: FightCmdEnum.summon, summon: id })) return;
 
 		const old = this.getFightSummon(unit);
-		const pos = old?.pos ?? selectSummonPos(unit.pos, this.map, new Set(this.getSideUnits(unit.side).map(value => value.pos)), new Set(), () => this.random());
+		const pos =
+			old?.pos ??
+			selectSummonPos(
+				unit.pos,
+				this.map,
+				new Set(this.getSideUnits(unit.side).map((value) => value.pos)),
+				new Set(),
+				() => this.random(),
+			);
 		const pet = unit.summons.get(id)();
-		assert.ok(pet instanceof FightUnitSummon && !pet.isDied(), 'Summon factory must create a living pet');
-		assert.ok(Number.isSafeInteger(pet.uid) && !this.hasUnit(pet.uid) && !this.dismissedUids.has(pet.uid), 'Summon UID must be unique');
+		assert.ok(
+			pet instanceof FightUnitSummon && !pet.isDied(),
+			'Summon factory must create a living pet',
+		);
+		assert.ok(
+			Number.isSafeInteger(pet.uid) &&
+				!this.hasUnit(pet.uid) &&
+				!this.dismissedUids.has(pet.uid),
+			'Summon UID must be unique',
+		);
 		assert.ok(!pet.fight, 'Summon factory must create a fresh instance');
 		pet.user = unit.uid;
 		pet.setPos(pos);
@@ -1222,7 +1257,11 @@ export class Fight {
 
 	// ***event start
 	private emitUnit = new EventEmitter();
-	emitUnitEvent<E extends FightUnitEvent>(event: E, unit: FightUnit, ...args: FightUnitEventMap[NoInfer<E>]) {
+	emitUnitEvent<E extends FightUnitEvent>(
+		event: E,
+		unit: FightUnit,
+		...args: FightUnitEventMap[NoInfer<E>]
+	) {
 		this.emitUnit.emit(event, unit, ...args);
 	}
 	onUnitEvent<E extends FightUnitEvent>(event: E, func: UnitEventFunc<NoInfer<E>>) {

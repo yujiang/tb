@@ -1,81 +1,115 @@
-// 像mud一样输出战斗表现，主要是文字描绘
-// 张三丰鹤发童颜宛若出尘仙人，一招破空而出。
-// 李虎叫一声来的好，反掌欲接，却被结结实实一掌打中胸口，哇的一口血吐了出来，李虎受了轻伤。
-
 import { FightReport } from './FightReport';
-import { fightMsg } from '../struct';
-import { getSkillData } from '../Skills/SkillDatas';
-import { FightMudTables, MudCharacter, MudTexts, resolveMudText } from './FightMudDatas';
+import type { FightClientUnit } from './FightClient';
+import type { fightMsg } from '../struct';
+import type { FightMudTables } from './FightMudDatas';
+import { FightRenderUnit, FightRenderContext } from './FightRenderUnit';
+import { FightMudUnit, FightMudOutput } from './FightMudUnit';
 
-interface MudContext {
-	actor?: number;
+interface PendingAction {
+	actor: number;
 	target: number;
-	subject: number;
-	skill?: number;
-	damage?: number;
-	heal?: number;
-	hp?: number;
-	critical?: boolean;
+	skill: number;
 }
 
+/** 协议派发与单位表现分离；客户端先更新状态，再调用unit.miss/hurt/die等方法。 */
 export class FightMud extends FightReport {
-	private pending: MudContext[] = [];
-	private fatal = new Map<number, MudContext>();
+	private readonly units = new Map<number, FightRenderUnit>();
+	private pending: PendingAction[] = [];
+	private readonly fatal = new Map<number, FightRenderContext>();
+	private readonly unitOutput: FightMudOutput;
+	private readonly mitigationDamage = new Map<fightMsg, FightRenderContext>();
+
+	override onMsg(msgs: fightMsg | fightMsg[]) {
+		this.mitigationDamage.clear();
+		const batch: fightMsg[] =
+			typeof msgs?.[0] === 'string' ? [msgs as fightMsg] : (msgs as fightMsg[]);
+		const pending = new Map<number, fightMsg>();
+		for (const msg of batch ?? []) {
+			if (['start', 'turn', 'actor', 'skill', 'end', 'side', 'dismiss'].includes(msg[0]))
+				pending.clear();
+			if (msg[0] === 'mitigate') pending.set(msg[1], msg);
+			if (msg[0] === 'hurt') {
+				const mitigation = pending.get(msg[2]);
+				if (mitigation?.[2] === msg[3]) {
+					this.mitigationDamage.set(mitigation, {
+						actualDamage: msg[4],
+						hp: msg[5],
+						effects: msg[6] ?? [],
+						reason: msg[1],
+					});
+				}
+				pending.delete(msg[2]);
+			}
+		}
+		super.onMsg(msgs);
+		this.mitigationDamage.clear();
+	}
 
 	constructor(
-		output: (line: string) => void = (line) => console.log(line),
+		output: (line: string) => void = console.log,
 		color = true,
-		private readonly tables: FightMudTables = {},
+		tables: FightMudTables = {},
 	) {
 		super(output, color);
-	}
-
-	private profile(id?: number): MudCharacter {
-		const character =
-			id === undefined ? undefined : this.client.getUnitById(id)?.display.character;
-		return character === undefined ? {} : (this.tables.xlsCharacter?.[character] ?? {});
-	}
-
-	private template(field: keyof MudTexts, ctx: MudContext, prefix = ''): boolean {
-		const character = this.client.getUnitById(ctx.subject)?.display.character;
-		const text = resolveMudText(this.tables, field, character, ctx.skill);
-		if (!text) return false;
-
-		const unit = this.client.getUnitById(ctx.target);
-		const values: Record<string, string> = {
-			人物: this.name(ctx.subject),
-			施放者: ctx.actor === undefined ? '' : this.name(ctx.actor),
-			目标: this.name(ctx.target),
-			技能: ctx.skill === undefined ? '' : this.skillName(ctx.skill),
-			伤害: this.paint(String(ctx.damage ?? 0), ctx.critical ? 'orange' : 'red'),
-			治疗: this.paint(String(ctx.heal ?? 0), 'green'),
-			生命: String(ctx.hp ?? unit?.point.hp ?? '未知'),
-			最大生命: String(unit?.point.hpMax ?? '未知'),
-			未命中: this.paint('未命中', 'blue'),
+		this.unitOutput = {
+			client: this.client,
+			tables,
+			name: (id) => this.name(id),
+			skillName: (id) => this.skillName(id),
+			buffName: (id) => this.buffName(id),
+			paint: (text, tone) => this.paint(text, tone),
+			write: (text, tone, highlight) => this.write(text, tone, highlight),
 		};
-		for (const [label, id] of [
-			['', ctx.subject],
-			['施放者', ctx.actor],
-			['目标', ctx.target],
-		] as const) {
-			const profile = this.profile(id);
-			for (const key of ['武功', 'sex', '年纪', '相貌', '兵器', '门派'] as const)
-				values[label + key] = profile[key] ?? '';
-			values[label + '性别'] = profile.sex ?? '';
+	}
+
+	/** 动画宿主可重写工厂，返回继承FightRenderUnit的表现单位，不必改协议派发。 */
+	protected createRenderUnit(data: FightClientUnit): FightRenderUnit {
+		return new FightMudUnit(data, this.unitOutput);
+	}
+
+	/** 按运行UID查询表现单位；data是客户端快照，不是服务端FightUnit。 */
+	getRenderUnit(uid: number): FightRenderUnit | undefined {
+		const existing = this.units.get(uid),
+			data = this.client.getUnitById(uid);
+		if (existing && (!data || existing.data === data)) {
+			return existing;
 		}
-		const line =
-			prefix +
-			text.replace(/\{([^{}]+)\}/g, (placeholder, key: string) => values[key] ?? placeholder);
-		this.write(
-			line,
-			field === '死亡文本' ? 'darkRed' : field === '复活文本' ? 'brightGreen' : undefined,
+
+		// 缺少初始化消息时仍通过同一入口显示“单位 #uid”，新side到达后替换占位表现单位。
+		const unit = this.createRenderUnit(
+			data ?? {
+				uid,
+				pos: 0,
+				dead: false,
+				display: { name: '', wugong: 0, neigong: 0, qinggong: 0 },
+				point: { hp: 0, hpMax: 0, mp: 0, mpMax: 0 },
+				buffs: [],
+			},
 		);
-		return true;
+		this.units.set(uid, unit);
+		return unit;
+	}
+
+	private hurtContext(msg: fightMsg): FightRenderContext {
+		let skill: number | undefined;
+		if (msg[1] === 'skill') {
+			for (let i = this.pending.length - 1; i >= 0; i--) {
+				const action = this.pending[i];
+				if (action.actor !== msg[3] || action.target !== msg[2]) {
+					continue;
+				}
+
+				skill = this.pending.splice(i, 1)[0].skill;
+				break;
+			}
+		}
+		return { actor: msg[3], reason: msg[1], hp: msg[5], effects: msg[6] ?? [], skill };
 	}
 
 	protected override describe(msg: fightMsg): boolean {
 		switch (msg[0]) {
 			case 'start':
+				this.units.clear();
 				this.pending.length = 0;
 				this.fatal.clear();
 				return false;
@@ -85,275 +119,105 @@ export class FightMud extends FightReport {
 				this.fatal.clear();
 				return false;
 			case 'side': {
-				const side = msg[1] === 0 ? '攻击方' : '防守方';
 				const units = this.client.sides[msg[1] as 0 | 1];
 				this.write(
-					`${side}：${units.map((unit) => this.name(unit.uid)).join('、') || '无人应战'}。`,
+					`${msg[1] === 0 ? '攻击方' : '防守方'}：${units.map((unit) => this.name(unit.uid)).join('、') || '无人应战'}。`,
 				);
-				for (const unit of units) {
-					for (const buff of unit.buffs)
-						this.write(`${this.name(unit.uid)}身上带着${this.buffName(buff[0])}。`);
+				for (const data of units) {
+					const unit = this.getRenderUnit(data.uid);
+					unit.enter();
+					for (const buff of data.buffs) unit.addBuff(buff[0], data.uid, true);
 				}
 				return true;
 			}
+			case 'summon':
+				this.write(`${this.name(msg[1])} 召唤 ${this.name(msg[3].uid)}，加入战斗。`);
+				this.getRenderUnit(msg[3].uid)?.enter();
+				return true;
+			case 'dismiss':
+				this.getRenderUnit(msg[2])?.dismiss(msg[1]);
+				this.units.delete(msg[2]);
+				this.fatal.delete(msg[2]);
+				this.pending = this.pending.filter(
+					(action) => action.actor !== msg[2] && action.target !== msg[2],
+				);
+				return true;
 			case 'sort':
-				// 行动条状态仍由父类更新，文字叙述按实际行动顺序展开。
 				return true;
 			case 'actor':
 				this.pending.length = 0;
-				this.write('');
-				this.write(`${this.name(msg[1])}凝神应战，准备出手。`);
+				this.getRenderUnit(msg[1])?.ready();
 				return true;
-			case 'skill': {
-				const ctx: MudContext = {
+			case 'skill':
+				this.pending.push({ actor: msg[2], target: msg[3], skill: msg[1] });
+				this.getRenderUnit(msg[2])?.action(msg[1], msg[3], msg[4]);
+				return true;
+			case 'miss':
+				this.getRenderUnit(msg[3])?.miss(msg[2], msg[1], msg[4]);
+				return true;
+			case 'block':
+				this.getRenderUnit(msg[1])?.block(msg[2]);
+				return true;
+			case 'mitigate':
+				this.getRenderUnit(msg[1])?.mitigate(msg[3] - msg[4], {
 					actor: msg[2],
-					target: msg[3],
-					subject: msg[2],
-					skill: msg[1],
-				};
-				this.pending.push(ctx);
-				if (this.template('出手文本', ctx, this.reaction(msg[4]))) return true;
-
-				const move =
-					msg[4] === 'combo'
-						? '招式未收，紧接着使出'
-						: msg[4] === 'next'
-							? '攻势不歇，追加一式'
-							: msg[4] === 'kill'
-								? '乘胜追击，使出'
-								: msg[4] === 'fback'
-									? '窥见破绽，反手使出'
-									: msg[4] === 'support'
-										? '应声相助，使出'
-										: '凝神蓄势，使出';
-				const force = getSkillData(msg[1])?.magic ? '劲气破空，直取' : '攻向';
-				this.write(
-					`${this.reaction(msg[4])}${this.name(msg[2])}${move}${this.skillName(msg[1])}，${force}${this.name(msg[3])}！`,
-				);
+					originalDamage: msg[3],
+					damage: msg[4],
+					...this.mitigationDamage.get(msg),
+				});
 				return true;
-			}
-			case 'miss': {
-				if (
-					this.template(
-						'未命中文本',
-						{ actor: msg[2], target: msg[3], subject: msg[2], skill: msg[1] },
-						this.reaction(msg[4]),
-					)
-				) {
-					return true;
+			case 'hurt': {
+				const ctx = this.hurtContext(msg);
+				if (msg[4] > 0) {
+					this.fatal.delete(msg[2]);
+					if (msg[5] <= 0) this.fatal.set(msg[2], ctx);
 				}
-
-				const prefix = `${this.reaction(msg[4])}${this.name(msg[2])}使出${this.skillName(msg[1])}，${this.name(msg[3])}闪身避开，`;
-				this.write(`${prefix}未命中。`, 'blue', { start: prefix.length, length: 3 });
+				this.getRenderUnit(msg[2])?.hurt(msg[4], ctx);
 				return true;
 			}
-			case 'skillFailed':
-				this.write(
-					`${this.name(msg[1])}欲使出${this.skillName(msg[3])}，却气机一滞，这一式未能发动。`,
-				);
-				return true;
-			case 'skipAction':
-				this.write(
-					`${this.name(msg[1])}受${msg[2] != null ? this.buffName(msg[2]) : msg[3]}影响，只能按兵不动，这一回合未能行动。`,
-				);
-				return true;
-			case 'defend':
-				this.write(`${this.name(msg[1])}收招凝神，采取防御姿态。`);
-				return true;
-			case 'protect':
-				this.write(
-					`${this.name(msg[1])}挺身护在${this.name(msg[2])}身前，准备替其挡下攻势。`,
-				);
-				return true;
-			case 'addBuff':
-				if (msg[6])
-					this.write(
-						`${this.name(msg[3])}将${this.buffName(msg[4])}施于${this.name(msg[2])}身上。`,
-					);
-				return true;
-			case 'buffTimes':
-				this.write(`${this.name(msg[1])}身上的${this.buffName(msg[2])}还剩${msg[3]}次。`);
-				return true;
-			case 'removeBuff': {
-				const reason =
-					msg[1] === 'die'
-						? '（死亡清除）'
-						: msg[1] === 'turn'
-							? '（持续时间结束）'
-							: msg[1] === 'times'
-								? '（次数耗尽）'
-								: '';
-				this.write(`${this.name(msg[2])}身上的${this.buffName(msg[4])}消散了。${reason}`);
+			case 'heal': {
+				const unit = this.getRenderUnit(msg[2]);
+				const hp = this.client.getUnitById(msg[2])?.point.hp ?? msg[5] + msg[4];
+				if (unit)
+					unit.heal(hp - msg[5], {
+						actor: msg[3],
+						reason: msg[1],
+						hp,
+						effects: msg[6] ?? [],
+					});
 				return true;
 			}
-			case 'hurt':
-				this.hurt(msg);
-				return true;
-			case 'heal':
-				this.heal(msg);
-				return true;
-			case 'die': {
-				const ctx = this.fatal.get(msg[1]) ?? { target: msg[1], subject: msg[1] };
+			case 'die':
+				this.getRenderUnit(msg[1])?.die(this.fatal.get(msg[1]));
 				this.fatal.delete(msg[1]);
-				if (this.template('死亡文本', ctx)) return true;
-
-				this.write(`${this.name(msg[1])}身形一晃，终于支撑不住，倒地不起。`, 'darkRed');
 				return true;
-			}
 			case 'relife':
 				this.fatal.delete(msg[1]);
-				if (this.template('复活文本', { target: msg[1], subject: msg[1] })) {
-					return true;
-				}
-
-				this.write(
-					`一线生机重新凝聚，${this.name(msg[1])}缓缓睁开双眼，重新站起。`,
-					'brightGreen',
-				);
+				this.getRenderUnit(msg[1])?.relife();
+				return true;
+			case 'addBuff':
+				if (msg[6]) this.getRenderUnit(msg[2])?.addBuff(msg[4], msg[3]);
+				return true;
+			case 'removeBuff':
+				this.getRenderUnit(msg[2])?.removeBuff(msg[4], msg[3], msg[1]);
+				return true;
+			case 'buffTimes':
+				this.getRenderUnit(msg[1])?.buffTimes(msg[2], msg[3]);
+				return true;
+			case 'defend':
+				this.getRenderUnit(msg[1])?.defend();
+				return true;
+			case 'protect':
+				this.getRenderUnit(msg[1])?.protect(msg[2]);
+				return true;
+			case 'skillFailed':
+				this.getRenderUnit(msg[1])?.skillFailed(msg[3]);
+				return true;
+			case 'skipAction':
+				this.getRenderUnit(msg[1])?.skipAction(msg[2], msg[3]);
 				return true;
 			default:
 				return false;
 		}
-	}
-
-	private reaction(type: string): string {
-		const label =
-			type === 'combo'
-				? '连招'
-				: type === 'next'
-					? '连击'
-					: type === 'kill'
-						? '追击'
-						: type === 'fback'
-							? '反击'
-							: type === 'support'
-								? '协战'
-								: '';
-		return label ? `【${label}】` : '';
-	}
-
-	private injury(id: number, hp: number): string {
-		const max = this.client.getUnitById(id)?.point.hpMax;
-		if (!(max > 0)) return `（剩余生命 ${hp}）`;
-
-		const ratio = hp / max;
-		const description =
-			hp <= 0
-				? '气息将绝，已到了生死边缘'
-				: ratio >= 0.8
-					? '受了轻伤'
-					: ratio >= 0.5
-						? '伤势渐重'
-						: ratio >= 0.2
-							? '身受重伤'
-							: '气若游丝';
-		return `${this.name(id)}${description}。（生命 ${hp}/${max}）`;
-	}
-
-	private hurt(msg: fightMsg) {
-		// 消息只携带行动的技能 ID；按攻击者与目标配对，嵌套动作先结算后注册的一层。
-		let skill: number | undefined;
-		if (msg[1] === 'skill') {
-			for (let index = this.pending.length - 1; index >= 0; index--) {
-				const action = this.pending[index];
-				if (action.actor !== msg[3] || action.target !== msg[2]) {
-					continue;
-				}
-				skill = this.pending.splice(index, 1)[0].skill;
-				break;
-			}
-		}
-		const ctx: MudContext = {
-			actor: msg[3],
-			target: msg[2],
-			subject: msg[2],
-			skill,
-			damage: msg[4],
-			hp: msg[5],
-			critical: (msg[6] ?? []).includes('crit'),
-		};
-		if (msg[4] > 0) {
-			this.fatal.delete(msg[2]);
-			if (msg[5] <= 0) this.fatal.set(msg[2], ctx);
-			if (this.template('受伤文本', ctx)) return;
-		}
-
-		const target = this.name(msg[2]),
-			attacker = this.name(msg[3]);
-		const amount = String(msg[4]);
-		if (msg[4] === 0) {
-			const prefix = `${attacker}这一击未能伤及${target}，造成 `;
-			this.write(`${prefix}${amount} 点伤害。`, 'red', {
-				start: prefix.length,
-				length: amount.length,
-			});
-			return;
-		}
-
-		const critical = (msg[6] ?? []).includes('crit');
-		let prefix: string,
-			resource = '伤害';
-		if (msg[1] === 'dback') {
-			prefix = `${target}被${attacker}的劲力反震，损失 `;
-			resource = '生命';
-		} else if (msg[1] === 'share') {
-			prefix = `${target}挺身挡下一击，分担 `;
-		} else if (msg[1] === 'reflect') {
-			prefix = `${attacker}将攻势原路反射，${target}遭到反噬，受到 `;
-		} else if (msg[1] === 'poison' || msg[1] === 'buff') {
-			prefix = `${target}${msg[1] === 'poison' ? '体内毒性发作' : '遭到持续侵蚀'}，损失 `;
-			resource = '生命';
-		} else {
-			prefix = critical
-				? `这一击直中${target}要害，造成 `
-				: `${target}躲闪不及，被结结实实击中，受到 `;
-		}
-		const effects = (msg[6] ?? []).map((effect: string) =>
-			effect === 'crit' ? '暴击' : effect,
-		);
-		this.write(
-			`${prefix}${amount} 点${resource}${effects.length ? `（${effects.join('、')}）` : ''}。${this.injury(msg[2], msg[5])}`,
-			critical ? 'orange' : 'red',
-			{ start: prefix.length, length: amount.length },
-		);
-	}
-
-	private heal(msg: fightMsg) {
-		const unit = this.client.getUnitById(msg[2]);
-		const hp = unit?.point.hp ?? msg[5] + msg[4];
-		if (
-			this.template('治疗文本', {
-				actor: msg[3],
-				target: msg[2],
-				subject: msg[2],
-				heal: hp - msg[5],
-				hp,
-			})
-		) {
-			return;
-		}
-
-		const amount = String(hp - msg[5]);
-		const target = this.name(msg[2]),
-			healer = this.name(msg[3]);
-		const prefix =
-			msg[1] === 'blood'
-				? `${target}借着攻势汲回血气（吸血），恢复 `
-				: msg[1] === 'relife'
-					? `${target}重新凝聚生机，恢复 `
-					: msg[1] === 'reflect'
-						? `${healer}转来的生机落在${target}身上，恢复 `
-						: msg[2] === msg[3]
-							? `${target}运气调息，恢复 `
-							: `${healer}为${target}渡入一股生机，恢复 `;
-		const feeling = hp === msg[5] ? '气血未有变化。' : '气息稍稍平复。';
-		const effects = (msg[6] ?? []).map((effect: string) =>
-			effect === 'crit' ? '暴击' : effect,
-		);
-		this.write(
-			`${prefix}${amount} 点生命${effects.length ? `（${effects.join('、')}）` : ''}，${feeling}（生命 ${hp}/${unit?.point.hpMax ?? '未知'}）`,
-			'green',
-			{ start: prefix.length, length: amount.length },
-		);
 	}
 }

@@ -32,6 +32,23 @@ function loadGenerator(folder) {
 	return require(bundleTool(folder, 'gen_xls'));
 }
 
+// 已有JSON新增一个展示字段时，正式编译的导表工具应正常打印彩色差异，不捕获TypeError后继续伪装成功。
+test('xls: compiled generator logs added display fields without chalk errors', (t) => {
+	const folder = temporaryFolder(t);
+	const { gen_xls } = require('../bin-debug/tools/xls/gen_xls');
+	const file = path.join(root, 'resource/assets/json/monster_xls.json');
+	const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+	delete data[7001].weaponName;
+	fs.writeFileSync(path.join(folder, 'monster_xls.json'), JSON.stringify(data));
+	const original = console.log, logs = [];
+	console.log = (...args) => logs.push(args);
+	try {
+		gen_xls({ xlsfile: path.join(root, 'resource/assets/xls/monster.xlsx'), folder, ts: path.join(folder, 'functions'), force: 1, update: true, diff: true });
+	} finally { console.log = original; }
+	assert.equal(logs.some(args => args.some(value => value instanceof Error)), false);
+	assert.equal(JSON.parse(fs.readFileSync(path.join(folder, 'monster_xls.json'), 'utf8'))[7001].weaponName, '钢刀');
+});
+
 // 战斗表的布尔开关应保留true和false，不能报错或变成字符串。
 test('xls: boolean cells retain their JSON types', (t) => {
 	const { xlsData2Json } = loadGenerator(temporaryFolder(t));

@@ -46,11 +46,7 @@ export class MonsterSide extends FightSide {
 
 	private createUnit(data: MonsterData, uid: number, pos: number): FightUnitMonster {
 		const attr = Object.assign(new FightAttr(), clone(data.attr));
-		const display = {
-			name: data.name,
-			...(data.character !== undefined ? { character: data.character } : {}),
-		};
-		const unit = new FightUnitMonster(uid, attr, display);
+		const unit = new FightUnitMonster(uid, attr, data);
 		unit.monsterId = data.id;
 		unit.setPos(pos);
 		// 先学习再运行被动，最后以模板显式装配覆盖被动；省略时保留被动装配，0 可卸下。

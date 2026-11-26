@@ -1,87 +1,66 @@
-/** 客户端人物描述；字段值可由宿主自己的表枚举约束。 */
-export interface MudCharacter {
-	/** 武功描述特征，如绝顶/高手/普通/菜鸟；缺省不参与组合匹配。 */
-	武功?: string;
-	/** 性别描述特征，如男/女；占位符同时支持sex和性别；不影响服务端规则。 */
-	sex?: string;
-	/** 年纪描述特征，如少年/青年/中年/老年；值由宿主约定。 */
-	年纪?: string;
-	/** 相貌描述特征，如英俊/普通/丑陋；值由宿主约定。 */
-	相貌?: string;
-	/** 兵器文字特征，如刀/剑/棍；独立于服务端WeaponEnum，不自动互相转换。 */
-	兵器?: string;
-	/** 门派文字特征，如华山/武当/少林；缺省不参与组合匹配。 */
-	门派?: string;
-}
+/** 单句或候选数组；跳过空白，按同一人物、技能、事件的展示次数轮换，不消耗战斗随机数。 */
+export type MudText = string | readonly string[];
 
+/** 人物可覆盖的展示事件；省略、空白或全空数组均回退通用表达。 */
 export interface MudTexts {
-	/** 攻击出手文案模板；缺省或纯空白逐级回退，不代替服务端出手协议。 */
-	出手文本?: string;
-	/** 技能直接受伤文案模板；可用{伤害}/{生命}等占位符；无配置回退内置描写。 */
-	受伤文本?: string;
-	/** 死亡文案模板；整句使用死亡颜色，缺省回退人物/特征/内置描写。 */
-	死亡文本?: string;
-	/** 未命中文案模板；{未命中}占位符输出蓝色文字。 */
-	未命中文本?: string;
-	/** 治疗文案模板；{治疗}占位符输出绿色数值，缺省使用内置治疗描写。 */
-	治疗文本?: string;
-	/** 复活文案模板；整句亮绿色，缺省使用内置复活描写。 */
-	复活文本?: string;
+	/** 首次入场及召唤入场；$N为入场者，$w为其兵器名。 */
+	出场文本?: MudText;
+	/** 每次行动准备时显示；$N为行动者，$w为其兵器；省略或空白回退“凝神应战，准备出手”，与初次出场独立。 */
+	准备文本?: MudText;
+	/** 未配置SkillData.action时的角色出招描写；$N为施放者，$n为目标。 */
+	出手文本?: MudText;
+	/** 闪避结果；$N为闪避者，$n为攻击者；{未命中}保留蓝色。 */
+	未命中文本?: MudText;
+	/** 格挡展示消息；$N为格挡者，$n为攻击者；只表现，不新增战斗格挡判定。 */
+	格挡文本?: MudText;
+	/** 实际发生减伤/免伤时；$N为减伤者，{减伤}为本次减少的点数；优先于内功被动action。 */
+	减伤文本?: MudText;
+	/** 可见Buff添加；$N为承受者，$n为施加者，{Buff}为带颜色的Buff名。 */
+	添加Buff文本?: MudText;
+	/** 可见Buff移除；$N为承受者，{Buff}为Buff名，{原因}为移除原因。 */
+	移除Buff文本?: MudText;
+	/** 正数受伤；$N为受伤者，$n为伤害来源，可用{伤害}/{生命}/{最大生命}，零伤害仍使用通用描写。 */
+	受伤文本?: MudText;
+	/** 收到die才使用，整句暗红；$N为死亡者，$n为已知致死伤害来源。 */
+	死亡文本?: MudText;
+	/** 恢复生命；$N为恢复者，$n为治疗来源；{治疗}为上限截断后的实际恢复量。 */
+	治疗文本?: MudText;
+	/** 复活消息，整句亮绿；$N为复活者。 */
+	复活文本?: MudText;
 }
 
-/** 三张表只在客户端使用，不参与战斗结算或传输。 */
+/** character表的一行；每个人物编号独立配置，不按年龄、门派或性别组合匹配。 */
+export interface CharacterData extends MudTexts {
+	/** 人物描述编号，对应display.character；非负安全整数，0有效。 */
+	id: number;
+	/** 表格编辑用名称，可省略，不覆盖单位display.name。 */
+	name?: string;
+}
+
+/** 客户端MUD资料，只读取一张character表；技能出招另由SkillData.action提供。 */
 export interface FightMudTables {
-	/** 人物描述表，键对应FightDisplay.character；缺省无人物特征，0键有效。 */
-	xlsCharacter?: Readonly<Record<string, MudCharacter>>;
-	/** 人物专属/特征组合文案：人物键对应character，其余键用+连接特征值，越具体越优先。 */
-	xlsText?: Readonly<Record<string, MudTexts>>;
-	/** 按技能ID提供最高优先级文案；按事件字段分别回退到人物专属、特征组合和默认描写。 */
-	xlsSkillDesc?: Readonly<Record<number, MudTexts>>;
+	/** 人物编号到专属文案，省略或未知编号使用通用表达；不参与战斗结算。 */
+	xlsCharacter?: Readonly<Record<number, CharacterData>>;
 }
 
-const traits: (keyof MudCharacter)[] = ['武功', 'sex', '年纪', '相貌', '兵器', '门派'];
+/** 文案数组按展示序号轮换；负数/非整数序号回退第一句。 */
+export function pickMudText(text: MudText | undefined, index = 0): string | undefined {
+	const options = (typeof text === 'string' ? [text] : (text ?? [])).filter((value) =>
+		value.trim(),
+	);
+	if (!options.length) return undefined;
 
-/** 逐字段回退；组合越具体越优先，同等具体程度按表中顺序。 */
+	return options[(Number.isSafeInteger(index) && index >= 0 ? index : 0) % options.length];
+}
+
+/** 只按display.character查找当前事件，不推导人物特征或借用其他角色的文案。 */
 export function resolveMudText(
 	tables: FightMudTables,
 	field: keyof MudTexts,
-	character?: string | number,
-	skill?: number,
+	character?: number,
+	index = 0,
 ): string | undefined {
-	const nonempty = (text?: string) => (text?.trim() ? text : undefined);
-	const skillText =
-		skill === undefined ? undefined : nonempty(tables.xlsSkillDesc?.[skill]?.[field]);
-	if (skillText) return skillText;
-
 	if (character === undefined) return undefined;
 
-	const own = nonempty(tables.xlsText?.[character]?.[field]);
-	if (own) return own;
-
-	const profile = tables.xlsCharacter?.[character];
-	if (!profile) return undefined;
-
-	const values = traits.map((key) => profile[key]).filter((value): value is string => !!value);
-	let result: string | undefined,
-		specificity = 0;
-	for (const [key, texts] of Object.entries(tables.xlsText ?? {})) {
-		if (Object.prototype.hasOwnProperty.call(tables.xlsCharacter ?? {}, key)) continue;
-		const text = nonempty(texts[field]);
-		if (!text) continue;
-		const parts = key.split('+').map((part) => part.trim());
-		if (parts.length <= specificity) continue;
-		const remaining = [...values];
-		const matches = parts.every((part) => {
-			const index = remaining.indexOf(part);
-			if (index < 0) return false;
-
-			remaining.splice(index, 1);
-			return true;
-		});
-		if (matches) {
-			result = text;
-			specificity = parts.length;
-		}
-	}
-	return result;
+	return pickMudText(tables.xlsCharacter?.[character]?.[field], index);
 }

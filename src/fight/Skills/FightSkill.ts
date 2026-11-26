@@ -39,6 +39,7 @@ export class FightSkill {
 			rand: 0,
 			hit: 0,
 			dodge: 0,
+			parry: 0,
 			attack: 0,
 			defend: 0,
 			hurt: 0,
@@ -235,6 +236,16 @@ export class FightSkill {
 		const d2 = this.getAttack().hit - defender.attr.physic.base.dodge;
 		return f.randomLess(d2 / 100);
 	}
+	physicParryTest(f: Fight, defender: FightUnit): boolean {
+		if (!this.isPhysic()) return false;
+
+		const parry = defender.attr.physic.base.parry ?? 0;
+		if (!(parry > 0) || defender.isForbid('parry')) {
+			return false;
+		}
+
+		return f.randomLess(1 - (this.getAttack().hit - parry) / 100);
+	}
 
 	calcHurt(
 		f: Fight,
@@ -242,6 +253,7 @@ export class FightSkill {
 		ctx: FightContex,
 		attacker: FightUnit = ctx.attack,
 		damageRateAdd = 0,
+		allowCrit = true,
 	) {
 		const ismagic = this.isMagic();
 		const dft = ismagic ? defender.attr.magic : defender.attr.physic;
@@ -258,6 +270,7 @@ export class FightSkill {
 			dft.final,
 			ctx,
 			rate + propertyBonus,
+			allowCrit,
 		);
 		if (propertyBonus > 0) ctx.effects.push('克');
 		return damage;

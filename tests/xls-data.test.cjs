@@ -6,7 +6,7 @@ const path = require('node:path');
 const tb = require('../bin-debug');
 const { exportXlsOnce } = require('../bin-debug/tools/xls/watch_xls');
 const root = path.resolve(__dirname, '..');
-const names = ['skill', 'buff', 'passive', 'ai', 'rule', 'attr', 'monster', 'user', 'summon', 'zhen', 'side', 'fight', 'fight_global', 'fight_const'];
+const names = ['skill', 'buff', 'passive', 'ai', 'rule', 'attr', 'monster', 'user', 'summon', 'zhen', 'side', 'fight', 'fight_global', 'fight_const', 'character'];
 const readTables = folder => Object.fromEntries(names.map(name => [name, JSON.parse(fs.readFileSync(path.join(folder, `${name}_xls.json`), 'utf8'))]));
 
 function register(data) {
@@ -37,6 +37,10 @@ test('xls data: all workbooks export coherent linked templates', async (t) => {
 	const ref = (table, id) => assert.ok(data[table][id], `Unknown ${table}: ${id}`);
 	for (const type of ['user', 'monster', 'summon']) {
 		for (const unit of Object.values(data[type])) {
+			if (unit.character !== undefined) ref('character', unit.character);
+			for (const field of ['wugong', 'neigong', 'qinggong']) {
+				if (unit[field]) ref('passive', unit[field]);
+			}
 			assert.ok(tb.resolveXlsAttr(data, type, unit) instanceof tb.FightAttr);
 			for (const [id] of unit.skills ?? []) ref('skill', id);
 			for (const [id] of unit.passiveSkills ?? []) ref('passive', id);
@@ -89,6 +93,20 @@ test('xls data: all workbooks export coherent linked templates', async (t) => {
 	for (const row of Object.values(data.fight_global)) {
 		assert.equal(data.buff[row.protectBuff].class, 'protect');
 		assert.equal(typeof row.duiwei, 'boolean');
+	}
+});
+
+// character表由编号直接提供专属文案，示例覆盖现有单位和剑客、将军，不再导出年龄门派等组合特征。
+test('xls data: character rows directly describe entry injury and death', () => {
+	const data = readTables(path.join(root, 'resource/assets/json'));
+	assert.equal(Object.keys(data.character).length, 11);
+	assert.match(data.character[15001].出场文本, /\$N.*\$w.*来吧/);
+	assert.match(data.character[9001].受伤文本, /呜呜.*\{伤害\}/);
+	assert.match(data.character[15002].死亡文本, /环顾四周.*斜阳/);
+	for (const row of Object.values(data.character)) {
+		assert.equal(row.年纪, undefined);
+		assert.equal(row.门派, undefined);
+		assert.equal(row.sex, undefined);
 	}
 });
 

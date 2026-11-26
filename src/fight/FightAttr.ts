@@ -60,6 +60,9 @@ export interface BaseAttack {
 	/** 物理闪避点数，如20；被禁止dodge时不做随机判断，直接视为命中。 */
 	dodge: number; //闪避
 
+	/** 物理招架点数，默认0关闭；正数时命中后按clamp(1-(攻击hit-受击parry)/100,0,1)判定，非0～1比例；眩晕禁止。成功跳过暴击，完整技能伤害减半，再进入防御/护盾及受伤流程。 */
+	parry: number; //招架
+
 	/** 攻击数值，与目标对应分组defend相减；attackRate只缩放此项单位来源值。 */
 	attack: number; //攻击力
 	/** 防御数值，物理/魔法读取各自分组，治疗/毒也读取对应分组。 */
@@ -158,10 +161,11 @@ export class FightAttr {
 	spHurtRate = fightConsts.spHurtRate;
 	/** 每点实际输出伤害或治疗增加的怒气；默认取创建属性时的fightConsts.spOutputRate（初始0），Buff/被动可修正。 */
 	spOutputRate = fightConsts.spOutputRate;
+
 	/** 服务端兵器枚举，与NPC弱点直接匹配，不自动转换MUD兵器文字。 */
 	weapon: WeaponEnum; // 武器类型
 	/** 职业字符串，由宿主提供名称；target AI通过career精确匹配，如医生；缺省undefined不匹配指定职业。 */
-	career: string // 职业
+	career: string; // 职业
 
 	/** 人物五行，默认none；用于受伤相克、治疗相生及治疗施放属性缺省来源。 */
 	charProp: PropEnum = PropEnum.none; // 人物属性--被攻击用，也作治疗相生的默认施放属性

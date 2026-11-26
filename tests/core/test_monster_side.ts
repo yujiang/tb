@@ -46,6 +46,7 @@ function attributes(): FightAttr {
 		rand,
 		hit: 100,
 		dodge: 0,
+		parry: 0,
 		defend: 0,
 		hurt: 0,
 		hurtP: 0,
@@ -169,7 +170,13 @@ test('monster side: lookup template IDs and formation IDs to create distinct uni
 			[1, monsterId, 0],
 		],
 	);
-	assert.deepEqual(side.units[0].display, { name: '山贼', character: 0 });
+	assert.deepEqual(side.units[0].display, {
+		name: '山贼',
+		character: 0,
+		wugong: 0,
+		neigong: 0,
+		qinggong: 0,
+	});
 	assert.equal(side.units[0].findSkill(skillId).level, 2);
 	assert.equal(side.units[0].attackSkill, skillId);
 	assert.equal(side.units[0].ultimateSkill, ultimateId);

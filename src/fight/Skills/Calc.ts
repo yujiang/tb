@@ -31,8 +31,10 @@ export function calcHurt(
 	df: FinalAttack,
 	ctx: FightContex,
 	rate = 1,
+	allowCrit = true,
 ) {
-	const result = calcAttackParts(f, a, d, ctx);
+	const result = calcAttackParts(f, a, d, ctx, allowCrit);
+	ctx.damageBeforeReduction = Math.max(0, result.originalDamage * (rate + result.critBonus));
 	return finite(
 		Math.max(calcFinal(af, df, result.damage), 1) * (rate + result.critBonus),
 		'damage',
@@ -52,6 +54,7 @@ export function calcPoison(
 ): number {
 	const d1 = a.attack - d.defend;
 	const d2 = clamp(a.hurt - d.hurtAnti, 0, 0.5);
+	ctx.damageBeforeReduction = Math.max(clamp(a.hurt, 0, 0.5) * hp + a.attack, 1);
 	return finite(Math.max(d2 * hp + d1, 1), 'poison damage');
 }
 
@@ -67,18 +70,28 @@ export function calcAttack(
 }
 
 // 暴击只判定一次，返回加成，留到最终倍率阶段与技能及属性加成相加。
-function calcAttackParts(f: Fight, a: BaseAttack, d: BaseAttack, ctx: FightContex) {
+function calcAttackParts(
+	f: Fight,
+	a: BaseAttack,
+	d: BaseAttack,
+	ctx: FightContex,
+	allowCrit = true,
+) {
 	let d1 = a.attack - d.defend;
 	d1 += a.hurt - d.hurtAnti;
 	d1 *= 1 + Math.max(a.hurtP - d.hurtPAnti, 0);
 
 	let critBonus = 0;
-	if (d1 > 1 && (isDebugCrit() || f.randomLess(a.critP - d.critPAnit))) {
+	if (allowCrit && d1 > 1 && (isDebugCrit() || f.randomLess(a.critP - d.critPAnit))) {
 		critBonus = critBonusBase + clamp(a.critDeep - d.critDeepAnit, 0, 1);
 		ctx.effects.push('crit');
 	}
 
-	return { damage: finite(Math.max(d1, 1), 'damage'), critBonus };
+	return {
+		damage: finite(Math.max(d1, 1), 'damage'),
+		critBonus,
+		originalDamage: Math.max(d1, (a.attack + a.hurt) * (1 + Math.max(a.hurtP, 0)), 1),
+	};
 }
 
 // _a _b的字段必须匹配！

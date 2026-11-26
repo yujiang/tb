@@ -16,6 +16,7 @@ function baseAttack(attack: number): BaseAttack {
 		rand: 1,
 		hit: 100,
 		dodge: 0,
+		parry: 0,
 		attack,
 		defend: 0,
 		critP: 0,

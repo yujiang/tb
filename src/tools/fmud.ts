@@ -7,6 +7,7 @@ import { ConsoleLineRenderer } from './ConsoleLineRenderer';
 import {
 	Fight, FightData, FightGlobalData, FightConstData, FightXlsTables,
 	FightLoopPC, FightLoopWest, FightLoopYanYu, createFightLoop, FightMud, FightClient, FightUnit, FightUnitUser, FightInput, FightCmdEnum, fightMsg,
+	CharacterData,
 	initFightConsts, initFightXls, createSideByXls, setFightGlobalData, getBuffData,
 } from '../index';
 
@@ -151,7 +152,7 @@ function loadTables(options: FmudOptions) {
 
 	const env = { ...(existsSync(envPath) ? parseEnv(readFileSync(envPath, 'utf8')) : {}), ...process.env };
 	const dataDir = options.dataDir ?? resolve(dirname(envPath), env.FMUD_DATA_DIR ?? 'resource/assets/json');
-	const names = ['fight', 'fight_global', 'fight_const', 'attr', 'user', 'summon', 'monster', 'side', 'zhen', 'skill', 'buff', 'passive', 'ai', 'rule'];
+	const names = ['fight', 'fight_global', 'fight_const', 'attr', 'user', 'summon', 'monster', 'side', 'zhen', 'skill', 'buff', 'passive', 'ai', 'rule', 'character'];
 	const tables = Object.fromEntries(names.map(name => {
 		const file = resolve(dataDir, `${name}_xls.json`);
 		try { return [name, JSON.parse(readFileSync(file, 'utf8'))]; }
@@ -160,6 +161,7 @@ function loadTables(options: FmudOptions) {
 		fight: Record<number, FightData>;
 		fight_global: Record<number, FightGlobalData>;
 		fight_const: Record<number, FightConstData>;
+		character: Record<number, CharacterData>;
 	};
 	const globalId = integer(env.FMUD_GLOBAL_ID ?? '13001', 'FMUD_GLOBAL_ID');
 	const constId = integer(env.FMUD_CONST_ID ?? '14001', 'FMUD_CONST_ID');
@@ -391,7 +393,7 @@ export async function runFmud(args: string[], input: Readable = process.stdin, o
 		};
 	};
 	for (const unit of fight.getAllUnits()) bindHint(unit);
-	const mud = new FightMud(line => renderer.write(line), options.color);
+	const mud = new FightMud(line => renderer.write(line), options.color, { xlsCharacter: tables.character });
 	loop.onMsg(msgs => {
 		const messages = typeof msgs[0] === 'string' ? [msgs as fightMsg] : msgs;
 		for (const msg of messages) {

@@ -7,6 +7,8 @@ import { StaticData } from '../Buffs/StaticData';
 // 3. 初始化之后为FightUnit添加一个buff
 
 export interface PassiveData extends StaticData {
+	/** 被动表现文案，字符串或候选数组；用于display.qinggong的闪避、wugong的招架、neigong的实际减伤。角色专属文案优先；支持$N本人/$n来源/$w兵器及{技能}被动名称，空白回退通用，不参与结算。 */
+	action?: string | readonly string[];
 	/** 初始化时给自身附加 [Buff ID, Buff 等级][]；缺省无附加 Buff，等级不自动继承被动等级。 */
 	addbuff?: IdLevelArray;
 	/** 初始化时装配已学替代普攻技能，不学习或改等级；缺省不变，0 卸下。 */

@@ -26,6 +26,7 @@ function baseAttack(overrides: Partial<BaseAttack> = {}): BaseAttack {
 		rand: 1,
 		hit: 100,
 		dodge: 0,
+		parry: 0,
 		attack: 20,
 		defend: 0,
 		critP: 0,

@@ -2,6 +2,7 @@
   "7001": {
     "id": 7001,
     "name": "山贼刀手",
+    "character": 7001,
     "attr": 6011,
     "grade": 60,
     "diff": 1,
@@ -22,11 +23,16 @@
     "ruleIds": [
       5001,
       5003
-    ]
+    ],
+    "weaponName": "钢刀",
+    "wugong": 3004,
+    "neigong": 3005,
+    "qinggong": 3006
   },
   "7002": {
     "id": 7002,
     "name": "山贼术士",
+    "character": 7002,
     "grade": 70,
     "diff": 2,
     "skills": [
@@ -44,11 +50,16 @@
     "aiId": 4003,
     "ruleIds": [
       5002
-    ]
+    ],
+    "weaponName": "骨符",
+    "wugong": 3004,
+    "neigong": 3005,
+    "qinggong": 3006
   },
   "7003": {
     "id": 7003,
     "name": "山贼医师",
+    "character": 7003,
     "grade": 60,
     "diff": 3,
     "skills": [
@@ -63,6 +74,10 @@
     ],
     "passiveSkills": [],
     "aiId": 4002,
-    "ruleIds": []
+    "ruleIds": [],
+    "weaponName": "短棍",
+    "wugong": 3004,
+    "neigong": 3005,
+    "qinggong": 3006
   }
 }

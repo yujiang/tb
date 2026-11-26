@@ -67,6 +67,7 @@ export class AttrSkill extends FightSkill {
 			ctx,
 		);
 		if (propertyBonus > 0) ctx.effects.push('克');
+		ctx.damageBeforeReduction *= this.getPoisonRate() + propertyBonus;
 		return damage * (this.getPoisonRate() + propertyBonus);
 	}
 

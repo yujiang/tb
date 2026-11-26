@@ -28,6 +28,7 @@ function defaultBaseAttack(): BaseAttack {
 		rand: 0.5,
 		hit: 100,
 		dodge: 0,
+		parry: 0,
 		attack: 0,
 		defend: 0,
 		hurt: 0,

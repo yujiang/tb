@@ -21,7 +21,8 @@
     "critP": 0,
     "spMax": 100,
     "jpMax": 10,
-    "damageLimit": 0
+    "damageLimit": 0,
+    "parry": 0
   },
   "6002": {
     "id": 6002,
@@ -45,7 +46,8 @@
     "critP": 0,
     "spMax": 100,
     "jpMax": 10,
-    "damageLimit": 0
+    "damageLimit": 0,
+    "parry": 0
   },
   "6003": {
     "id": 6003,
@@ -69,7 +71,8 @@
     "critP": 0,
     "spMax": 100,
     "jpMax": 10,
-    "damageLimit": 0
+    "damageLimit": 0,
+    "parry": 0
   },
   "6011": {
     "id": 6011,
@@ -93,7 +96,8 @@
     "critP": 0,
     "spMax": 100,
     "jpMax": 10,
-    "damageLimit": 0
+    "damageLimit": 0,
+    "parry": 0
   },
   "6012": {
     "id": 6012,
@@ -117,7 +121,8 @@
     "critP": 0,
     "spMax": 100,
     "jpMax": 10,
-    "damageLimit": 0
+    "damageLimit": 0,
+    "parry": 0
   },
   "6013": {
     "id": 6013,
@@ -141,7 +146,8 @@
     "critP": 0,
     "spMax": 100,
     "jpMax": 10,
-    "damageLimit": 0
+    "damageLimit": 0,
+    "parry": 0
   },
   "6021": {
     "id": 6021,
@@ -165,7 +171,8 @@
     "critP": 0,
     "spMax": 100,
     "jpMax": 10,
-    "damageLimit": 0
+    "damageLimit": 0,
+    "parry": 0
   },
   "6022": {
     "id": 6022,
@@ -189,7 +196,8 @@
     "critP": 0,
     "spMax": 100,
     "jpMax": 10,
-    "damageLimit": 0
+    "damageLimit": 0,
+    "parry": 0
   },
   "6023": {
     "id": 6023,
@@ -213,6 +221,7 @@
     "critP": 0,
     "spMax": 100,
     "jpMax": 10,
-    "damageLimit": 0
+    "damageLimit": 0,
+    "parry": 0
   }
 }

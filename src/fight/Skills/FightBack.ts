@@ -3,7 +3,7 @@ import { FightUnit } from '../Unit/FightUnit';
 import { FightSkill } from './FightSkill';
 import { magicAttackFunc } from './Funcs/NomalSkill';
 import { SkillData } from './SkillDatas';
-import { canAttackSkill} from './AttackChecks';
+import { canAttackSkill } from './AttackChecks';
 
 // 优先用装备的技能反击，最后采用attackBack
 
@@ -56,12 +56,14 @@ export function skillFBack(
 	skill: FightSkill,
 	ctx: FightContex,
 ) {
-	if (!canAttackSkill(attacker,defender,skill,'fback')) {
+	if (!canAttackSkill(attacker, defender, skill, 'fback')) {
 		return false;
 	}
 
 	ctx.fbackNum = (ctx.fbackNum || 0) + 1;
-	const magic = new MagicFBackSkill(skill.getXls(), skill.level);
+	const data = skill.getXls();
+	const guaranteed = ctx.blocked === true && data.fbackOnBlock === true;
+	const magic = new MagicFBackSkill(guaranteed ? { ...data, rand: 1 } : data, skill.level);
 
 	const ft = skill.isMagic() ? attacker.attr.magic : attacker.attr.physic;
 	magic.mergeAttack(ft.fback, ft.final);

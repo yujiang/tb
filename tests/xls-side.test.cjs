@@ -15,6 +15,46 @@ function create(data, id = 11001, map) {
 	return tb.createSideByXls(id);
 }
 
+// 属性表可为玩家配置招架点数，未填写仍默认为0，不能把旧表或弱点玩法意外启用招架。
+test('xls side: parry is configurable and defaults to zero', () => {
+	const data = tables();
+	delete data.attr[6001].parry;
+	assert.equal(tb.resolveXlsAttr(data, 'user', data.user[8001]).physic.base.parry, 0);
+	data.attr[6001].parry = 30;
+	assert.equal(create(data).units[0].attr.physic.base.parry, 30);
+});
+
+// 原生怪物与XLS玩家、怪物和宠物都将人物ID及实际兵器名传入display；0号人物有效，模板不被修改。
+test('unit display: native and xls templates preserve character zero and weapon names', () => {
+	const data = tables();
+	for (const type of ['user', 'monster', 'summon']) {
+		for (const row of Object.values(data[type])) {
+			row.character = 0;
+			row.wugong = 3004;
+			row.neigong = 3005;
+			row.qinggong = 3006;
+			row.weaponName = `${type}的兵器`;
+		}
+	}
+	const side = create(data);
+	for (const unit of side.units) {
+		assert.equal(unit.display.character, 0);
+		assert.deepEqual([unit.display.wugong, unit.display.neigong, unit.display.qinggong], [3004, 3005, 3006]);
+		assert.equal(unit.display.weaponName, `${unit.isUser() ? 'user' : 'summon'}的兵器`);
+		assert.deepEqual(unit.getUnitMsg().display, unit.display);
+	}
+	const monsters = create(data, 11002);
+	assert.equal(monsters.units[0].display.weaponName, 'monster的兵器');
+	const template = { ...data.monster[7001], id: 10019981, attr: tb.resolveXlsAttr(data, 'monster', data.monster[7001]), ai: undefined, rules: undefined };
+	tb.initMonsters([template]);
+	tb.initZhens([{ id: 10019982, pos: [0] }]);
+	const native = tb.CreateMonsterSide([template.id], 10019982, () => 0).units[0];
+	assert.equal(native.display.character, 0);
+	assert.deepEqual([native.display.wugong, native.display.neigong, native.display.qinggong], [3004, 3005, 3006]);
+	assert.equal(native.display.weaponName, 'monster的兵器');
+	assert.equal(template.weaponName, 'monster的兵器');
+});
+
 // 初始化一次表、UID和随机源后只传sideId，双方UID不重复，地图尺寸由阵法自动建立。
 test('xls side: one argument creation uses global dependencies and formation map sizes', () => {
 	const data = tables();

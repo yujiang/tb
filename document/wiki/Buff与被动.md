@@ -162,6 +162,7 @@ override onEvent(...[unit, ctx, attacker, pending]: UnitEventArgs<'beforeHurt'>)
 
 | 字段 | 含义 | 缺省与边界 |
 | --- | --- | --- |
+| `action` | 被动表现字符串或只读候选数组 | 可省略；display的武功/内功/轻功引用，角色专属优先；支持$N/$n/$w/$l、{技能}/{被动}/{减伤}/{减伤前}/{减伤后}，不参与属性和结算 |
 | `addbuff` | 初始化给自身添加的 Buff | `[Buff ID, Buff等级][]`；可省略；等级不自动取被动等级，保留小写命名 |
 | `attackSkill` | 初始化装配替代普攻 | 缺省不变，0 卸下；只装配不学习、不改技能等级 |
 | `fbackSkill` | 初始化装配反击 | 缺省不变；当前此入口忽略 0，模板显式装配仍可用 0 卸下 |

@@ -4,7 +4,8 @@ export enum FightSideEnum {
 }
 
 /** 技能实际发动来源：normal普通行动，support协战，fback反击，next连击，combo连招，kill追击，spread溅射，trap陷阱；只用于本场使用次数统计。 */
-export type SkillUseType = 'normal' | 'support' | 'fback' | 'next' | 'combo' | 'kill' | 'spread' | 'trap';
+export type SkillUseType =
+	'normal' | 'support' | 'fback' | 'next' | 'combo' | 'kill' | 'spread' | 'trap';
 
 export enum FightResultEnum {
 	ongoing = -1,
@@ -50,11 +51,25 @@ export interface SelectParam {
 
 // 显示属性, 需要注入
 export interface FightDisplay {
-	/** 客户端人物描述表xlsCharacter的键，数字或字符串，0有效；缺省使用默认文案。 */
-	character?: number | string;
+	/** 客户端人物描述表xlsCharacter的数字编号，省略无特征，0有效；只用于展示。 */
+	character?: number;
+	/** 当前使用的兵器显示名；省略无专属名称，MUD的$w读取此字段，不参与兵器属性计算。 */
+	weaponName?: string;
+
+	/** 武功表现对应的passive表ID；0未配置，只选择招架文案，不自动学习或修改战斗属性。 */
+	wugong: number;
+	/** 内功表现对应的passive表ID；0未配置，只选择实际减伤/免伤文案。 */
+	neigong: number;
+	/** 轻功表现对应的passive表ID；0未配置，只选择闪避文案。 */
+	qinggong: number;
+
 	/** 单位显示名称，由宿主提供，初始化时传给客户端。 */
 	name: string;
 }
+
+/** 宿主构造或模板输入允许省略三类武学编号；运行时展示数据统一补0。 */
+export type FightDisplayInput = Omit<FightDisplay, 'wugong' | 'neigong' | 'qinggong'> &
+	Partial<Pick<FightDisplay, 'wugong' | 'neigong' | 'qinggong'>>;
 
 export enum InsertActionPos {
 	first, // 剩余队列最前（默认）
@@ -81,15 +96,15 @@ export interface FightActionDisplay {
 
 export enum FightCmdEnum {
 	none, //没有来得及发指令, 默认攻击!
-	attack, 	//攻击
-	defend, 	//防御
-	skill, 		//技能
-	runaway, 	//逃跑
+	attack, //攻击
+	defend, //防御
+	skill, //技能
+	runaway, //逃跑
 	//catch,    //捕捉宠物
-	summon, 	//召唤宠物，如果场上有宠物，替换他
-	dismiss, 	//移除单位，target必填；怪物可移除怪物，召唤物校验user归属，玩家不可移除
-	cancel, 	//取消
-	protect, 	//保护队友，行动优先级高于普通指令
+	summon, //召唤宠物，如果场上有宠物，替换他
+	dismiss, //移除单位，target必填；怪物可移除怪物，召唤物校验user归属，玩家不可移除
+	cancel, //取消
+	protect, //保护队友，行动优先级高于普通指令
 }
 
 export interface FightInput {

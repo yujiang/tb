@@ -10,10 +10,12 @@ export interface SkillData {
 	name: string;
 	/** 可选说明文本，供宿主展示，不参与结算。 */
 	desc?: string;
+	/** MUD出招描写，省略/空白回退通用文案；字符串或候选字符串数组，数组按展示次数轮换。支持$N施放者、$n目标、$w施放者display.weaponName（缺省兵器）、$l表现部位，以及现有{技能}等占位符；只写攻势，不影响命中、伤害或战斗随机数，优先于客户端出手文本。 */
+	action?: string | readonly string[];
 
 	/** true 使用魔法攻击/防御分组且不做物理命中检查；false 使用物理分组。 */
 	magic: boolean;
-	/** true跳过物理命中检查，不受目标闪避影响；缺省false，魔法技能原本就不做物理命中检查；不改变发动概率。 */
+	/** true跳过物理命中检查，不受目标闪避影响，但仍判招架；缺省false，魔法技能原本就不做物理命中检查；不改变发动概率。 */
 	alwaysHit?: boolean;
 	/** 是否原地施法：0/省略表示需要移动，1表示不移动；缠绕等move禁止状态下仅允许1。普攻装配和各子技能独立读取自身配置。 */
 	nomove?: 0 | 1;
@@ -88,6 +90,8 @@ export interface SkillData {
 	attackSkill?: number;
 	/** 效果处理时给施放者装配已学反击技能；缺省不变，当前此入口忽略 0。 */
 	fbackSkill?: number;
+	/** 装配为单位fbackSkill时，当前受击段成功格挡则反击必定发动（跳过自身rand）；缺省false。未格挡仍用原rand，仍遵守来袭nofback、连招末段、实际伤害>1、存活及状态/目标/移动校验，反击不能再次引发反击。 */
+	fbackOnBlock?: boolean;
 	/** 效果处理时装配协战技能；须已注册且func为normal（省略同normal），否则断言失败；只装配不学习，未学时不参与协战；缺省不变，当前此入口忽略0。 */
 	supportSkill?: number;
 	/** 效果处理时给施放者装配已学破盾大招；缺省不变，0 卸下，仍需自身打破敌方最后一面盾后自动触发。 */

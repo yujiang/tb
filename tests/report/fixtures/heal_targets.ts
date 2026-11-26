@@ -27,6 +27,7 @@ function attributes(hp: number): FightAttr {
 		rand: 0,
 		hit: 100,
 		dodge: 0,
+		parry: 0,
 		attack,
 		defend: 0,
 		hurt: 0,

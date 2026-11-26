@@ -31,6 +31,7 @@ function attributes(): FightAttr {
 		rand: 0,
 		hit: 0,
 		dodge: 0,
+		parry: 0,
 		defend: 0,
 		hurt: 0,
 		hurtP: 0,

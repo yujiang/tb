@@ -15,6 +15,23 @@ process.env.FMUD_CONST_ID = '14001';
 process.env.FMUD_DATA_DIR = path.join(root, 'resource/assets/json');
 const childEnv = { ...process.env };
 
+// fmud加载character表，初始角色有专属出场，野狼受伤读自己的编号且保留实际伤害。
+test('fmud: character table supplies entry and wolf injury prose', async () => {
+	const input = new PassThrough();
+	let text = '';
+	const output = new Writable({ write(chunk, _encoding, done) {
+		const line = chunk.toString(); text += line;
+		if (line.endsWith('指令 > ')) input.write('quit\n');
+		done();
+	} });
+	try {
+		await runFmud(['12001', '11004', '11002', '--no-color'], input, output);
+		assert.match(text, /刀客（#0）反手抽出雁翎刀.*来吧/);
+		assert.match(text, /灵狼（#1）受了伤，呜呜.*受到48点伤害/);
+		assert.doesNotMatch(text, /\$N|\$w/);
+	} finally { input.destroy(); }
+});
+
 for (const [globalId, mode] of [['13001', 'pc'], ['13002', 'west']]) {
 	// 主人可查看备用列表并召唤，初始宠物不重复列出，新宠次回合能够接收玩家指令。
 	test(`fmud: ${mode} summons a reserve pet and accepts its next turn input`, async () => {
@@ -56,7 +73,7 @@ for (const [globalId, mode] of [['13001', 'pc'], ['13002', 'west']]) {
 			assert.equal(prompts, 6);
 			assert.match(text, /没有可重复的指令/);
 			assert.equal((text.match(/刀客（#0）[^\n]*采取防御姿态/g) ?? []).length, 2);
-			assert.equal((text.match(/灵狼（#1）[^\n]*攻向山贼刀手（#2）/g) ?? []).length, 2);
+			assert.equal((text.match(/灵狼（#1）[^\n]*朝山贼刀手（#2）扑去/g) ?? []).length, 2);
 		} finally { process.env.FMUD_GLOBAL_ID = '13001'; input.destroy(); }
 	});
 }

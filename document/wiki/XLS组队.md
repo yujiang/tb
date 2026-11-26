@@ -17,6 +17,9 @@ XlsUserData移除attackSkill、fbackSkill、supportSkill、ultimateSkill四个�
 | 字段 | 含义、默认与入口 |
 | --- | --- |
 | attr? | 显式属性表整数ID，0有效；优先于grade/diff，错误ID和类型不匹配报错，不回退 |
+| character? | 继承MonsterData：客户端人物描述表数字编号，0有效，省略无特征；进入display |
+| weaponName? | 继承MonsterData：实际兵器显示名称，省略无专属名称；进入display供MUD的$w读取 |
+| wugong?/neigong?/qinggong? | 继承MonsterData：分别引用passive表的格挡/减伤/闪避文案；省略补0，仅表现，不自动学习 |
 | grade? | 未填attr时必填，非负整数等级，如60、70；不是技能等级 |
 | diff? | 未填attr时必填，整数1～5；与单位所在表类型和grade精确匹配唯一属性行 |
 | aiId? | 怪物AI表ID，省略无AI；查找失败报错，每单位新建AI实例 |
@@ -61,11 +64,12 @@ XlsUserData移除attackSkill、fbackSkill、supportSkill、ultimateSkill四个�
 | magicAttack / magicDefend | 魔法各阶段attack/defend点数 |
 | healAttack | heal.attack点数 |
 | hit | 命中点数，100表示100%，不是1 |
+| parry? | 物理招架点数，省略/0关闭；命中后判定，成功不暴击且完整技能伤害减半；示例表均为0，弱点玩法保持原行为 |
 | critP | 暴击概率0～1，0为无暴击 |
 | spMax / jpMax | 非负资源上限点数，初始sp/jp均0 |
 | damageLimit | 非负单次输出伤害上限点数，0不限 |
 
-上述数值字段必填，没有隐式随机默认值。每个阶段独立建对象；base.rand=1，其他阶段rand=0；poison.attack=0，其余BaseAttack及FinalAttack数值默认0。公共资源增长属性取创建FightAttr时的常量默认值。未配置的等级/难度组合报错，不猜测、插值或借用其他type。
+除parry可省略默认为0外，上述数值字段必填，没有隐式随机默认值。每个阶段独立建对象；base.rand=1，其他阶段rand=0；poison.attack=0，其余BaseAttack及FinalAttack数值默认0。公共资源增长属性取创建FightAttr时的常量默认值。未配置的等级/难度组合报错，不猜测、插值或借用其他type。
 
 ## FightXlsTables
 
