@@ -1,0 +1,26 @@
+{
+  "4001": {
+    "id": 4001,
+    "name": "攻击敌方法师",
+    "type": "target",
+    "skill": 1001,
+    "friend": false,
+    "career": "法师"
+  },
+  "4002": {
+    "id": 4002,
+    "name": "自疗",
+    "type": "target",
+    "skill": 1002,
+    "self": true,
+    "cond": "hpLow",
+    "condData": 0.5
+  },
+  "4003": {
+    "id": 4003,
+    "name": "压制敌方输出",
+    "type": "target",
+    "skill": 1003,
+    "contributions": "enemyHurt"
+  }
+}

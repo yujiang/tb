@@ -3,6 +3,26 @@ const { test } = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 
+// 全局loopType能保存并保留省略值；仅接受pc、yanyu、west，非法配置不部分更新其他字段。
+test('global loop type supports pc yanyu west and rejects invalid values', () => {
+	const api = require('..');
+	const previous = { ...api.getFightGlobalData() };
+	try {
+		for (const loopType of ['pc', 'yanyu', 'west']) {
+			api.setFightGlobalData({ loopType });
+			assert.equal(api.getFightGlobalData().loopType, loopType);
+			const fight = new api.Fight(1, { runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 });
+			const Loop = { pc: api.FightLoopPC, yanyu: api.FightLoopYanYu, west: api.FightLoopWest }[loopType];
+			assert.ok(api.createFightLoop(fight) instanceof Loop);
+			api.setFightGlobalData({ waitInputSec: 12 });
+			assert.equal(api.getFightGlobalData().loopType, loopType);
+		}
+		const before = { ...api.getFightGlobalData() };
+		assert.throws(() => api.setFightGlobalData({ loopType: 'invalid', maxTurn: 999 }), /loopType/);
+		assert.deepEqual(api.getFightGlobalData(), before);
+	} finally { api.setFightGlobalData(previous); }
+});
+
 // 测试：包入口导出当前战斗实现，并生成可用的类型声明。
 test('package entry exports the current Fight implementation and has declarations', () => {
 	const pkg = require('../package.json');
@@ -30,6 +50,9 @@ test('package entry exports the current Fight implementation and has declaration
 	});
 	assert.equal(battle.globalData, api.getFightGlobalData());
 	assert.equal(typeof api.initFightConsts, 'function');
+	assert.equal(typeof api.createSideByXls, 'function');
+	assert.equal(typeof api.initFightXls, 'function');
+	assert.equal(typeof api.resolveXlsAttr, 'function');
 	assert.deepEqual(api.fightConsts, { spHurtRate: 0, spOutputRate: 0, jpAdd: 1 });
 	assert.equal(typeof api.FightLoopWest, 'function');
 	assert.equal(typeof api.FightLoopYanYu, 'function');

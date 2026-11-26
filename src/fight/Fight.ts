@@ -3,7 +3,8 @@ import { FightMap } from './FightMap';
 import { FightMimic } from './FightMimic';
 import { FightSide } from './FightSide';
 import { FightUnit, UnitEventFunc, sortByAttr } from './Unit/FightUnit';
-import { FightUnitSummon } from './Unit/FightUnitUser';
+import { FightUnitSummon, FightUnitUser } from './Unit/FightUnitUser';
+import { selectSummonPos } from './SummonPos';
 import { FightUnitEvent } from './Buffs/BuffDatas';
 import type { FightUnitEventMap } from './Buffs/BuffDatas';
 import {
@@ -51,7 +52,7 @@ export interface FightGlobalData {
 	/** 缺省false；敌方最后一面盾打破且全体存活单位均破盾后，完整动作结束后由实际破盾者自动施放装配大招，每队每回合最多一次；无大招或无法施放直接跳过。 */
 	allShieldBreak?: boolean;
 
-	// west, yanyu or pc
+	/** 循环类型pc/yanyu/west，默认pc；由createFightLoop创建对应驱动，省略更新时保留当前值。 */
 	loopType?: FightLoopType;
 }
 
@@ -63,11 +64,13 @@ const gData: FightGlobalData = {
 	attackDie: true,
 	protectBuff: undefined,
 	allShieldBreak: false,
+	loopType: 'pc',
 };
 
-/** 返回独立的烟雨预设（对位和集气为true，attackDie为false）；需显式传给setFightGlobalData，查询本身不修改共享配置。 */
+/** 返回独立烟雨预设（loopType=yanyu，对位和集气为true，attackDie为false）；查询不修改共享配置。 */
 export function getYanyuGlobalData(): Partial<FightGlobalData> {
 	return {
+		loopType: 'yanyu',
 		duiwei: true,
 		jiqi: true,
 		attackDie: false,
@@ -79,9 +82,11 @@ export function getFightGlobalData(): Readonly<FightGlobalData> {
 	return gData;
 }
 
-/** 启动时按字段设置公共配置，省略字段保留当前值；配置合法性由宿主保证，不做运行时校验。 */
+/** 启动时按字段设置公共配置，省略字段保留当前值；loopType校验枚举，其余配置合法性由宿主保证。 */
 export function setFightGlobalData(data: Partial<FightGlobalData>) {
 	const next = { ...gData, ...data };
+	const loopType = next.loopType ?? 'pc';
+	assert.ok(loopType === 'pc' || loopType === 'yanyu' || loopType === 'west', 'loopType must be pc, yanyu or west');
 
 	gData.maxTurn = next.maxTurn;
 	gData.waitInputSec = next.waitInputSec;
@@ -90,6 +95,7 @@ export function setFightGlobalData(data: Partial<FightGlobalData>) {
 	gData.attackDie = next.attackDie;
 	gData.protectBuff = next.protectBuff;
 	gData.allShieldBreak = next.allShieldBreak ?? false;
+	gData.loopType = loopType;
 }
 
 // FightData 填xls实现
@@ -368,6 +374,17 @@ export class Fight {
 	AllUnits: AllUnitType;
 	private readonly dismissedUids = new Set<number>();
 	createSide(attack: FightSide, des: FightSide) {
+		const mapsize = attack.mapsize ?? des.mapsize;
+		if (mapsize) {
+			if (attack.mapsize && des.mapsize) {
+				assert.deepEqual(attack.mapsize, des.mapsize, 'Side map sizes must match');
+			}
+			if (this.map) {
+				assert.deepEqual([this.map.nx, this.map.ny], [...mapsize], 'Fight map size must match formation');
+			} else {
+				this.createMap(mapsize[0], mapsize[1]);
+			}
+		}
 		this.resetMimic();
 		this.dismissedUids.clear();
 		attack.clearContributions();
@@ -397,6 +414,10 @@ export class Fight {
 	}
 	getSideUnitsCopy(side: FightSideEnum): FightUnit[] {
 		return [...this.AllUnits[side]];
+	}
+	/** 当前在场宠物，包含死亡尚未移除的宠物；主人UID为0同样有效。 */
+	getFightSummon(user: FightUnit): FightUnitSummon | undefined {
+		return this.getSideUnits(user.side).find(value => value instanceof FightUnitSummon && value.user === user.uid) as FightUnitSummon | undefined;
 	}
 	getAllUnits(): FightUnit[] {
 		return this.AllUnits.flat();
@@ -613,7 +634,7 @@ export class Fight {
 	// PC 立即行动：自身可行动、费用足够、目标能接受效果；检查不抽样、不扣费。
 	checkPC(unit: FightUnit, input: FightInput): boolean {
 		if (unit.isDied()) {
-			unit.hintClient('自身已死亡，无法行动');
+			unit.hintClient('已死亡，行动跳过');
 			return false;
 		}
 
@@ -757,12 +778,29 @@ export class Fight {
 				FightCmdEnum.defend,
 				FightCmdEnum.skill,
 				FightCmdEnum.runaway,
+				FightCmdEnum.summon,
 				FightCmdEnum.dismiss,
 				FightCmdEnum.cancel,
 				FightCmdEnum.protect,
 			].includes(input.cmd)
 		) {
 			return false;
+		}
+
+		if (input.cmd === FightCmdEnum.summon) {
+			if (
+				!(unit instanceof FightUnitUser) ||
+				!Number.isSafeInteger(input.summon) ||
+				input.summon < 0 ||
+				!unit.summons.has(input.summon)
+			) {
+				return false;
+			}
+
+			return !!this.map && (
+				!!this.getFightSummon(unit) ||
+				this.getSideUnits(unit.side).length < this.map.nx * this.map.ny
+			);
 		}
 
 		if (input.cmd === FightCmdEnum.dismiss) {
@@ -929,7 +967,7 @@ export class Fight {
 		}
 
 		if (unit.isDied()) {
-			unit.hintClient('自身已死亡，无法行动');
+			unit.hintClient('已死亡，行动跳过');
 			return;
 		}
 
@@ -969,6 +1007,30 @@ export class Fight {
 		});
 	}
 
+	exeSummon(unit: FightUnitUser, id: number, ctx?: FightContex): FightContex {
+		if (!this.validateInput(unit, { cmd: FightCmdEnum.summon, summon: id })) return;
+
+		const old = this.getFightSummon(unit);
+		const pos = old?.pos ?? selectSummonPos(unit.pos, this.map, new Set(this.getSideUnits(unit.side).map(value => value.pos)), new Set(), () => this.random());
+		const pet = unit.summons.get(id)();
+		assert.ok(pet instanceof FightUnitSummon && !pet.isDied(), 'Summon factory must create a living pet');
+		assert.ok(Number.isSafeInteger(pet.uid) && !this.hasUnit(pet.uid) && !this.dismissedUids.has(pet.uid), 'Summon UID must be unique');
+		assert.ok(!pet.fight, 'Summon factory must create a fresh instance');
+		pet.user = unit.uid;
+		pet.setPos(pos);
+		pet.setFight(this, unit.side);
+		pet.startFight(this);
+		unit.summons.delete(id);
+		ctx ??= { ...initFightContex(this), attack: unit };
+		ctx.actionStarted = true;
+		ctx.defend = null;
+		if (old) this.exeDismiss(unit, old.uid, ctx);
+
+		this.AllUnits[unit.side].push(pet);
+		ctx.msgs.push(['summon', unit.uid, unit.side, pet.getUnitMsg()]);
+		return ctx;
+	}
+
 	exeDismiss(unit: FightUnit, tid: number, ctx?: FightContex): FightContex {
 		const target = this.getUnitById(tid);
 		if (!target) return;
@@ -990,6 +1052,7 @@ export class Fight {
 		ctx ??= { ...initFightContex(this), attack: unit };
 		ctx.actionStarted = true;
 		ctx.defend = null;
+		ctx.msgs.push(['defend', unit.uid]);
 		return ctx;
 	}
 
@@ -1027,6 +1090,8 @@ export class Fight {
 		let tid = input.target;
 
 		switch (cmd) {
+			case FightCmdEnum.summon:
+				return this.exeSummon(unit as FightUnitUser, input.summon, ctx);
 			case FightCmdEnum.dismiss:
 				return this.exeDismiss(unit, tid, ctx);
 			case FightCmdEnum.protect:

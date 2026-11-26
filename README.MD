@@ -725,3 +725,55 @@ loop.onInput(player.uid, { turn: fight.turn, cmd: FightCmdEnum.dismiss, target: 
 
 `Fight.getSideUnits(side)` 返回 `readonly FightUnit[]`，是阵营数组的只读视图，不复制数组。TypeScript 调用方不能直接排序、洗牌、增删或替换数组元素；需要可修改的数组时使用 `getSideUnitsCopy(side)`。只读约束不冻结运行时数组，也不限制修改单位对象的属性。构造阵营或测试场景时，通过 `FightSide.units` 明确修改成员。
 
+
+# XLS 监听导表
+
+## fmud终端试玩
+
+先运行 `watch_xls.bat --once` 导出表格，再启动：
+
+```powershell
+.\fmud.bat 12001 11004 11002 0
+# 或
+npm run fmud -- 12001 11004 11002 0
+```
+
+参数依次为fight表ID、攻方side表ID、守方side表ID、可选种子（默认0）。最多一边是user队，另一边必须是monster；双方monster则自动打完，不等待指令或绘制确认。双方user会被拒绝。只有user队的玩家和出战宠物等待输入，怪物沿用AI和规则。
+
+`fight_global.loopType` 使用 `pc | yanyu | west`，字段大小写固定为loopType。`.env`的FMUD_GLOBAL_ID选择预设：13001为pc逐单位输入，13002为west整轮收齐指令后执行，13003为yanyu自动普攻与即时技能。fmud通过`createFightLoop(fight)`创建实际对应的循环；共享配置未设置loopType时默认pc。烟雨不等待普通行动输入，即时技能格式为 `单位UID s 技能ID [目标UID]`，例如 `0 s 1001 2`；输入skills可查看可控单位技能。自动普攻和文字输出期间仍可提交指令。
+
+初次试玩可用11004单人冒险队：只有刀客一名玩家，自动带出战宠物灵狼；原11001三人队保留。
+
+`.env` 配置 `FMUD_GLOBAL_ID=13001`、`FMUD_CONST_ID=14001` 和 `FMUD_DATA_DIR=resource/assets/json`，分别选择共享规则、常量预设和JSON目录；`FMUD_LINE_MS=200` 只控制FightMud战斗描写的逐行间隔，单位毫秒，非负安全整数，0表示不延迟。战况、技能列表、帮助和提示不按行延时。示例见 [.env.example](.env.example)。无.env时使用这些默认值。进程环境变量覆盖.env，`--data`可覆盖JSON目录，`--env 文件`选择另一份配置；.env中的相对数据路径按该文件所在目录解析。不会把全局字段写回单场FightData。
+
+| 指令 | 行为 |
+| --- | --- |
+| `a [目标UID]` 或回车 | 普攻，省略目标自动选择 |
+| `s 技能ID [目标UID]` | 使用当前单位已学技能，费用/CD/目标仍由战斗校验 |
+| `d` | 防御 |
+| `p 目标UID` | 保护 |
+| `r` | 逃跑，占本次行动，须fight配置允许 |
+| `dismiss 宠物UID` | 移除召唤物，仍校验主人归属 |
+| `summon 宠物配置ID` | 召唤备用宠物，替换旧宠并占本次行动；新宠下回合行动，换下的本场不能再上 |
+| `summons` / `宠物` | 查看当前玩家尚未使用的备用宠物配置ID及名称，不消耗行动 |
+| `show` / `skills` / `help` | 查看战况、当前单位技能及帮助，不消耗行动；status仍可作为show别名 |
+| `q` | 重复当前单位上次成功提交的指令，保留技能和显式目标，重新校验状态、费用与CD；烟雨用`单位UID q` |
+| `quit` / `退出` | 退出试玩；EOF和Ctrl+C也释放输入等待 |
+
+防御实际执行时广播 `['defend', 单位UID]`，MUD会显示“收招凝神，采取防御姿态”，随后再展示下一名行动者。
+
+只有FightMud的战斗描写通过行队列默认每200ms显示一行；队列排空即视为绘制完成，不需要确认或输入next。动作输出完成后继续战斗，技能列表和输入提示在前文显示完后立即出现。启动信息、帮助、提示和战况都整块立即显示，不逐行延时；回合初战况会保持与前面的战斗叙述顺序。战况每回合自动显示一次，包含运行UID、坐标、HP/MP/SP/JP、Buff与行动条；等待输入时可用show即时查看，不消耗行动。换人及非法输入重试不重复显示。目标填写运行UID，不能用模板ID代替，0号目标有效。非法指令会提示并继续等待，不消耗本次输入机会。退出会清除定时器并丢弃尚未显示的战斗描写。
+
+`--auto`使PC/西游user队也自动普攻（不能普攻则尝试防御），烟雨则仅运行自动行动、不读取即时技能；`--no-color`关闭默认ANSI颜色。例如 `npm run fmud -- 12001 11002 11002 0 --no-color` 可自动演示怪物对战。相同表、种子和指令产生相同结果；这不是录像/快照接口。
+
+入口：[fmud.ts](src/tools/fmud.ts)，直接导入不会启动CLI。CLI使用JSON，运行时不编译XLS；编辑表格后先导出。奖惩仍由宿主回调决定，本试玩不发放实际资产。当前是Node终端实现，未提供浏览器客户端。
+
+## XLS导表启动
+
+运行根目录的 `watch_xls.bat`：先构建，再监听 `resource/assets/xls`，启动时导出现有工作簿，保存或新增xlsx后自动更新 `resource/assets/json/<工作表名>_xls.json`。跳过WPS/Excel的临时锁文件，内容未变不重写。`formation.xlsx` 的工作表为 `form_type`，输出 `form_type_xls.json`。
+
+用 `watch_xls.bat --once` 可单次导出后退出；支持来源、JSON及函数输出目录参数。函数单元格的TS产物默认写入 `resource/assets/xls-functions`，不编入战斗库。详见 [导表工具说明](src/tools/xls/README.md)。
+
+`resource/assets/xls` 另有整套配置示例：skill、buff、passive、ai、rule、attr、monster、user、summon、zhen、side、fight、fight_global、fight_const。技能56条、Buff 27条、属性9条、队伍4条，其余每表3条。第3行Desc说明字段和默认值。单位优先使用显式attr ID，否则按type+grade+diff查属性；玩家带fightSummon与summons，side用type+ids区分玩家队和怪物队。
+
+先用 `initFightXls(tables, allocateUid, random)` 注册共享JSON表、全局UID分配器和随机源，例如传 `() => fight.random()`；随后只需 `createSideByXls(sideId)`。阵法表的mapsize=[宽,高]决定地图大小，当前示例均为[5,5]。`fight.createSide`自动建图并校验双方尺寸；已有地图须一致。旧的手动FightSide未配置mapsize时仍沿用宿主地图。出战宠物优先前、左、右、后，再从全图空格随机；预留主人阵位，替补不入场。此入口不改全局规则；全局规则与单场FightData仍分开。完整接入示例见 [示例表说明](resource/assets/xls/README.md) 和 [XLS组队字典](document/wiki/XLS组队.md)。

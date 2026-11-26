@@ -1,0 +1,1313 @@
+{
+  "1001": {
+    "id": 1001,
+    "name": "斩击",
+    "desc": "近身物理单攻，可作普攻与协战",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 3
+    },
+    "cd": 0,
+    "attack": {
+      "attack": 5
+    },
+    "final": {}
+  },
+  "1002": {
+    "id": 1002,
+    "name": "回春术",
+    "desc": "为最低血量比例的队友治疗",
+    "func": "heal",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 2,
+      "num": 1,
+      "sortAttr": "hpp"
+    },
+    "cost": {
+      "mp": 8
+    },
+    "cd": 1,
+    "attack": {
+      "attack": 20
+    },
+    "final": {},
+    "healRate": 1
+  },
+  "1003": {
+    "id": 1003,
+    "name": "摄魂术",
+    "desc": "远程魔法单攻，按实际伤害完全吸血",
+    "func": "normal",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 10
+    },
+    "cd": 2,
+    "attack": {
+      "attack": 12
+    },
+    "final": {},
+    "bloodP": 1
+  },
+  "1004": {
+    "id": 1004,
+    "name": "毒蛊",
+    "desc": "立即造成当前生命15%的毒伤",
+    "func": "poison",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {
+      "hurt": 0.15
+    },
+    "final": {},
+    "poisonRate": 1
+  },
+  "1005": {
+    "id": 1005,
+    "name": "回魂术",
+    "desc": "复活一名队友，恢复其最大生命的30%",
+    "func": "relife",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 2,
+      "num": 1
+    },
+    "cost": {
+      "mp": 20
+    },
+    "cd": 3,
+    "attack": {},
+    "final": {},
+    "healRate": 0.3
+  },
+  "1006": {
+    "id": 1006,
+    "name": "振奋术",
+    "desc": "给队友附加振奋，无直接伤害",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 2,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2001,
+        1,
+        1
+      ]
+    ]
+  },
+  "1007": {
+    "id": 1007,
+    "name": "破除增益",
+    "desc": "驱散敌方一个增益，强度2",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "power": 2,
+    "removeBuffTag": "增益",
+    "removeBuffNum": 1
+  },
+  "1008": {
+    "id": 1008,
+    "name": "解毒术",
+    "desc": "按Buff ID解除蛊毒，强度2",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 2,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "power": 2,
+    "rmeoveBuff": [
+      [
+        2004,
+        1
+      ]
+    ]
+  },
+  "1009": {
+    "id": 1009,
+    "name": "洞察",
+    "desc": "揭示目标全部五行与兵器弱点",
+    "func": "observe",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {}
+  },
+  "1010": {
+    "id": 1010,
+    "name": "托付",
+    "desc": "仅PC普通行动使用：把本次机会交给另一名存活队友",
+    "func": "entrust",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 2,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 2,
+    "attack": {},
+    "final": {}
+  },
+  "1011": {
+    "id": 1011,
+    "name": "模仿",
+    "desc": "回放最近普攻或normal攻击的inputcmd，仅收模仿自身费用与CD",
+    "func": "mimic",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 0,
+      "num": 1
+    },
+    "cost": {
+      "mp": 8
+    },
+    "cd": 1,
+    "attack": {},
+    "final": {}
+  },
+  "1012": {
+    "id": 1012,
+    "name": "高级模仿",
+    "desc": "选择任一已行动来源；复制敌方指令时清空target重选",
+    "func": "mimic",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 4,
+      "num": 1
+    },
+    "cost": {
+      "mp": 12
+    },
+    "cd": 2,
+    "attack": {},
+    "final": {}
+  },
+  "1013": {
+    "id": 1013,
+    "name": "群雷",
+    "desc": "攻击全体敌人，禁止协战与保护",
+    "func": "normal",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 99
+    },
+    "cost": {
+      "mp": 18
+    },
+    "cd": 2,
+    "attack": {
+      "attack": 8
+    },
+    "final": {},
+    "nosupport": true,
+    "noprotect": true
+  },
+  "1014": {
+    "id": 1014,
+    "name": "群体回春",
+    "desc": "治疗全体队友",
+    "func": "heal",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 2,
+      "num": 99
+    },
+    "cost": {
+      "mp": 20
+    },
+    "cd": 0,
+    "attack": {
+      "attack": 15
+    },
+    "final": {},
+    "nosupport": true,
+    "noprotect": true
+  },
+  "1015": {
+    "id": 1015,
+    "name": "三连斩",
+    "desc": "固定目标连招第一段，接1016和1017",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 12
+    },
+    "cd": 0,
+    "attack": {
+      "attack": 10
+    },
+    "final": {},
+    "combo": 1016
+  },
+  "1016": {
+    "id": 1016,
+    "name": "三连斩第二段",
+    "desc": "连招子技能，不单独收费，接1017",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cd": 0,
+    "attack": {
+      "attack": 10
+    },
+    "final": {},
+    "combo": 1017
+  },
+  "1017": {
+    "id": 1017,
+    "name": "三连斩末段",
+    "desc": "连招末段，统一处理反伤和反击",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cd": 0,
+    "attack": {
+      "attack": 15
+    },
+    "final": {}
+  },
+  "1018": {
+    "id": 1018,
+    "name": "连击斩",
+    "desc": "完成主攻击后，以子技能重新选目标连击",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {
+      "attack": 5
+    },
+    "final": {},
+    "next": 1019
+  },
+  "1019": {
+    "id": 1019,
+    "name": "连击追加段",
+    "desc": "50%发动，使用next阶段属性",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 0.5,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cd": 0,
+    "attack": {
+      "attack": 25
+    },
+    "final": {}
+  },
+  "1020": {
+    "id": 1020,
+    "name": "乘胜追击",
+    "desc": "击杀后用1021重新选敌人追击",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {
+      "attack": 15
+    },
+    "final": {},
+    "kill": 1021
+  },
+  "1021": {
+    "id": 1021,
+    "name": "追击追加段",
+    "desc": "追击子技能，使用kill阶段属性",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cd": 0,
+    "attack": {
+      "attack": 30
+    },
+    "final": {}
+  },
+  "1022": {
+    "id": 1022,
+    "name": "震荡斩",
+    "desc": "主攻击命中后，以十字形选择溅射目标",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {
+      "attack": 8
+    },
+    "final": {},
+    "spread": 1023
+  },
+  "1023": {
+    "id": 1023,
+    "name": "十字溅射",
+    "desc": "副目标不含主目标，使用spread阶段属性",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "shape": 3,
+      "num": 4
+    },
+    "cd": 0,
+    "attack": {
+      "attack": 20
+    },
+    "final": {},
+    "nosupport": true,
+    "noprotect": true
+  },
+  "1024": {
+    "id": 1024,
+    "name": "招架反击",
+    "desc": "装配后50%反击，使用fback属性，不再反击套反击",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 0.5,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cd": 0,
+    "attack": {
+      "attack": 35
+    },
+    "final": {},
+    "nofback": true
+  },
+  "1025": {
+    "id": 1025,
+    "name": "协力斩",
+    "desc": "协战装配技能，35%发动，不触发反击和比例反伤",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 0.35,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cd": 0,
+    "attack": {
+      "attack": 25
+    },
+    "final": {},
+    "nodback": true,
+    "nofback": true
+  },
+  "1026": {
+    "id": 1026,
+    "name": "破阵天雷",
+    "desc": "装配全体破盾大招；需全局开关与实际破盾机会",
+    "func": "normal",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 99
+    },
+    "cost": {
+      "mp": 20
+    },
+    "cd": 2,
+    "attack": {
+      "attack": 25
+    },
+    "final": {},
+    "nosupport": true,
+    "noprotect": true
+  },
+  "1027": {
+    "id": 1027,
+    "name": "战术准备",
+    "desc": "装配普攻、反击、协战、大招，须预先学习引用技能",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 0,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "attackSkill": 1001,
+    "fbackSkill": 1024,
+    "supportSkill": 1025,
+    "ultimateSkill": 1026
+  },
+  "1028": {
+    "id": 1028,
+    "name": "布置缠绕陷阱",
+    "desc": "在自己前方放置一次陷阱，抵御近身主目标物理攻击",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 0,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 2,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2005,
+        1,
+        1
+      ]
+    ]
+  },
+  "1029": {
+    "id": 1029,
+    "name": "陷阱伤害",
+    "desc": "陷阱专用单段伤害，命中后缠绕攻击者，中断其移动攻击",
+    "func": "normal",
+    "magic": false,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cd": 0,
+    "attack": {
+      "attack": 20
+    },
+    "final": {},
+    "addBuff": [
+      [
+        2006,
+        1,
+        1
+      ]
+    ],
+    "nodback": true,
+    "nofback": true,
+    "nosupport": true,
+    "noprotect": true,
+    "alwaysHit": true
+  },
+  "1030": {
+    "id": 1030,
+    "name": "挑衅",
+    "desc": "给敌人挂嘲讽，强制其攻击施加者两次",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2007,
+        1,
+        1
+      ]
+    ]
+  },
+  "1031": {
+    "id": 1031,
+    "name": "不屈意志",
+    "desc": "本场一次抵挡致命伤并保留1点生命",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 0,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 5,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2008,
+        1,
+        1
+      ]
+    ]
+  },
+  "1032": {
+    "id": 1032,
+    "name": "涅槃印",
+    "desc": "死亡后在完整动作结束自动复活一次",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 0,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 5,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2009,
+        1,
+        1
+      ]
+    ]
+  },
+  "1033": {
+    "id": 1033,
+    "name": "魔法反射",
+    "desc": "反射魔法伤害，治疗转移给敌人",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 0,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2010,
+        1,
+        1
+      ]
+    ]
+  },
+  "1034": {
+    "id": 1034,
+    "name": "全能反射",
+    "desc": "同时反射物理与魔法伤害，治疗也转移",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 0,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2011,
+        1,
+        1
+      ]
+    ]
+  },
+  "1035": {
+    "id": 1035,
+    "name": "舍身重击",
+    "desc": "双倍伤害，攻击后自己休息一次输入",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "hp": 10,
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "damageRate": 2,
+    "afterSelfBuff": [
+      [
+        2012,
+        1,
+        1
+      ]
+    ]
+  },
+  "1036": {
+    "id": 1036,
+    "name": "生生不息",
+    "desc": "施加回合前周期回血，持续3次",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 2,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2013,
+        1,
+        1
+      ]
+    ]
+  },
+  "1037": {
+    "id": 1037,
+    "name": "再生每跳",
+    "desc": "周期Buff引用的原始治疗数值，不收费用或CD",
+    "func": "heal",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 2,
+      "num": 1
+    },
+    "cd": 0,
+    "attack": {
+      "attack": 30
+    },
+    "final": {},
+    "attackLevel": {
+      "attack": 5
+    }
+  },
+  "1038": {
+    "id": 1038,
+    "name": "种蛊",
+    "desc": "施加按单位输入次数触发的毒，持续3次",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2004,
+        1,
+        1
+      ]
+    ]
+  },
+  "1039": {
+    "id": 1039,
+    "name": "封印术",
+    "desc": "禁止普通攻击和施法",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2014,
+        1,
+        1
+      ]
+    ]
+  },
+  "1040": {
+    "id": 1040,
+    "name": "沉默术",
+    "desc": "禁止主动技能，仍允许普攻",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2015,
+        1,
+        1
+      ]
+    ]
+  },
+  "1041": {
+    "id": 1041,
+    "name": "震慑",
+    "desc": "禁止攻击、施法、闪避及反击",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2016,
+        1,
+        1
+      ]
+    ]
+  },
+  "1042": {
+    "id": 1042,
+    "name": "石化术",
+    "desc": "不能接受普通攻击和技能",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2017,
+        1,
+        1
+      ]
+    ]
+  },
+  "1043": {
+    "id": 1043,
+    "name": "禁疗咒",
+    "desc": "不能接受治疗",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2018,
+        1,
+        1
+      ]
+    ]
+  },
+  "1044": {
+    "id": 1044,
+    "name": "百毒不侵",
+    "desc": "不能受到毒伤",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 2,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2019,
+        1,
+        1
+      ]
+    ]
+  },
+  "1045": {
+    "id": 1045,
+    "name": "禁魂咒",
+    "desc": "不能被复活",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2020,
+        1,
+        1
+      ]
+    ]
+  },
+  "1046": {
+    "id": 1046,
+    "name": "汲血斩",
+    "desc": "本次在人物吸血比例上增加0.1，未填固定bloodP",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {
+      "bloodP": 0.1
+    }
+  },
+  "1047": {
+    "id": 1047,
+    "name": "荆棘甲",
+    "desc": "物理伤害20%比例反伤，持续3回合",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 0,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2021,
+        1,
+        1
+      ]
+    ]
+  },
+  "1048": {
+    "id": 1048,
+    "name": "两次屏障",
+    "desc": "获得20%物理免伤，实际受伤两次后消失",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 2,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2022,
+        1,
+        1
+      ]
+    ]
+  },
+  "1049": {
+    "id": 1049,
+    "name": "晚潮再生",
+    "desc": "在全局回合结束时回血，持续3次",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 2,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2023,
+        1,
+        1
+      ]
+    ]
+  },
+  "1050": {
+    "id": 1050,
+    "name": "以守为攻",
+    "desc": "按本场反击次数成长，只提高反击伤害",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 0,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2024,
+        1,
+        1
+      ]
+    ]
+  },
+  "1051": {
+    "id": 1051,
+    "name": "试炼约束",
+    "desc": "临时把自身单次输出伤害上限设为80",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 0,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2025,
+        1,
+        1
+      ]
+    ]
+  },
+  "1052": {
+    "id": 1052,
+    "name": "暗藏锋芒",
+    "desc": "隐藏的物理攻击加成，仍按3回合过期",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 0,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2026,
+        1,
+        1
+      ]
+    ]
+  },
+  "1053": {
+    "id": 1053,
+    "name": "净化",
+    "desc": "驱散全部可移除的减益，强度2",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 2,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "power": 2,
+    "removeBuffTag": "减益",
+    "removeBuffNum": 0
+  },
+  "1054": {
+    "id": 1054,
+    "name": "必中一击",
+    "desc": "近身物理攻击，跳过物理命中检查",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "damageRate": 0.8,
+    "alwaysHit": true
+  },
+  "1055": {
+    "id": 1055,
+    "name": "虚弱术",
+    "desc": "物理攻击与速度降低，展示属性减益",
+    "func": "nohurt",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "mp": 5
+    },
+    "cd": 0,
+    "attack": {},
+    "final": {},
+    "addBuff": [
+      [
+        2027,
+        1,
+        1
+      ]
+    ]
+  },
+  "1056": {
+    "id": 1056,
+    "name": "四象爆发",
+    "desc": "同时消耗生命、法力、怒气和集气；JP仅全局jiqi开启时收费",
+    "func": "normal",
+    "magic": true,
+    "nomove": 1,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "cost": {
+      "hp": 10,
+      "mp": 5,
+      "sp": 10,
+      "jp": 1
+    },
+    "cd": 3,
+    "attack": {
+      "attack": 30
+    },
+    "final": {},
+    "skillProp": 4
+  }
+}

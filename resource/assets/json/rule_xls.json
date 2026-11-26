@@ -1,0 +1,34 @@
+{
+  "5001": {
+    "id": 5001,
+    "name": "半血振奋",
+    "type": "hp",
+    "prior": 0,
+    "lines": [
+      {
+        "hp": 0.5,
+        "buff": [
+          2001,
+          1
+        ]
+      }
+    ]
+  },
+  "5002": {
+    "id": 5002,
+    "name": "两回合摄魂",
+    "type": "turn",
+    "prior": 1,
+    "everyTurn": 2,
+    "skill": 1003,
+    "pos": 3
+  },
+  "5003": {
+    "id": 5003,
+    "name": "受击三次还手",
+    "type": "hurt",
+    "prior": 2,
+    "everyHurt": 3,
+    "skill": 1001
+  }
+}

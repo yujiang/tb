@@ -1,0 +1,47 @@
+{
+  "3001": {
+    "id": 3001,
+    "name": "并肩作战",
+    "desc": "装配斩击协战，并附加越战越勇",
+    "status": [],
+    "tags": [],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "addbuff": [
+      [
+        2002,
+        1
+      ]
+    ],
+    "supportSkill": 1001
+  },
+  "3002": {
+    "id": 3002,
+    "name": "健步",
+    "desc": "永久增加5点速度",
+    "status": [],
+    "tags": [],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "attr": {
+      "speed": 5
+    }
+  },
+  "3003": {
+    "id": 3003,
+    "name": "法术精通",
+    "desc": "魔法攻击增加10点",
+    "status": [],
+    "tags": [],
+    "magic": true,
+    "attackType": "base",
+    "attack": {
+      "attack": 10
+    },
+    "final": {}
+  }
+}

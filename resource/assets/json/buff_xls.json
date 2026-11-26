@@ -1,0 +1,537 @@
+{
+  "2001": {
+    "id": 2001,
+    "name": "振奋",
+    "desc": "速度加10，物理攻击加8，持续3回合",
+    "status": [],
+    "tags": [
+      "增益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {
+      "attack": 8
+    },
+    "final": {},
+    "attr": {
+      "speed": 10
+    },
+    "overlap": 1,
+    "turnType": 0,
+    "lastTurn": 3,
+    "times": 0,
+    "power": 1
+  },
+  "2002": {
+    "id": 2002,
+    "name": "越战越勇",
+    "desc": "每次协战增加0.05伤害倍率，最高增加0.5",
+    "status": [],
+    "tags": [],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "class": "damageByUse",
+    "overlap": 0,
+    "lastTurn": 0,
+    "times": 0,
+    "notRemove": true,
+    "dieNotRemove": true,
+    "damageUse": {
+      "type": "support",
+      "rate": 0.05,
+      "max": 0.5
+    }
+  },
+  "2003": {
+    "id": 2003,
+    "name": "保护",
+    "desc": "保护指令使用的分担伤害Buff",
+    "status": [],
+    "tags": [],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "class": "protect",
+    "overlap": 1,
+    "lastTurn": 1,
+    "times": 0
+  },
+  "2004": {
+    "id": 2004,
+    "name": "蛊毒",
+    "desc": "每次单位输入前按当前生命15%扣血，持续3次",
+    "status": [],
+    "tags": [
+      "减益",
+      "毒"
+    ],
+    "magic": true,
+    "attackType": "poison",
+    "attack": {},
+    "final": {},
+    "overlap": 1,
+    "turnType": 1,
+    "lastTurn": 3,
+    "times": 0,
+    "power": 1,
+    "func": "poison",
+    "skill": 1004,
+    "skillLevel": 1
+  },
+  "2005": {
+    "id": 2005,
+    "name": "缠绕陷阱",
+    "desc": "来袭近身主目标物理攻击先出手、再踩陷阱；一次后消失",
+    "status": [],
+    "tags": [
+      "增益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "class": "trap",
+    "overlap": 1,
+    "lastTurn": 3,
+    "times": 1,
+    "event": "beforeAttack",
+    "dieNotRemove": true,
+    "skill": 1029,
+    "skillLevel": 1
+  },
+  "2006": {
+    "id": 2006,
+    "name": "缠绕",
+    "desc": "不能移动，原地技能仍可用，持续1次输入",
+    "status": [
+      "缠绕"
+    ],
+    "tags": [
+      "减益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "overlap": 1,
+    "turnType": 1,
+    "lastTurn": 1,
+    "times": 0
+  },
+  "2007": {
+    "id": 2007,
+    "name": "嘲讽",
+    "desc": "挂在被嘲讽者身上；施加者是强制目标，仅实际诱导扣次数",
+    "status": [],
+    "tags": [
+      "减益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "class": "taunt",
+    "overlap": 1,
+    "lastTurn": 0,
+    "times": 2,
+    "event": "taunt"
+  },
+  "2008": {
+    "id": 2008,
+    "name": "不屈",
+    "desc": "本场一次抵挡致命伤并保留1点生命，移除重加不刷新",
+    "status": [],
+    "tags": [
+      "增益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "class": "buqu",
+    "overlap": 1,
+    "lastTurn": 0,
+    "times": 1,
+    "event": "beforeHurt",
+    "prior": 1000
+  },
+  "2009": {
+    "id": 2009,
+    "name": "涅槃",
+    "desc": "真实死亡后等待完整动作结束，按最大生命30%复活一次",
+    "status": [],
+    "tags": [
+      "增益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "class": "relife",
+    "overlap": 1,
+    "lastTurn": 0,
+    "times": 1,
+    "event": "die",
+    "dieNotRemove": true,
+    "prior": 1000,
+    "relifeRatio": 0.3
+  },
+  "2010": {
+    "id": 2010,
+    "name": "魔镜",
+    "desc": "只反射魔法伤害；治疗转移给随机存活敌人",
+    "status": [],
+    "tags": [
+      "增益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "class": "reflect",
+    "overlap": 1,
+    "lastTurn": 3,
+    "times": 2,
+    "event": "beforeHurt",
+    "reflectMagicOnly": true
+  },
+  "2011": {
+    "id": 2011,
+    "name": "全能镜",
+    "desc": "反射物理与魔法伤害；治疗也会转移",
+    "status": [],
+    "tags": [
+      "增益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "class": "reflect",
+    "overlap": 1,
+    "lastTurn": 3,
+    "times": 2,
+    "event": "beforeHurt",
+    "reflectMagicOnly": false
+  },
+  "2012": {
+    "id": 2012,
+    "name": "休息",
+    "desc": "跳过主动行动，使用rest兼容类；状态本身也可表达",
+    "status": [
+      "休息"
+    ],
+    "tags": [
+      "减益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "class": "rest",
+    "overlap": 1,
+    "turnType": 1,
+    "lastTurn": 1,
+    "times": 0
+  },
+  "2013": {
+    "id": 2013,
+    "name": "再生",
+    "desc": "每次全局回合前回血，Buff等级和引用技能等级分开",
+    "status": [],
+    "tags": [
+      "增益"
+    ],
+    "magic": true,
+    "attackType": "heal",
+    "attack": {},
+    "final": {},
+    "overlap": 1,
+    "turnType": 0,
+    "lastTurn": 3,
+    "times": 0,
+    "func": "heal",
+    "skill": 1037,
+    "skillLevel": 2
+  },
+  "2014": {
+    "id": 2014,
+    "name": "封印",
+    "desc": "禁止普通攻击和施法",
+    "status": [
+      "封印"
+    ],
+    "tags": [
+      "减益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "overlap": 1,
+    "turnType": 0,
+    "lastTurn": 2,
+    "times": 0
+  },
+  "2015": {
+    "id": 2015,
+    "name": "沉默",
+    "desc": "禁止主动技能，仍允许普攻",
+    "status": [
+      "沉默"
+    ],
+    "tags": [
+      "减益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "overlap": 1,
+    "turnType": 0,
+    "lastTurn": 2,
+    "times": 0
+  },
+  "2016": {
+    "id": 2016,
+    "name": "眩晕",
+    "desc": "禁止攻击、施法、闪避及反击",
+    "status": [
+      "眩晕"
+    ],
+    "tags": [
+      "减益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "overlap": 1,
+    "turnType": 0,
+    "lastTurn": 2,
+    "times": 0
+  },
+  "2017": {
+    "id": 2017,
+    "name": "石化",
+    "desc": "不能接受普通攻击和技能",
+    "status": [
+      "石化"
+    ],
+    "tags": [
+      "减益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "overlap": 1,
+    "turnType": 0,
+    "lastTurn": 2,
+    "times": 0
+  },
+  "2018": {
+    "id": 2018,
+    "name": "禁疗",
+    "desc": "不能接受治疗",
+    "status": [
+      "禁疗"
+    ],
+    "tags": [
+      "减益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "overlap": 1,
+    "turnType": 0,
+    "lastTurn": 2,
+    "times": 0
+  },
+  "2019": {
+    "id": 2019,
+    "name": "禁毒",
+    "desc": "不能受到毒伤",
+    "status": [
+      "禁毒"
+    ],
+    "tags": [
+      "增益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "overlap": 1,
+    "turnType": 0,
+    "lastTurn": 2,
+    "times": 0
+  },
+  "2020": {
+    "id": 2020,
+    "name": "禁复活",
+    "desc": "不能被复活",
+    "status": [
+      "禁复活"
+    ],
+    "tags": [
+      "减益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "overlap": 1,
+    "turnType": 0,
+    "lastTurn": 2,
+    "times": 0
+  },
+  "2021": {
+    "id": 2021,
+    "name": "荆棘",
+    "desc": "当前物理分组增加0.2比例反伤",
+    "status": [],
+    "tags": [
+      "增益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {
+      "dbackP": 0.2
+    },
+    "overlap": 1,
+    "lastTurn": 3,
+    "times": 0
+  },
+  "2022": {
+    "id": 2022,
+    "name": "两次免伤",
+    "desc": "物理比例免伤增加0.2，hurt事件后扣次，最后一次仍有效",
+    "status": [],
+    "tags": [
+      "增益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {
+      "immunityP": 0.2
+    },
+    "overlap": 1,
+    "lastTurn": 0,
+    "times": 2,
+    "event": "hurt"
+  },
+  "2023": {
+    "id": 2023,
+    "name": "晚潮再生",
+    "desc": "每次全局回合后回血，持续3次",
+    "status": [],
+    "tags": [
+      "增益"
+    ],
+    "magic": true,
+    "attackType": "heal",
+    "attack": {},
+    "final": {},
+    "overlap": 1,
+    "turnType": 2,
+    "lastTurn": 3,
+    "times": 0,
+    "func": "heal",
+    "skill": 1037,
+    "skillLevel": 1
+  },
+  "2024": {
+    "id": 2024,
+    "name": "反击成长",
+    "desc": "每次反击增加0.05伤害倍率，最高增加0.5，只增强反击",
+    "status": [],
+    "tags": [
+      "增益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "class": "damageByUse",
+    "overlap": 1,
+    "lastTurn": 0,
+    "times": 0,
+    "notRemove": true,
+    "dieNotRemove": true,
+    "damageUse": {
+      "type": "fback",
+      "rate": 0.05,
+      "max": 0.5
+    }
+  },
+  "2025": {
+    "id": 2025,
+    "name": "输出限伤",
+    "desc": "单次输出伤害上限80，持续3回合；不是受伤上限",
+    "status": [],
+    "tags": [
+      "增益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {},
+    "final": {},
+    "attr": {
+      "damageLimit": 80
+    },
+    "overlap": 1,
+    "lastTurn": 3,
+    "times": 0
+  },
+  "2026": {
+    "id": 2026,
+    "name": "藏锋",
+    "desc": "隐藏物理攻击加成；不展示不影响生效和过期",
+    "status": [],
+    "tags": [
+      "增益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {
+      "attack": 8
+    },
+    "final": {},
+    "attackLevel": {
+      "attack": 2
+    },
+    "overlap": 1,
+    "lastTurn": 3,
+    "times": 0,
+    "notDisplay": true
+  },
+  "2027": {
+    "id": 2027,
+    "name": "虚弱",
+    "desc": "物理攻击降低8、速度降低10；高强度或高等级可覆盖",
+    "status": [],
+    "tags": [
+      "减益"
+    ],
+    "magic": false,
+    "attackType": "base",
+    "attack": {
+      "attack": -8
+    },
+    "final": {},
+    "attr": {
+      "speed": -10
+    },
+    "overlap": 2,
+    "lastTurn": 3,
+    "times": 0,
+    "power": 1
+  }
+}

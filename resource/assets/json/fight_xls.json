@@ -1,0 +1,29 @@
+{
+  "12001": {
+    "id": 12001,
+    "name": "切磋",
+    "runaway": true,
+    "runawayGrade": 10,
+    "deathPenalty": 0,
+    "winRecover": 0,
+    "winReward": 0
+  },
+  "12002": {
+    "id": 12002,
+    "name": "山道遭遇",
+    "runaway": true,
+    "runawayGrade": 5,
+    "deathPenalty": 10,
+    "winRecover": 20,
+    "winReward": 100
+  },
+  "12003": {
+    "id": 12003,
+    "name": "决战",
+    "runaway": false,
+    "runawayGrade": 0,
+    "deathPenalty": 20,
+    "winRecover": 50,
+    "winReward": 300
+  }
+}

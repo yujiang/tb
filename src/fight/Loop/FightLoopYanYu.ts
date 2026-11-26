@@ -93,7 +93,7 @@ export class FightLoopYanYu extends FightLoopOnline {
 		if (!unit?.needInput()) return false;
 
 		if (unit.isDied()) {
-			unit.hintClient('自身已死亡，无法行动');
+			unit.hintClient('已死亡，行动跳过');
 			return false;
 		}
 

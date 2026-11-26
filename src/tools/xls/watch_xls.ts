@@ -1,194 +1,102 @@
-import * as path from 'path';
+import * as path from 'node:path';
+import { createHash } from 'node:crypto';
+import { promises as fs } from 'node:fs';
+import type { FSWatcher } from 'chokidar';
 import { watchPathOnce } from '../public/watch';
-import { gen } from './gen_client';
-import { gen_xls } from './gen_xls';
-import { genNpcpos, genCollectpos, genTelepos, genTrappos, } from './gen_npcpos';
-import { loadJsonXlsLocal } from '../servers/game/adapterFile';
-import type { XlsNpcunit } from '../servers/game/battle/fight/BattleStruct';
 import { FsUtils } from '../public/FsUtils';
-import { genPathpos } from './gen_pathpos';
-import { gameignores, net_ignores, public_ignores } from './public/gen_ignore';
-import { createHash } from 'crypto';
-import { promises as fs } from 'fs';
+import { gen_xls } from './gen_xls';
 
-const srcDir = 'src/servers/game/xls';
-
-const scenedir = '../../tools/electron/ani/resource/server/assets/scene';
-const mapdir = '../../tools/electron/ani/resource/assets/newmap';
-
-function checkNpc() {
-	console.log('额外生成npcpos');
-	genNpcpos(scenedir);
+export interface WatchXlsOptions {
+	/** xlsx来源目录，可含子目录；省略为项目resource/assets/xls，相对路径按项目根目录解析。 */
+	source?: string;
+	/** JSON输出目录；省略为resource/assets/json，保留原工具按工作表名输出和增量更新的规则。 */
+	folder?: string;
+	/** 函数单元格的TypeScript输出目录；省略为resource/assets/xls-functions，不进入战斗库编译。 */
+	ts?: string;
 }
 
-function checkTraps() {
-	console.log('额外生成TrapsPos');
-	genTrappos(scenedir);
+function resolveOptions(options: WatchXlsOptions) {
+	const root = path.resolve(__dirname, '../../..');
+	return {
+		source: path.resolve(root, options.source ?? 'resource/assets/xls'),
+		folder: path.resolve(root, options.folder ?? 'resource/assets/json'),
+		ts: path.resolve(root, options.ts ?? 'resource/assets/xls-functions'),
+	};
 }
 
-function checkCollect() {
-	console.log('额外生成collectPos');
-	genCollectpos(scenedir);
-}
-
-function checkTele() {
-	console.log('额外生成telepos');
-	genTelepos(scenedir);
-}
-
-function checkPath() {
-	console.log('额外生成path');
-	genPathpos(mapdir);
-}
-
-function checkNpcunit() {
-	const npcunit = loadJsonXlsLocal('npcunit_xls.json');
-	const taolu = loadJsonXlsLocal('taolu_xls.json');
-	const pskill = loadJsonXlsLocal('passiveskill_xls.json');
-	for (const [id, v] of Object.entries(npcunit)) {
-		const xls: XlsNpcunit = v as any;
-		// if (xls.PSkills) {
-		// }
-		// if (xls.ASkills) {
-		// }
-	}
-}
-
-const checkFuncs = {
-	npc: checkNpc,
-	collect: checkCollect,
-	teleport: checkTele,
-	// npcunit: checkNpcunit,
-	traps: checkTraps,
-	path: checkPath,
-};
-
-const cache = new Map<string, string>(); // path -> sha1
-
-async function sha1(path: string) {
-  const buf = await fs.readFile(path);
-  return createHash('sha1').update(buf).digest('hex');
-}
-
-// wps一次存多个文件,用hash来解决!
-async function onChangeXls(path: string) {
-    const h = await sha1(path);
-    if (cache.get(path) !== h) {
-      cache.set(path, h);
-      console.log('onChangeXls(real):', path, new Date().toLocaleString());
-	  onChangeXls2(path);
-      // TODO: 真正处理逻辑
-    } else {
-      // 内容未变（可能只是元数据/时间戳变）
-	  // ignore!
-    }
-}
-
-function onChangeXls2(file: string) {
-	const filename = path.basename(file);
-	if (filename.startsWith("~")){
-		return;
-	}
-	console.log('\nonChangeXls', file, new Date().toLocaleString());
-
-	const rts = gen_xls({
-		xlsfile: file,
-		folder: 'resource\\assets\\json',
-		ts: srcDir,
-		update: true,diff: true,rtonlychange: true,
+function exportFile(file: string, options: ReturnType<typeof resolveOptions>): string[] {
+	return gen_xls({
+		xlsfile: file, folder: options.folder, ts: options.ts,
+		force: 1, update: true, diff: true, rtonlychange: true, throwOnError: true,
 	});
-	if (rts.length <= 0) {
-		console.log('no Change');
-		return;
+}
+
+/** 单次导出现有工作簿，不启动监听；用于命令行检查和自动验证。 */
+export async function exportXlsOnce(options: WatchXlsOptions = {}): Promise<string[]> {
+	const resolved = resolveOptions(options);
+	await fs.access(resolved.source);
+	const changed = new Set<string>();
+	for (const file of FsUtils.findFilesInDir(resolved.source, '.xlsx')) {
+		for (const sheet of exportFile(file, resolved)) changed.add(sheet);
 	}
+	return [...changed];
+}
 
-	console.log('onChangeXls rt', rts);
+/** 启动后先扫描现有工作簿，再持续处理保存及新增；返回watcher供宿主或测试关闭。 */
+export async function startWatchXls(options: WatchXlsOptions = {}): Promise<FSWatcher> {
+	const resolved = resolveOptions(options);
+	await fs.access(resolved.source);
+	const cache = new Map<string, string>();
+	let pending = Promise.resolve();
+	const processFile = async (file: string) => {
+		file = path.resolve(file);
+		if (path.basename(file).startsWith('~')) return;
 
-	for (const rt of rts) {
-		const v = checkFuncs[rt];
-		if (v) {
-			v();
-		}
-		// console.log(rt,path.dirname(rt));
-		// if (rt.indexOf('npc_xls.json') >= 0){
-		// 	//call ts-node src\tools\gen_npcpos.ts ..\..\tools\electron\ani\resource\server\assets\scene
-		// 	console.log("额外生成npcpos");
-		// 	genNpcpos(scenedir);
-		// }
-		// else if (rt.indexOf('teleport_xls.json') >= 0){
-		// 	console.log("额外生成telepos");
-		// 	genTelepos(scenedir);
-		// }
+		const hash = createHash('sha1').update(await fs.readFile(file)).digest('hex');
+		if (cache.get(file) === hash) return;
 
-		// let r = gen(path.dirname(rt),rt,desPath)
-		// console.log(rt,r);
+		const changed = exportFile(file, resolved);
+		cache.set(file, hash);
+		if (changed.length) console.log('导表更新:', changed.join(', '));
+	};
+	const enqueue = (file: string) => {
+		pending = pending.then(() => processFile(file)).catch((error: unknown) => {
+			console.error('导表失败，继续监听:', file, error);
+		});
+		return pending;
+	};
+	const watcher = watchPathOnce(resolved.source, '.xlsx', enqueue);
+	watcher.on('error', (error) => console.error('监听失败:', error));
+	try {
+		await new Promise<void>((resolve, reject) => {
+			watcher.once('ready', resolve);
+			watcher.once('error', reject);
+		});
+		for (const file of FsUtils.findFilesInDir(resolved.source, '.xlsx')) await enqueue(file);
+	} catch (error) {
+		await watcher.close();
+		throw error;
 	}
-	console.log('onChangeXls end');
+	console.log('正在监听:', resolved.source, '=>', resolved.folder);
+	return watcher;
 }
 
-// const desPath = '../../tools/electron/ani/src/gen/servers/game/xls/';
-
-const desPathRoot = '../../tools/electron/ani/src/gen';
-
-// const publicignores = ['watch.ts', 'reload.ts', 'console.ts', 'log.ts', 'FuncUtils.ts'];
-// const netignores = ['CenterClient.ts', 'HttpServer.ts', 'SockWrap.ts', 'webServer.ts'];
-
-function onChangeTsPublic(file: string, norepalce?: boolean) {
-	const base = path.basename(file);
-	if (public_ignores.includes(base) || net_ignores.includes(base)) {
-		return;
+async function main() {
+	const args = process.argv.slice(2);
+	const once = args[0] === '--once';
+	if (once) args.shift();
+	const [source, folder, ts] = args;
+	if (once) {
+		const changed = await exportXlsOnce({ source, folder, ts });
+		console.log('导表完成:', changed.length ? changed.join(', ') : '内容无变化');
+	} else {
+		await startWatchXls({ source, folder, ts });
 	}
-	onChangeTs(file, norepalce);
 }
 
-function onChangeTs(file: string, norepalce?: boolean) {
-	console.log('\nonChangeTs', file, norepalce);
-	const index = file.indexOf('src');
-	const desPath = path.dirname(desPathRoot + file.substr(index + 3));
-	const r = gen(path.dirname(file), file, desPath, { norepalce });
-	console.log(file, r, desPath);
+if (require.main === module) {
+	void main().catch((error: unknown) => {
+		console.error('启动导表工具失败:', error);
+		process.exitCode = 1;
+	});
 }
-
-// 动态import的module，需要保留export
-const srcScripts = 'src/servers/game/scripts';
-const gamemodule = 'game/module';
-
-function isScript(file: string) {
-	const file2 = FsUtils.window2linuxFile(file);
-	return file2.startsWith(srcScripts) || file2.indexOf(gamemodule) >= 0;
-}
-
-function onChangeClient(file: string) {
-	console.log('\nonChangeClient', file);
-	onChangeTs(file, false);
-}
-
-function onChangeGame(file: string) {
-	const base = path.basename(file);
-	if (gameignores.includes(base)) {
-		console.log('ignore', file);
-		return;
-	}
-	console.log('\nonChangeGame', file, isScript(file));
-	onChangeTs(file, isScript(file));
-}
-
-function main() {
-	watchPathOnce('resource/assets/xls', '.xlsx', onChangeXls);
-
-	// //const srcDir = 'src/servers/game/xls';
-	// watchPathOnce(srcDir, '.ts', onChangeTs); // xls
-	// watchPathOnce('src/servers/game/public', '.ts', onChangeTs); // msgerror!
-	// watchPathOnce('src/net', '.ts', onChangeTs); // msgid
-
-	// // watchPathOnce('src/public', '.ts', onChangeTs); // msgid
-	// //const srcScripts = 'src/servers/game/scripts';
-	// watchPathOnce(srcScripts, '.ts', onChangeTsScript);
-
-	watchPathOnce('src/public', '.ts', onChangeTsPublic); // msgid
-	watchPathOnce('src/net', '.ts', onChangeTsPublic); // msgid
-	watchPathOnce('src/clients/game', '.ts', onChangeClient); // msgid
-	watchPathOnce('src/servers/game', '.ts', onChangeGame); // msgerror!
-}
-
-main();

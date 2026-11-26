@@ -81,24 +81,26 @@ export interface FightActionDisplay {
 
 export enum FightCmdEnum {
 	none, //没有来得及发指令, 默认攻击!
-	//stand,    //什么都不干
-	attack, //攻击
-	defend, //防御
-	skill, //技能
-	runaway, //逃跑
+	attack, 	//攻击
+	defend, 	//防御
+	skill, 		//技能
+	runaway, 	//逃跑
 	//catch,    //捕捉宠物
-	dismiss, // 移除单位，target必填；怪物可移除怪物，召唤物校验user归属，玩家不可移除
-	cancel, //取消
-	protect, //保护队友，行动优先级高于普通指令
+	summon, 	//召唤宠物，如果场上有宠物，替换他
+	dismiss, 	//移除单位，target必填；怪物可移除怪物，召唤物校验user归属，玩家不可移除
+	cancel, 	//取消
+	protect, 	//保护队友，行动优先级高于普通指令
 }
 
 export interface FightInput {
 	/** West/YanYu网络入口必填当前全局回合；PC入口可省略，提供时须匹配；底层本地调用可省略。 */
 	turn?: number;
-	/** 指令枚举：none默认普攻、attack、defend、skill、runaway逃跑、dismiss移除、cancel、protect；runaway/dismiss为普通行动，PC/西游支持，烟雨网络入口不接受；必须由宿主先鉴权。 */
+	/** 指令枚举：none默认普攻、attack、defend、skill、runaway逃跑、summon召唤、dismiss移除、cancel、protect；runaway/summon/dismiss为普通行动，PC/西游支持，烟雨网络入口不接受；必须由宿主先鉴权。 */
 	cmd: FightCmdEnum;
 	/** cmd=skill时的已学技能ID；自动大招由内部按装配的ultimateSkill填写，无独立输入入口。 */
 	skill?: number;
+	/** cmd=summon时必填的本人备用宠物配置ID（不是运行UID），0有效；占普通行动，换下或移除后本场不能再召出，新宠下一回合行动。 */
+	summon?: number;
 	/** 明确目标的运行uid，0有效；dismiss必填；普攻/技能执行时未指定、已离场或死亡且不符合技能条件的目标统一按未指定处理，复活技能保留合法尸体；提交时非法明确目标仍拒绝。 */
 	target?: number;
 	/** 内部自动大招执行标记，默认false；普通输入入口拒绝true，宿主不可用此字段申请机会。 */

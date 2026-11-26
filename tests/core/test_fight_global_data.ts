@@ -12,6 +12,7 @@ test('fight global data: complete defaults are separate from table rows', () => 
 		attackDie: true,
 		protectBuff: undefined,
 		allShieldBreak: false,
+		loopType: 'pc',
 	});
 	const fight = new Fight(10013301, {
 		runaway: false,
@@ -107,6 +108,7 @@ test('fight global data: partial updates preserve omissions and accept explicit 
 			attackDie: true,
 			protectBuff: undefined,
 			allShieldBreak: false,
+			loopType: 'pc',
 		});
 	} finally {
 		setFightGlobalData(original);
@@ -141,7 +143,7 @@ test('fight global data: yanyu preset is independent and applies duiwei and jiqi
 	const original = { ...getFightGlobalData() };
 	try {
 		const preset = getYanyuGlobalData();
-		assert.deepEqual(preset, { duiwei: true, jiqi: true, attackDie: false });
+		assert.deepEqual(preset, { loopType: 'yanyu', duiwei: true, jiqi: true, attackDie: false });
 		assert.deepEqual(getFightGlobalData(), original);
 		preset.jiqi = false;
 		assert.equal(getYanyuGlobalData().jiqi, true);

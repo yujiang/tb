@@ -59,6 +59,8 @@ export class FightUnitCost extends FightUnit {
 
 export class FightUnitUser extends FightUnitCost {
 	override type = UnitType.user;
+	/** 本场尚未使用的备用宠物：键为宿主宠物配置ID（0有效），工厂创建全新、存活且UID唯一的实例；成功召唤后删除，初始出战宠物不加入。 */
+	readonly summons = new Map<number, () => FightUnitSummon>();
 }
 
 export class FightUnitSummon extends FightUnitCost {

@@ -1,4 +1,5 @@
 node_modules/
+.env
 .pnpm-store/
 .test-build/
 .example-build/

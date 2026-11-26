@@ -42,6 +42,8 @@ function defaultBaseAttack(): BaseAttack {
 }
 
 export class FightSide {
+	/** 表格阵法的地图尺寸[宽,高]；省略沿用宿主地图，配置时Fight.createSide校验双方一致并自动建图。 */
+	mapsize?: readonly [number, number];
 	units: FightUnit[] = [];
 	/** 本阵营破盾大招状态：每回合一次、单个待放记录；由Fight在完整动作后协调施放。 */
 	readonly ultimate = new FightUltimate(this);

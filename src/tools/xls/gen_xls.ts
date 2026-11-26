@@ -3,92 +3,22 @@ import * as path from 'path';
 import * as xlsx from 'node-xlsx';
 import * as fs from 'fs';
 import * as JSON5 from 'json5';
-import * as _ from 'lodash';
-import { exec } from 'child_process';
 import { diff } from 'just-diff';
 import { FsUtils } from '../public/FsUtils';
 import { Utils } from '../public/Utils';
-import { XLS_FUNC_KEY } from '../servers/game/xls/xlsFunc';
-import { msgBox } from './msgbox';
+// import { XLS_FUNC_KEY } from '../servers/game/xls/xlsFunc';
 
 // const chalk = require('chalk/safe');
 import * as chalk from 'chalk';
 import { StringUtils } from '../public/stringUtils';
 
-const debugid = 1005007700;
+export const XLS_FUNC_KEY = 'f';
+
 
 
 const stringify = require('json-stringify-pretty-compact');
 
 const debug = require('debug')('xls');
-
-const imports = {
-	passiveskill: [
-		'import type { FightData } from "../battle/fight/fightdata";',
-		'import type { Skill } from "../battle/skill/Skill";',
-		'import type { Player } from "../char/player";',
-		// 'import { mergeUpPassiveData } from "../battle/formula/formulaFunc";',
-	],
-	activeskill: [
-		'import type { FightData } from "../battle/fight/fightdata";',
-		'import type { Warrior } from "../battle/fight/Warrior";',
-		'import type { Skill } from "../battle/skill/Skill";',
-	],
-	status: [
-		'import type { FightData } from "../battle/fight/fightdata";',
-		'import type { Status } from "../battle/fight/Status";',
-		'import { Warrior } from "../battle/fight/Warrior";',
-		'import { PerfromResult } from "../battle/formula/formula";',
-		'import { FightSkill } from "../battle/skill/FightSkill";',
-		'import { StatusCondtionParam } from "../battle/fight/BattleStruct";',
-		'import {  AddShieldParam, AddStatusParamType, DelStatusParamType } from "../battle/skill/SkillStruct";'
-	],
-	halo: [
-		'import type { FightData } from "../battle/fight/fightdata";',
-		'import type { Halo } from "../battle/fight/Halo";',
-	],
-
-	lifeskill: ['import type { FightData } from "../battle/fight/fightdata";'],
-	title: [
-		'import type { Player } from "../char/player";',
-		'import type { Title } from "../system/title/Title";',
-	],
-	buff: [
-		'import type { Player } from "../char/player";',
-		'import type { Buff } from "../system/buff/Buff";',
-	],
-	npcfriendformula: [
-		'import type { Player } from "../char/player";',
-		'import type { Item } from "../system/item/Item";',
-	],
-	task: [
-		'import type { Player } from "../char/player";',
-		'import type { TaskSimple } from "../playerobj/task/TaskSimple";',
-		'import type { delTask7 } from "../playerobj/task/TaskStruct";',
-		'import { addShiliTask } from "../playerobj/task/TaskShili";',
-	],
-
-	reward: [
-		'import type { Player } from "../char/player";',
-		// 'import { commonRewardFuncs } from "../playerobj/reward/commonRewardFuncs"',
-		'import { getRewardInfo } from "./xlsInfo";',
-	],
-	monetrayType: ['import type { Player } from "../char/player";'],
-	item: [
-		'import type { MoneyData } from "../playerobj/reward/MoneyObj";',
-		'import type { Player } from "../char/player";',
-	],
-	material: [
-		'import type { MoneyData } from "../playerobj/reward/MoneyObj";',
-		'import type { Player } from "../char/player";',
-	],
-	gachaRandom: ['import type { Player } from "../char/player";'],
-};
-
-
-function getImports(name: string): string[] {
-	return imports[name] || [];
-}
 
 function isSameArray(a: any[]) {
 	if (a.length <= 1) {
@@ -177,6 +107,8 @@ export interface genXlsParam {
 	update?: boolean; // 只更新还是全部输出？
 	diff?: boolean;
 	rtonlychange?: boolean; // 改变了才返回!
+	/** 仅gen_xls读取；true时导出错误抛出异常，供监听入口保留旧缓存并重试；缺省false沿用逐表记录错误的行为。 */
+	throwOnError?: boolean;
 }
 
 // const debugPage = 'npcAni';
@@ -278,11 +210,7 @@ export function gen_xls_list(files: string[], param: genXlsParam): string[] {
 			console.log("v.english[error]", error, v.english[error]);
 			console.log("ori is:", v.english[0]);
 			// }
-			msgBox(
-				'gen_xls_list',
-				`gen_xls_list page ${xlsfile} ${v.name} ${files[error]}表头不一致 ${numToExcel(index)} ${a} ${b}`,
-				null,
-			);
+			console.error(`表头不一致: ${numToExcel(index)} ${a} ${b}`);
 			continue;
 		}
 
@@ -317,7 +245,7 @@ export function gen_xls_list(files: string[], param: genXlsParam): string[] {
 	return rts;
 }
 
-const pages2xls = {};
+const pages2xls: Record<string, string> = {};
 
 function setPage2Xls(name: string, base: string){
 	const start = "resource/assets/xls/"
@@ -387,6 +315,7 @@ export function gen_xls(param: genXlsParam): string[] {
 			}
 			else {
 				console.error(chalk.red('get_xls page0'), xlsfile, key, xls[key].name, rt);
+				if (param.throwOnError) throw new Error(`${xlsfile} ${name}: ${rt}`);
 			}
 		}
 		// console.timeEnd(`gen_xls_page ${xls[key].name}`);
@@ -472,7 +401,9 @@ function replace_line(v: string) {
 	return v.replaceAll('\r\n', '\\n');
 }
 
-function format_string(v: string) {
+function format_string(v: string | number | boolean) {
+	if (typeof v !== 'string') return JSON.stringify(v);
+
 	// v.trim();
 	if (isNumberString(v)) return v;
 	if (v[0] === '[' && v[v.length - 1] === ']') return (v);
@@ -556,7 +487,7 @@ function passive_args(s: string) {
 	}
 	const excludes = ['Math', 'floor', 'ceil', 'round']
 	const words = s.match(varRegex);
-	const keys = {};
+	const keys: Record<string, boolean> = {};
 	if (words) {
 		for (const word of words) {
 			if (excludes.indexOf(word) === -1) {
@@ -571,7 +502,7 @@ function passive_args(s: string) {
 function parsePassiveGameData(obj: any) {
 	// if (s[0] == '{') {
 	try {
-		const out = {};
+		const out: Record<string, number | string[]> = {};
 		let func = '{'
 		//const obj = JSON.parse(s);
 		for (const [key, value] of Object.entries(obj)) {
@@ -602,7 +533,7 @@ function parsePassiveGameData(obj: any) {
 
 function processPassiveskillGroup(tempgroup: string[], id: any, allfuncs: Record<string, Record<string, string>>, output: string[]) {
     const trimmedGroup = tempgroup.slice(1, -1);
-    const obj = {};
+    const obj: Record<string, string> = {};
     for (let i = 0; i < trimmedGroup.length; i += 2) {
         if (trimmedGroup[i] && trimmedGroup[i + 1]) {
             // 去掉引号和逗号
@@ -629,10 +560,10 @@ function formula_args(func: any[], s: string): string[] {
 		return [];
 	}
 	const words = s.match(varRegex);
-	const keys = {};
+	const keys: Record<string, boolean> = {};
 	if (words) {
 		for (const word of words) {
-			if (func.indexIfa((v) => v[0] === word)) {
+			if (func.some((value) => value[0] === word)) {
 				keys[word] = true;
 			}
 		}
@@ -699,7 +630,7 @@ function matchId(l: string) {
 	return 0;
 }
 
-function saveAllFunc(param: genXlsPageParam, allfuncs: Record<string, string>) {
+function saveAllFunc(param: genXlsPageParam, allfuncs: Record<string, Record<string, string>>) {
 	const { ori, base, mtime, name, data, folder, ts, force, update } = param;
 
 	const sexport = 'export';
@@ -727,7 +658,6 @@ function saveAllFunc(param: genXlsPageParam, allfuncs: Record<string, string>) {
 		return;
 	}
 
-	console.log("saveAllFunc.allfuns", debugid, allfuncs[debugid])
 
 	const desfuncfile = path.join(ts, `${name}_func.ts`);
 	// console.log(`//funcs from ${base} -- ${name}`);
@@ -735,12 +665,9 @@ function saveAllFunc(param: genXlsPageParam, allfuncs: Record<string, string>) {
 
 	let headers = [];
 	headers.push(`// from ${base} -- ${name}`);
-	headers.push('// import begin');
-	headers = [...headers, ...getImports(name)];
-	headers.push('// import end');
 
 	// type f = (p:Player,t:TaskSimple) => void;
-	const uname = _.upperFirst(name);
+	const uname = name.charAt(0).toUpperCase() + name.slice(1);
 	for (let i = 1; i < funcs.length; i++) {
 		if (funcs[i]) {
 			const [func, rt2] = parseFunc(funcs[i]);
@@ -782,7 +709,7 @@ function saveAllFunc(param: genXlsPageParam, allfuncs: Record<string, string>) {
 		outs.push('},\n');
 	}
 
-	if (update) {
+	if (update && fs.existsSync(desfuncfile)) {
 		const datas = fs.readFileSync(desfuncfile).toString();
 		// console.log('update', desfuncfile, datas);
 		const lines = datas.split('\n');
@@ -814,44 +741,23 @@ function saveAllFunc(param: genXlsPageParam, allfuncs: Record<string, string>) {
 	}
 	outs.push('}');
 
-	console.log("savedAllFunc.allfuns", debugid, allfuncs[debugid])
 
 	FsUtils.saveFileWhenmodify(desfuncfile, `${headers.join('\n')}\n${outs.join('\n')}`);
 }
 
 function checkJsonStr(param: genXlsPageParam, jsonstr: string) {
-	const { ori, base, mtime, name, data, folder, ts, force, update } = param;
-	let jsondata;
 	try {
-		jsondata = JSON5.parse(jsonstr);
-	} catch (e) {
-		const fullfile = path.join(`${folder}/../error/`, `${name}_error.json5`);
-
+		return JSON5.parse(jsonstr);
+	} catch (error) {
+		const fullfile = path.join(param.folder, '../error', param.name + '_error.json5');
+		const lineNumber = error instanceof SyntaxError && 'lineNumber' in error
+			? Number(error.lineNumber) : 1;
 		FsUtils.saveFile(fullfile, jsonstr);
-		console.error('错误的数据已经被写入 ', fullfile, e.lineNumber);
-
-		const msg = `${ori} page ${name} 出错!  \n 错误的数据已经被写入 ${fullfile} line ${e.lineNumber}`;
-		msgBox('gen_xls', msg, (yes) => {
-			if (yes) {
-				exec(fullfile);
-			}
-		});
-
+		console.error(param.ori, param.name, '导表失败，错误数据写入', fullfile, '行号', lineNumber, error);
 		const lines = jsonstr.split('\n');
-		// console.error(lines[e.lineNumber-2])
-		for (let i = e.lineNumber - 1; i >= 0; i--) {
-			if (lines[i].endsWith('{')) {
-				console.error(`error at ID: `, lines[i]);
-				break;
-			}
-		}
-		console.error(`error at line ${e.lineNumber}:`, lines[e.lineNumber - 1]);
-		// console.error(lines[e.lineNumber])
-		// console.error(e);
-		console.error('');
+		console.error('错误行:', lines[lineNumber - 1]);
 		return null;
 	}
-	return jsondata;
 }
 
 function outputDiff(file: string, key: string, old: any, v: any) {
@@ -867,7 +773,7 @@ function outputDiff(file: string, key: string, old: any, v: any) {
 		const rts = diff(old, v);
 		const rt0 = rts[0];
 
-		const color = {
+		const color: Record<string, 'red' | 'green' | 'yellow'> = {
 			remove: 'red',
 			add: 'green',
 			replace: 'yellow',
@@ -942,7 +848,6 @@ function gen_xls_page(param: genXlsPageParam): string {
 	const { jsonstr, allfuncs } = jsonrt;
 	// console.log('jsonstr', jsonstr);
 
-	console.log("allfuns", debugid, allfuncs[debugid], update)
 
 	const jsondata = checkJsonStr(param, jsonstr);
 	// console.log('jsondata', jsondata);
@@ -968,7 +873,7 @@ function gen_xls_page(param: genXlsPageParam): string {
 
 interface dataRt {
 	jsonstr: string;
-	allfuncs: Record<string, string>;
+	allfuncs: Record<string, Record<string, string>>;
 	// funcs: string[];
 }
 
@@ -1008,7 +913,7 @@ export function xlsCheckId(name: string, data: any[]): boolean {
 		ids[id] = ids[id] ? ids[id] + 1 : 1;
 		//console.log(id, ids[id]);
 	}
-	const repeat = {};
+	const repeat: Record<string, number> = {};
 	for (const [id, num] of Object.entries(ids)) {
 		if (num > 1) {
 			repeat[id] = num;
@@ -1096,7 +1001,7 @@ export function xlsData2Json(name: string, data: any[]): dataRt {
 	// console.log("sexport",sexport,noexport,typeof(noexport))
 	// output.push('');
 
-	const allfuncs = {};
+	const allfuncs: Record<string, Record<string, string>> = {};
 
 	// output.push(`// from ${base} -- ${name}`)
 	// output.push("")
@@ -1309,7 +1214,7 @@ function main(){
 	if (!src) {
 		src = 'resource\\assets\\xls';
 		json = 'resource\\assets\\json';
-		ts = 'src\\servers\\game\\xls';
+		ts = 'resource\\assets\\xls-functions';
 		force = '1';
 	}
 

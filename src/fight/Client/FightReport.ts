@@ -262,6 +262,9 @@ export class FightReport {
 						`${name(msg[1])} 因${msg[2] != null ? this.buffName(msg[2]) : msg[3]}跳过行动`,
 					);
 					break;
+				case 'defend':
+					this.write(`${name(msg[1])} 进入防御姿态`);
+					break;
 				case 'protect':
 					this.write(`${name(msg[1])} 保护 ${name(msg[2])}`);
 					break;
@@ -414,6 +417,9 @@ export class FightReport {
 					this.write(`战斗结束：${msg[3] ? '逃跑，' : ''}${result}`);
 					break;
 				}
+				case 'summon':
+					this.write(`${name(msg[1])} 召唤 ${name(msg[3].uid)}，加入战斗`);
+					break;
 				case 'dismiss':
 					this.write(dismissal);
 					break;

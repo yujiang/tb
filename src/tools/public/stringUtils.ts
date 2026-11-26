@@ -18,7 +18,7 @@ function normalizeEllipsis(str: string, target = '……') {
 	return s;
 }
 
-const map = {
+const map: Record<string, string> = {
 	',': '，',
 	'.': '。',
 	'!': '！',

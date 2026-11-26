@@ -129,6 +129,27 @@ async function setup(cd?: number) {
 	return { fight, loop, client, report, messages, a, b, c, d, input };
 }
 
+for (const inserted of [false, true]) {
+	// 测试：单位在行动执行前死亡时不出手，但每个未执行的行动仍提示死亡原因。
+	test(`yanyu: dead ${inserted ? 'inserted' : 'automatic'} actor reports why its action is skipped`, async () => {
+		const s = await setup();
+		const hints: string[] = [];
+		s.a.hintClient = msg => hints.push(msg);
+		if (inserted) {
+			assert.equal(s.loop.insertAction(s.a, { cmd: FightCmdEnum.attack, target: s.c.uid }), true);
+		}
+		const ctx = initFightContex(s.fight);
+		s.fight.resolveAction(() => s.a.onHurt(s.c, 'test', 1000, ctx));
+		s.loop.bcMsg(ctx.msgs);
+		assert.equal(s.a.isDied(), true);
+		s.messages.length = 0;
+		await s.loop.processOneTurn(s.fight.turn);
+		assert.deepEqual(hints, Array(inserted ? 2 : 1).fill('已死亡，行动跳过'));
+		assert.equal(s.messages.some(msg => msg[0] === 'actor' && msg[1] === s.a.uid), false);
+		s.loop.end();
+	});
+}
+
 // 测试：有冷却的即时技能同回合不能重复施放，其他单位的同名技能不受影响。
 test('yanyu: cooldown prevents repeated casting and belongs to each caster', async () => {
 	const s = await setup(2);
@@ -636,7 +657,7 @@ test('yanyu: input is closed before preparation and rejects dead or resting cast
 	s.fight.resolveAction(() => s.a.onHurt(s.c, 'test', 1000, ctx));
 	s.loop.bcMsg(ctx.msgs);
 	assert.equal(await s.input(), false);
-	assert.deepEqual(hints, ['当前无法行动', '自身已死亡，无法行动']);
+	assert.deepEqual(hints, ['当前无法行动', '已死亡，行动跳过']);
 });
 
 // 测试：即时技能可明确指定 ID 为零的合法友方目标，输入拒绝阶段不误判为未指定。

@@ -1,0 +1,38 @@
+{
+  "13001": {
+    "id": 13001,
+    "name": "PC测试",
+    "maxTurn": 30,
+    "waitInputSec": 30,
+    "duiwei": false,
+    "jiqi": false,
+    "attackDie": false,
+    "protectBuff": 2003,
+    "allShieldBreak": true,
+    "loopType": "pc"
+  },
+  "13002": {
+    "id": 13002,
+    "name": "西游测试",
+    "maxTurn": 50,
+    "waitInputSec": 30,
+    "duiwei": false,
+    "jiqi": false,
+    "attackDie": true,
+    "protectBuff": 2003,
+    "allShieldBreak": false,
+    "loopType": "west"
+  },
+  "13003": {
+    "id": 13003,
+    "name": "烟雨测试",
+    "maxTurn": 50,
+    "waitInputSec": 30,
+    "duiwei": true,
+    "jiqi": true,
+    "attackDie": false,
+    "protectBuff": 2003,
+    "allShieldBreak": false,
+    "loopType": "yanyu"
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "9001": {
+    "id": 9001,
+    "name": "灵狼",
+    "attr": 6021,
+    "grade": 60,
+    "diff": 1,
+    "skills": [
+      [
+        1001,
+        1
+      ]
+    ],
+    "passiveSkills": [
+      [
+        3001,
+        1
+      ]
+    ],
+    "attackSkill": 0,
+    "fbackSkill": 0,
+    "supportSkill": 0,
+    "ultimateSkill": 0
+  },
+  "9002": {
+    "id": 9002,
+    "name": "灵狐",
+    "grade": 70,
+    "diff": 2,
+    "skills": [
+      [
+        1003,
+        1
+      ],
+      [
+        1001,
+        1
+      ]
+    ],
+    "passiveSkills": [
+      [
+        3003,
+        1
+      ]
+    ],
+    "attackSkill": 0,
+    "fbackSkill": 0,
+    "supportSkill": 0,
+    "ultimateSkill": 0
+  },
+  "9003": {
+    "id": 9003,
+    "name": "药灵",
+    "grade": 60,
+    "diff": 3,
+    "skills": [
+      [
+        1002,
+        1
+      ],
+      [
+        1001,
+        1
+      ]
+    ],
+    "passiveSkills": [],
+    "attackSkill": 0,
+    "fbackSkill": 0,
+    "supportSkill": 0,
+    "ultimateSkill": 0
+  }
+}

@@ -91,6 +91,9 @@ export class FightClient {
 				case 'runaway':
 					if (msg[2]) this.runaway = true;
 					break;
+				case 'summon':
+					this.sides[msg[2] as FightSideEnum].push(structuredClone(msg[3]));
+					break;
 				case 'dismiss': {
 					const uid = msg[2];
 					for (const side of this.sides) {

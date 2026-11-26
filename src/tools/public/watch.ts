@@ -1,28 +1,27 @@
-// import * as fs from 'fs';
+import * as path from 'node:path';
 import * as chokidar from 'chokidar';
 import { FsUtils } from './FsUtils';
-// import { FsUtils } from './FsUtils';
 
-// watch会有两次连续的回调，使用throttle只处理最后一次的回调！
+type WatchCallback = (file: string) => void | Promise<void>;
 
-type WatchCallback = (file: string) => void;
-
-export function watchFileOnce(fileName: string, func: WatchCallback): void {
-	// fs.watch(fileName, () => {
-	// 	getWatch(fileName, func).onChange();
-	// });
-	chokidar.watch(fileName).on('change', func);
+export function watchFileOnce(fileName: string, func: WatchCallback): chokidar.FSWatcher {
+	return watchPathOnce(fileName, '', func);
 }
 
-export function watchPathOnce(pathName: string, endsWith: string, func: WatchCallback): void {
-	// const filesList = FsUtils.findFilesInDir(pathName, endsWith);
-	// for (const fileName of filesList) {
-	// 	watchFileOnce(fileName, func);
-	// }
-	console.log('watchPathOnce', pathName, endsWith);
-	chokidar.watch(pathName).on('change', (file: string) => {
-		if (FsUtils.endWith(file, endsWith)) {
-			func(file);
-		}
+export function watchPathOnce(pathName: string, endsWith: string, func: WatchCallback): chokidar.FSWatcher {
+	const watcher = chokidar.watch(pathName, {
+		ignoreInitial: true,
+		awaitWriteFinish: { stabilityThreshold: 200, pollInterval: 50 },
+		ignored: (file) => path.basename(file).startsWith('~'),
 	});
+	const notify = (file: string) => {
+		if (!FsUtils.endWith(file.toLowerCase(), endsWith.toLowerCase())) return;
+
+		void Promise.resolve().then(() => func(file)).catch((error: unknown) => {
+			console.error('处理文件变化失败:', file, error);
+		});
+	};
+	watcher.on('add', notify);
+	watcher.on('change', notify);
+	return watcher;
 }
