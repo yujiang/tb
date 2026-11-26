@@ -13,6 +13,9 @@ import { msgBox } from './msgbox';
 
 // const chalk = require('chalk/safe');
 import * as chalk from 'chalk';
+import { StringUtils } from '../public/stringUtils';
+
+const debugid = 1005007700;
 
 
 const stringify = require('json-stringify-pretty-compact');
@@ -67,6 +70,7 @@ const imports = {
 
 	reward: [
 		'import type { Player } from "../char/player";',
+		// 'import { commonRewardFuncs } from "../playerobj/reward/commonRewardFuncs"',
 		'import { getRewardInfo } from "./xlsInfo";',
 	],
 	monetrayType: ['import type { Player } from "../char/player";'],
@@ -478,16 +482,37 @@ function format_string(v: string) {
 	return `"${v}"`;
 }
 
+
+
+//英文标点转为中文
+function format_cn(v: string) {
+	if (isNumberString(v)) return v;
+	if (v[0] === '[' && v[v.length - 1] === ']') return (v);
+	if (v[0] === '{' && v[v.length - 1] === '}') return format_object(v);
+	v = StringUtils.formatSay(v);
+	return `"${v}"`;
+}
+
 function is_end_group(g: string) {
 	return g === '},' || g === '],';
 }
 
 function checkString(s: string, msg: string) {}
 
+//f0, f1, ...
+function isFuncVar(s:string){
+	const reg = /^[A-Za-z]+[0-9]*$/
+	return reg.test(s);
+	// return s[0] === 'f' && Number(s.substr(1)) >= 0;
+}
+
 // 有没有变量?
 function findParam(s: string) : [string, boolean]{
 	if (isNumberString(s)){
 		return [s, false];
+	}
+	if (isFuncVar(s)){
+		return [format_string(s), false];
 	}
 	return [s, true];
 }
@@ -702,6 +727,8 @@ function saveAllFunc(param: genXlsPageParam, allfuncs: Record<string, string>) {
 		return;
 	}
 
+	console.log("saveAllFunc.allfuns", debugid, allfuncs[debugid])
+
 	const desfuncfile = path.join(ts, `${name}_func.ts`);
 	// console.log(`//funcs from ${base} -- ${name}`);
 	// console.log(getImports(name));
@@ -757,6 +784,7 @@ function saveAllFunc(param: genXlsPageParam, allfuncs: Record<string, string>) {
 
 	if (update) {
 		const datas = fs.readFileSync(desfuncfile).toString();
+		// console.log('update', desfuncfile, datas);
 		const lines = datas.split('\n');
 		// find not in outs.
 		let search = false;
@@ -768,9 +796,11 @@ function saveAllFunc(param: genXlsPageParam, allfuncs: Record<string, string>) {
 				}
 				continue;
 			}
+			//把原有的函数,(可能是其他文件生成的函数) 保留下来
 			const id = matchId(l);
 			if (id) {
 				if (!allfuncs[id]) {
+					console.log("reset",desfuncfile, id);
 					for (; i < lines.length; i++) {
 						outs.push(lines[i]);
 						if (lines[i] === '},') {
@@ -783,6 +813,9 @@ function saveAllFunc(param: genXlsPageParam, allfuncs: Record<string, string>) {
 		}
 	}
 	outs.push('}');
+
+	console.log("savedAllFunc.allfuns", debugid, allfuncs[debugid])
+
 	FsUtils.saveFileWhenmodify(desfuncfile, `${headers.join('\n')}\n${outs.join('\n')}`);
 }
 
@@ -908,6 +941,8 @@ function gen_xls_page(param: genXlsPageParam): string {
 	}
 	const { jsonstr, allfuncs } = jsonrt;
 	// console.log('jsonstr', jsonstr);
+
+	console.log("allfuns", debugid, allfuncs[debugid], update)
 
 	const jsondata = checkJsonStr(param, jsonstr);
 	// console.log('jsondata', jsondata);
@@ -1115,7 +1150,10 @@ export function xlsData2Json(name: string, data: any[]): dataRt {
 				// if (english[j] === 'task_makefriends') {
 				// 	console.log(english[j],s,format_string(s),'('+s+')');
 				// }
-				if (group[j] === '|' || desc[j] === '|') {
+				if (desc[j] === 'cn' || group[j] === 'cn') {
+					s = format_cn(s);
+				}
+				else if (group[j] === '|' || desc[j] === '|') {
 					// console.log(s);
 					if (typeof s === 'string') {
 						const out = s.split('|');
@@ -1135,9 +1173,10 @@ export function xlsData2Json(name: string, data: any[]): dataRt {
 					let param;
 					[s, param] = findParam(s);
 					if (param) {
-						s = addFunc(funcs[j], s);
+						// console.log("findParam",id,s,param);
+						const ss = addFunc(funcs[j], s);
 						allfuncs[id] = allfuncs[id] || {};
-						allfuncs[id][english[j]] = s;
+						allfuncs[id][english[j]] = ss;
 						s = `"${XLS_FUNC_KEY}"`;
 					}
 				} else if (english[j] === 'Formula') {

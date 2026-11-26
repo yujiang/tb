@@ -7,7 +7,7 @@ import { loadJsonXlsLocal } from '../servers/game/adapterFile';
 import type { XlsNpcunit } from '../servers/game/battle/fight/BattleStruct';
 import { FsUtils } from '../public/FsUtils';
 import { genPathpos } from './gen_pathpos';
-import { net_ignores, public_ignores } from './public/gen_ignore';
+import { gameignores, net_ignores, public_ignores } from './public/gen_ignore';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 
@@ -133,11 +133,15 @@ const desPathRoot = '../../tools/electron/ani/src/gen';
 // const publicignores = ['watch.ts', 'reload.ts', 'console.ts', 'log.ts', 'FuncUtils.ts'];
 // const netignores = ['CenterClient.ts', 'HttpServer.ts', 'SockWrap.ts', 'webServer.ts'];
 
-function onChangeTs(file: string, norepalce?: boolean) {
+function onChangeTsPublic(file: string, norepalce?: boolean) {
 	const base = path.basename(file);
 	if (public_ignores.includes(base) || net_ignores.includes(base)) {
 		return;
 	}
+	onChangeTs(file, norepalce);
+}
+
+function onChangeTs(file: string, norepalce?: boolean) {
 	console.log('\nonChangeTs', file, norepalce);
 	const index = file.indexOf('src');
 	const desPath = path.dirname(desPathRoot + file.substr(index + 3));
@@ -147,12 +151,6 @@ function onChangeTs(file: string, norepalce?: boolean) {
 
 // 动态import的module，需要保留export
 const srcScripts = 'src/servers/game/scripts';
-// const desPathScripts = '../../tools/electron/ani/src/gen/servers/game/scripts/';
-// function onChangeTsScript(file: string) {
-// 	console.log('\nonChangeTsScript', file);
-// 	const r = gen(srcScripts, file, desPathScripts, { norepalce: 1 });
-// 	console.log(file, r);
-// }
 const gamemodule = 'game/module';
 
 function isScript(file: string) {
@@ -160,31 +158,10 @@ function isScript(file: string) {
 	return file2.startsWith(srcScripts) || file2.indexOf(gamemodule) >= 0;
 }
 
-const gameignores = [
-	// net
-	'authGame.ts',
-	'charGame.ts',
-	'mod_gate.ts',
-	'netclients.ts',
-	'report.ts',
-
-	// game
-	'adapterCondition.ts',
-	'adapterFile.ts',
-	'adapterGame.ts',
-	'adapterTimer.ts',
-	'adapterPlayer.ts',
-	'adapterTask.ts',
-	'game2center.ts',
-	'gameinfo.ts',
-	'gamemod.ts',
-	'gamesave.ts',
-	'gameserver.ts',
-	'gateServer.ts',
-	'shutdown.ts',
-
-	'mod_gamelogin.ts',
-];
+function onChangeClient(file: string) {
+	console.log('\nonChangeClient', file);
+	onChangeTs(file, false);
+}
 
 function onChangeGame(file: string) {
 	const base = path.basename(file);
@@ -208,8 +185,9 @@ function main() {
 	// //const srcScripts = 'src/servers/game/scripts';
 	// watchPathOnce(srcScripts, '.ts', onChangeTsScript);
 
-	watchPathOnce('src/public', '.ts', onChangeTs); // msgid
-	watchPathOnce('src/net', '.ts', onChangeTs); // msgid
+	watchPathOnce('src/public', '.ts', onChangeTsPublic); // msgid
+	watchPathOnce('src/net', '.ts', onChangeTsPublic); // msgid
+	watchPathOnce('src/clients/game', '.ts', onChangeClient); // msgid
 	watchPathOnce('src/servers/game', '.ts', onChangeGame); // msgerror!
 }
 
