@@ -1,10 +1,10 @@
 {
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "rootDir": ".",
-    "outDir": ".test-build",
-    "noEmitOnError": true
-  },
-  "include": ["src/**/*.ts", "tests/**/*.ts"],
-  "exclude": ["src/browser", "tests/build", "node_modules", "bin-debug", ".test-build"]
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"rootDir": ".",
+		"outDir": ".test-build",
+		"noEmitOnError": true
+	},
+	"include": ["src/**/*.ts", "tests/**/*.ts"],
+	"exclude": ["src/browser", "tests/build", "node_modules", "bin-debug", ".test-build"]
 }
