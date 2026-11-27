@@ -4,7 +4,7 @@
 
 源码：[CreateSideByXls.ts](../../src/fight/CreateSideByXls.ts)。这些是模拟表格的宿主装配结构，不改变原生 `MonsterData.attr: FightAttr`。
 
-先调用 `initFightXls(tables, allocateUid, random)` 统一注册共享表、全局UID分配器和随机源；随后 `createSideByXls(sideId)` 返回新FightSide。宿主加载JSON、设置全局规则和常量后创建双方，最后调用Fight.createSide自动建图。UID分配器须保证整场唯一，0有效；初始化不重置宿主UID计数。随机函数须返回[0,1)，可注册为 `() => fight.random()`，宠物随机落位继续消耗同一战斗的随机状态。
+先调用 `initFightXls(tables, allocateUid, random)` 绑定组队表、全局UID分配器和随机源；技能、Buff和被动须先注册，可调用initAllDatas；随后 `createSideByXls(sideId)` 返回新FightSide。宿主加载JSON、设置全局规则和常量后创建双方，最后调用Fight.createSide自动建图。UID分配器须保证整场唯一，0有效；初始化不重置宿主UID计数。随机函数须返回[0,1)，可注册为 `() => fight.random()`，宠物随机落位继续消耗同一战斗的随机状态。
 
 共享初始化覆盖当前组队依赖，不持有地图。创建函数同步捕获当次依赖；后续初始化只影响之后的创建。文件加载、输入循环和战斗中换宠不在此入口内。
 
@@ -60,16 +60,12 @@ XlsUserData移除attackSkill、fbackSkill、supportSkill、ultimateSkill四个�
 | career | 职业字符串，AI精确匹配 |
 | weapon | WeaponEnum数值，0无兵器 |
 | charProp / weaponProp | PropEnum人物/武器五行，0无五行 |
-| physicAttack / physicDefend | 物理各阶段attack/defend点数 |
-| magicAttack / magicDefend | 魔法各阶段attack/defend点数 |
-| healAttack | heal.attack点数 |
-| hit | 命中点数，100表示100%，不是1 |
-| parry? | 物理招架点数，省略/0关闭；命中后判定，成功不暴击且完整技能伤害减半；示例表均为0，弱点玩法保持原行为 |
-| critP | 暴击概率0～1，0为无暴击 |
-| spMax / jpMax | 非负资源上限点数，初始sp/jp均0 |
-| damageLimit | 非负单次输出伤害上限点数，0不限 |
+| physic / magic | 物理/魔法属性分组；分别配置base、kill、next、spread、fback及final，省略分组、阶段或数值默认0，各阶段独立 |
+| heal / poison | 治疗和毒伤的BaseAttack对象；省略或未配置的数值默认0 |
+| spMax / jpMax | 非负资源上限点数，省略为0，初始sp/jp均0 |
+| damageLimit | 非负单次输出伤害上限点数，省略或0不限 |
 
-除parry可省略默认为0外，上述数值字段必填，没有隐式随机默认值。每个阶段独立建对象；base.rand=1，其他阶段rand=0；poison.attack=0，其余BaseAttack及FinalAttack数值默认0。公共资源增长属性取创建FightAttr时的常量默认值。未配置的等级/难度组合报错，不猜测、插值或借用其他type。
+属性组中的非零值必须明确配置，例如命中`hit:100`和基础阶段的`rand:1`；显式0有效，省略不表示继承其他阶段。展开时为各阶段创建独立对象，不修改表配置。mp、speed、weapon、charProp和weaponProp省略时也为0。公共资源增长属性使用全局配置。未配置的等级/难度组合报错，不猜测、插值或借用其他type。
 
 ## FightXlsTables
 

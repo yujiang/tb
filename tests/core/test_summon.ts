@@ -1,12 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import fs from 'node:fs';
 import path from 'node:path';
 import * as tb from '../../src';
 
 function setup(Loop: typeof tb.FightLoopPC | typeof tb.FightLoopWest = tb.FightLoopPC, configure: (tables: tb.FightXlsTables) => void = () => {}) {
-	const names = ['attr', 'user', 'summon', 'monster', 'side', 'zhen', 'skill', 'buff', 'passive', 'ai', 'rule'];
-	const tables = Object.fromEntries(names.map(name => [name, JSON.parse(fs.readFileSync(path.join(process.cwd(), `resource/assets/json/${name}_xls.json`), 'utf8'))])) as tb.FightXlsTables;
+	const tables = tb.initAllDatas(path.join(process.cwd(), 'resource/assets/json'));
 	configure(tables);
 	let uid = 0;
 	const fight = new tb.Fight(1, { id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 }, 0);

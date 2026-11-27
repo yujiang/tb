@@ -1,7 +1,27 @@
+import { BaseAttack, FinalAttack } from '../FightAttr';
+
 /** 属性预设分类；显式属性引用和组合查找均按单位类型校验。 */
 export type XlsUnitType = 'user' | 'summon' | 'monster';
 
-/** 模拟数据的扁平属性预设；其他数值由展开入口补齐，不是完整FightAttr快照。 */
+export interface xlsFightTypeAttr {
+	/** 普通攻击/主攻击使用的基础属性。 */
+	base?: Partial<BaseAttack>;
+
+	/** 击杀追击阶段属性，不自动沿用base。 */
+	kill?: Partial<BaseAttack>; // 追击
+	/** 连击/连招阶段属性，不自动沿用base。 */
+	next?: Partial<BaseAttack>; // 连击
+	/** 溅射阶段属性，不自动固定减伤，倍率由配置决定。 */
+	spread?: Partial<BaseAttack>; // 溅射！
+
+	/** 反击阶段属性，区别于受伤规则发动的基础属性新攻击。 */
+	fback?: Partial<BaseAttack>; // 反击
+
+	/** 本物理/魔法分组共用的吸血、反伤、免伤属性。 */
+	final?: Partial<FinalAttack>;
+}
+
+/** 属性表预设；可省略的数值与攻击属性默认0，非零值须显式配置。 */
 export interface XlsAttrData {
 	/** 本表唯一整数ID，0有效；供单位attr字段显式引用。 */
 	id: number;
@@ -15,40 +35,34 @@ export interface XlsAttrData {
 	diff: number;
 	/** 初始生命及上限，正数，单位为点。 */
 	hp: number;
-	/** 初始法力及上限，非负数，单位为点。 */
-	mp: number;
-	/** 基础速度点数。 */
-	speed: number;
+	/** 初始法力及上限，非负数，单位为点；省略为0。 */
+	mp?: number;
+	/** 基础速度点数；省略为0。 */
+	speed?: number;
 	/** 职业字符串，供AI精确匹配。 */
 	career: string;
-	/** WeaponEnum数值；0表示无兵器。 */
-	weapon: number;
-	/** PropEnum人物五行；0表示无。 */
-	charProp: number;
-	/** PropEnum武器五行；0表示无。 */
-	weaponProp: number;
-	/** 物理各阶段attack，单位为点。 */
-	physicAttack: number;
-	/** 物理各阶段defend，单位为点。 */
-	physicDefend: number;
-	/** 魔法各阶段attack，单位为点。 */
-	magicAttack: number;
-	/** 魔法各阶段defend，单位为点。 */
-	magicDefend: number;
-	/** heal.attack，单位为点。 */
-	healAttack: number;
-	/** 物理命中点数，100表示100%，不是1。 */
-	hit: number;
-	/** 物理招架点数，可省略，默认0关闭；命中后按攻击命中与本值计算招架，成功不暴击且完整技能伤害减半。 */
-	parry?: number;
-	/** 暴击概率0～1，0表示无暴击。 */
-	critP: number;
-	/** 怒气上限点数；初始怒气0。 */
-	spMax: number;
-	/** 集气上限点数；初始集气0。 */
-	jpMax: number;
-	/** 单次输出限伤点数，0表示不限。 */
-	damageLimit: number;
+	/** WeaponEnum数值；0表示无兵器，省略为0。 */
+	weapon?: number;
+	/** PropEnum人物五行；0表示无，省略为0。 */
+	charProp?: number;
+	/** PropEnum武器五行；0表示无，省略为0。 */
+	weaponProp?: number;
+
+	/** 物理各阶段及最终属性，省略阶段或字段默认为0。 */
+	physic?: xlsFightTypeAttr;
+	/** 魔法各阶段及最终属性，省略阶段或字段默认为0。 */
+	magic?: xlsFightTypeAttr;
+	/** 治疗属性，省略字段默认为0。 */
+	heal?: Partial<BaseAttack>;
+	/** 毒伤属性，省略字段默认为0。 */
+	poison?: Partial<BaseAttack>;
+
+	/** 怒气上限点数；初始怒气0；省略为0。 */
+	spMax?: number;
+	/** 集气上限点数；初始集气0；省略为0。 */
+	jpMax?: number;
+	/** 单次输出限伤点数，0表示不限，省略为0。 */
+	damageLimit?: number;
 }
 
 

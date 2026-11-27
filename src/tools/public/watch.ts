@@ -12,7 +12,13 @@ export function watchPathOnce(pathName: string, endsWith: string, func: WatchCal
 	const watcher = chokidar.watch(pathName, {
 		ignoreInitial: true,
 		awaitWriteFinish: { stabilityThreshold: 200, pollInterval: 50 },
-		ignored: (file) => path.basename(file).startsWith('~'),
+		ignored: (file, stats) => {
+			if (path.basename(file).startsWith('~')) return true;
+
+			if (!stats || stats.isDirectory()) return false;
+
+			return !FsUtils.endWith(file.toLowerCase(), endsWith.toLowerCase());
+		},
 	});
 	const notify = (file: string) => {
 		if (!FsUtils.endWith(file.toLowerCase(), endsWith.toLowerCase())) return;

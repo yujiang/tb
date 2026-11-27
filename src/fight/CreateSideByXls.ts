@@ -1,6 +1,6 @@
 import { selectSummonPos } from './SummonPos';
 import { strict as assert } from 'node:assert';
-import { BaseAttack, FightAttr } from './FightAttr';
+import { BaseAttack, FightAttr, FightTypeAttr } from './FightAttr';
 import { FightSide } from './FightSide';
 import { FightUnit } from './Unit/FightUnit';
 import { FightUnitUser, FightUnitSummon } from './Unit/FightUnitUser';
@@ -9,10 +9,10 @@ import { applyUnitTemplate } from './Unit/ApplyUnitTemplate';
 import { AIData } from './Datas/AIDatas';
 import { RuleData } from './Datas/RuleDatas';
 import { ZhenData } from './ZhenDatas';
-import { SkillData, initSkills } from './Datas/SkillDatas';
-import { BuffData, initBuffs } from './Datas/BuffDatas';
-import { PassiveData, initPassives } from './Datas/PassiveDatas';
-import { XlsAttrData, XlsUnitType } from './Datas/XlsAttrDatas';
+import { SkillData } from './Datas/SkillDatas';
+import { BuffData } from './Datas/BuffDatas';
+import { PassiveData } from './Datas/PassiveDatas';
+import { XlsAttrData, XlsUnitType, xlsFightTypeAttr } from './Datas/XlsAttrDatas';
 import { XlsSideData } from './Datas/XlsSideDatas';
 import { XlsUserData, XlsUnitData } from './Datas/XlsUnitDatas';
 
@@ -49,7 +49,7 @@ let xlsContext: {
 	random: () => number;
 };
 
-/** 统一初始化共享表、全局UID分配器和随机源；随机源返回[0,1)，可注册为()=>fight.random()。不重置宿主UID计数。 */
+/** 绑定组队表、宿主UID分配器和战斗随机源；技能、Buff和被动须事先注册。随机源返回[0,1)，不重置宿主UID计数。 */
 export function initFightXls(
 	tables: FightXlsTables,
 	allocateUid: () => number,
@@ -57,9 +57,6 @@ export function initFightXls(
 ) {
 	assert.equal(typeof allocateUid, 'function', 'A global UID allocator is required');
 	assert.equal(typeof random, 'function', 'A random source is required');
-	initSkills(Object.values(tables.skill));
-	initBuffs(Object.values(tables.buff));
-	initPassives(Object.values(tables.passive));
 	xlsContext = { tables, allocateUid, random };
 }
 
@@ -67,6 +64,26 @@ function findRow<T>(rows: Record<number, T>, id: number, name: string): T {
 	const row = rows[id];
 	assert.ok(row, `Unknown ${name}: ${id}`);
 	return row;
+}
+
+function expandAttack(data?: Partial<BaseAttack>): BaseAttack {
+	return {
+		rand: 0, hit: 0, dodge: 0, parry: 0, attack: 0, defend: 0,
+		hurt: 0, hurtP: 0, hurtAnti: 0, hurtPAnti: 0,
+		critP: 0, critPAnit: 0, critDeep: 0, critDeepAnit: 0,
+		...data,
+	};
+}
+
+function expandAttackGroup(data?: xlsFightTypeAttr): FightTypeAttr {
+	return {
+		base: expandAttack(data?.base),
+		kill: expandAttack(data?.kill),
+		next: expandAttack(data?.next),
+		spread: expandAttack(data?.spread),
+		fback: expandAttack(data?.fback),
+		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0, ...data?.final },
+	};
 }
 
 /** 显式attr优先；否则严格匹配类型、等级、难度，不近似匹配也不回退其他类型。 */
@@ -99,52 +116,29 @@ export function resolveXlsAttr(
 		);
 		row = matches[0];
 	}
-	const base = (attack: number, defend = 0, rand = 0): BaseAttack => ({
-		rand,
-		hit: row.hit,
-		dodge: 0,
-		parry: row.parry ?? 0,
-		attack,
-		defend,
-		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: row.critP,
-		critPAnit: 0,
-		critDeep: 0,
-		critDeepAnit: 0,
-	});
-	const group = (attack: number, defend: number) => ({
-		base: base(attack, defend, 1),
-		next: base(attack, defend),
-		kill: base(attack, defend),
-		spread: base(attack, defend),
-		fback: base(attack, defend),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
-	});
+
 	return Object.assign(new FightAttr(), {
 		point: {
 			hp: row.hp,
 			hpMax: row.hp,
-			mp: row.mp,
-			mpMax: row.mp,
+			mp: row.mp ?? 0,
+			mpMax: row.mp ?? 0,
 			sp: 0,
-			spMax: row.spMax,
+			spMax: row.spMax ?? 0,
 			jp: 0,
-			jpMax: row.jpMax,
+			jpMax: row.jpMax ?? 0,
 		},
-		speed: row.speed,
+		speed: row.speed ?? 0,
 		grade: row.grade,
 		career: row.career,
-		weapon: row.weapon,
-		charProp: row.charProp,
-		weaponProp: row.weaponProp,
-		damageLimit: row.damageLimit,
-		physic: group(row.physicAttack, row.physicDefend),
-		magic: group(row.magicAttack, row.magicDefend),
-		heal: base(row.healAttack),
-		poison: base(0),
+		weapon: row.weapon ?? 0,
+		charProp: row.charProp ?? 0,
+		weaponProp: row.weaponProp ?? 0,
+		damageLimit: row.damageLimit ?? 0,
+		physic: expandAttackGroup(row.physic),
+		magic: expandAttackGroup(row.magic),
+		heal: expandAttack(row.heal),
+		poison: expandAttack(row.poison),
 	});
 }
 

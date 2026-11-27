@@ -896,6 +896,7 @@ export function xlsCheckId(name: string, data: any[]): boolean {
 		const d = data[i];
 		const id = d[0];
 		if (!id && id !== 0) continue;
+		if (typeof id === 'string' && id.toLowerCase() === 'format') continue;
 
 		// if (name === 'npc') {
 		// 	if (id === 1110) {
@@ -946,6 +947,40 @@ function replaceSmartQuotes(text: string): string {
 	return '"'+replaceSmartQuotes(s2)+'"';
 }
 
+function checkFormat(name: string, data: any[], start: number) {
+	const formats = data.slice(start).filter(row => typeof row[0] === 'string' && row[0].toLowerCase() === 'format');
+	const columns = new Set<number>();
+	for (const format of formats) {
+		for (let col = 1; col < format.length; col++) {
+			const expected = format[col];
+			if (expected === undefined || expected === null || expected === '') continue;
+
+			if (expected !== '{}' && expected !== '[]') continue;
+			columns.add(col);
+
+			for (let row = start; row < data.length; row++) {
+				const cells = data[row];
+				const id = cells[0];
+				if (id === undefined || id === null || id === '') continue;
+				if (typeof id === 'string' && ['format', 'desc', 'func'].includes(id.toLowerCase())) continue;
+
+				const value = cells[col];
+				if (value === undefined || value === null || value === '') continue;
+
+				let parsed: unknown;
+				try { parsed = typeof value === 'string' ? JSON5.parse(value) : value; }
+				catch { parsed = undefined; }
+				const valid = expected === '[]' ? Array.isArray(parsed)
+					: typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed);
+				if (!valid) {
+					throw new Error(`${name} 第${row + 1}行 字段 ${data[1][col] ?? col + 1} 不匹配 Format ${expected}`);
+				}
+			}
+		}
+	}
+	return columns;
+}
+
 // 核心函数
 export function xlsData2Json(name: string, data: any[]): dataRt {
 	// console.log('gen_xls_page',base,name)
@@ -994,6 +1029,7 @@ export function xlsData2Json(name: string, data: any[]): dataRt {
 		}
 		start = 3;
 	}
+	const formattedColumns = checkFormat(name, data, start);
 
 	let funcs = [];
 
@@ -1016,6 +1052,7 @@ export function xlsData2Json(name: string, data: any[]): dataRt {
 		const d = data[i];
 		const id = d[0];
 		if (!id && id !== 0) continue;
+		if (typeof id === 'string' && id.toLowerCase() === 'format') continue;
 
 		// if (name === 'npc') {
 		// 	if (id === 1110) {
@@ -1055,7 +1092,9 @@ export function xlsData2Json(name: string, data: any[]): dataRt {
 				// if (english[j] === 'task_makefriends') {
 				// 	console.log(english[j],s,format_string(s),'('+s+')');
 				// }
-				if (desc[j] === 'cn' || group[j] === 'cn') {
+				if (formattedColumns.has(j)) {
+					s = JSON.stringify(typeof s === 'string' ? JSON5.parse(s) : s);
+				} else if (desc[j] === 'cn' || group[j] === 'cn') {
 					s = format_cn(s);
 				}
 				else if (group[j] === '|' || desc[j] === '|') {

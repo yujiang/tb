@@ -22,10 +22,38 @@ function register(data) {
 }
 
 function makeSide(data, row, allocateUid) {
+	register(data);
 	const fight = new tb.Fight(1, data.fight[12001], 0);
 	tb.initFightXls(data, allocateUid, () => fight.random());
 	return tb.createSideByXls(row.id);
 }
+
+// 已配置属性必须为对象，空阶段可以省略，展开后各阶段和治疗、毒属性均可用。
+test('xls data: attribute rows provide nested attack groups', () => {
+	const tables = readTables(path.join(root, 'resource/assets/json'));
+	const rows = tables.attr;
+	for (const row of Object.values(rows)) {
+		for (const field of ['physic', 'magic']) {
+			if (row[field] === undefined) continue;
+
+			assert.ok(row[field] && typeof row[field] === 'object' && !Array.isArray(row[field]), `attr ${row.id}: ${field} 应为对象`);
+			for (const stage of ['base', 'next', 'kill', 'spread', 'fback', 'final']) {
+				if (row[field][stage] === undefined) continue;
+
+				assert.ok(row[field][stage] && typeof row[field][stage] === 'object' && !Array.isArray(row[field][stage]), `attr ${row.id}: ${field}.${stage} 应为对象`);
+			}
+		}
+		for (const field of ['heal', 'poison']) {
+			if (row[field] === undefined) continue;
+
+			assert.ok(row[field] && typeof row[field] === 'object' && !Array.isArray(row[field]), `attr ${row.id}: ${field} 应为对象`);
+		}
+		const expanded = tb.resolveXlsAttr(tables, row.type, { id: row.id, attr: row.id });
+		assert.ok(expanded.physic.final && expanded.magic.final);
+		assert.equal(typeof expanded.heal.attack, 'number');
+		assert.equal(typeof expanded.poison.attack, 'number');
+	}
+});
 
 // 整套示例工作簿重新导出后应与提交的JSON一致，布尔值和跨表引用均保持正确。
 test('xls data: all workbooks export coherent linked templates', async (t) => {

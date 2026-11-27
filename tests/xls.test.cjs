@@ -57,6 +57,34 @@ test('xls: boolean cells retain their JSON types', (t) => {
 	assert.deepEqual(data[1], { id: 1, enabled: true, disabled: false });
 });
 
+// Format行约束对象和数组列；空单元格允许省略，格式行不输出为数据。
+test('xls: Format validates object and array cells and is not exported', (t) => {
+	const { xlsData2Json, xlsCheckId } = loadGenerator(temporaryFolder(t));
+	const rows = [['编号', '属性', '列表'], ['id', 'attr', 'list'], ['Format', '{}', '[]'], [1, ' {attack:60} ', ' [1,2] '], [2, '', '']];
+	const parsed = require('json5').parse(xlsData2Json('attrs', rows).jsonstr);
+	assert.deepEqual(parsed, { 1: { id: 1, attr: { attack: 60 }, list: [1, 2] }, 2: { id: 2 } });
+	assert.equal(xlsCheckId('attrs', [...rows, ['format', '{}', '[]']]), false);
+	const withDescription = [['编号', '说明', '属性'], ['id', 'name', 'attr'], ['Format', '格式说明', '{}'], [1, '示例', '{attack:60}']];
+	assert.deepEqual(require('json5').parse(xlsData2Json('attrs', withDescription).jsonstr)[1], { id: 1, name: '示例', attr: { attack: 60 } });
+	for (const [value, column] of [['[1]', 1], ['{attack:}', 1], ['{}', 2], [42, 2]]) {
+		const bad = rows.map(row => [...row]);
+		bad[3][column] = value;
+		assert.throws(() => xlsData2Json('attrs', bad), /attrs.*4.*(attr|list).*Format/);
+	}
+});
+
+// 实际导表遇到不匹配的单元格时报错，不写入该工作表的输出文件。
+test('xls: invalid Format prevents workbook export', (t) => {
+	const folder = temporaryFolder(t);
+	const { gen_xls } = loadGenerator(folder);
+	const source = path.join(folder, 'bad.xlsx');
+	const output = path.join(folder, 'json');
+	const rows = [['编号', '属性'], ['id', 'attr'], ['Format', '{}'], [1, '[1]']];
+	fs.writeFileSync(source, require('node-xlsx').build([{ name: 'bad', data: rows }]));
+	assert.throws(() => gen_xls({ xlsfile: source, folder: output, ts: path.join(folder, 'functions'), force: 1, throwOnError: true }), /bad.*4.*attr.*Format/);
+	assert.equal(fs.existsSync(path.join(output, 'bad_xls.json')), false);
+});
+
 // 导表工具可独立加载，并把用户提供的formation工作簿导出为合法JSON，保留数组字段。
 test('xls: migrated generator exports the real formation workbook', (t) => {
 	const folder = temporaryFolder(t);
@@ -137,4 +165,21 @@ const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 `, 'utf8');
 	const result = spawnSync(process.execPath, [script], { encoding: 'utf8', timeout: 12000 });
 	assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+});
+
+// 监听时跳过Excel临时文件，但仍递归监听子目录及其中的xlsx工作簿。
+test('xls: watcher excludes temporary files while watching nested workbooks', { timeout: 10000 }, async (t) => {
+	const folder = temporaryFolder(t);
+	const source = path.join(folder, 'input');
+	const nested = path.join(source, 'nested');
+	fs.mkdirSync(nested, { recursive: true });
+	fs.writeFileSync(path.join(source, 'attr~7F8EF.tmp'), 'temporary');
+	fs.copyFileSync(path.join(root, 'resource/assets/xls/formation.xlsx'), path.join(nested, 'formation.xlsx'));
+	const { startWatchXls } = require('../bin-debug/tools/xls/watch_xls');
+	const watcher = await startWatchXls({ source, folder: path.join(folder, 'json'), ts: path.join(folder, 'functions') });
+	t.after(() => watcher.close());
+	const watched = watcher.getWatched();
+	assert.ok(!watched[source].includes('attr~7F8EF.tmp'));
+	assert.ok(watched[source].includes('nested'));
+	assert.ok(watched[nested].includes('formation.xlsx'));
 });

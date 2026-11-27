@@ -3,6 +3,8 @@ import { SkillCost } from '../struct';
 import { FightUnit, UnitType } from './FightUnit';
 
 export class FightUnitCost extends FightUnit {
+	userGameId = 0; // 跟game的userId对应
+
 	override canCost(cost: SkillCost) {
 		const point = this.attr.point;
 		if (cost.hp && point.hp <= cost.hp) {
@@ -55,6 +57,9 @@ export class FightUnitCost extends FightUnit {
 		}
 		return true;
 	}
+
+	// 提示单个客户端，由宿主覆盖发送；不写入战斗广播或简报。
+	override hintClient(msg: string) {}
 }
 
 export class FightUnitUser extends FightUnitCost {
@@ -68,4 +73,11 @@ export class FightUnitSummon extends FightUnitCost {
 
 	/** 主人FightUnit的uid，由宿主创建召唤物时设置，0有效；dismiss通过此字段校验操作者，不配置时不能被指令移除。 */
 	user: number;
+	findUser() {
+		return this.fight?.getUnitById(this.user) as FightUnitUser;
+	}
+
+	override hintClient(msg: string) {
+		this.findUser()?.hintClient(msg);
+	}
 }

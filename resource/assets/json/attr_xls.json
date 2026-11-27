@@ -10,19 +10,71 @@
     "diff": 1,
     "career": "战士",
     "weapon": 2,
-    "charProp": 0,
-    "weaponProp": 0,
-    "physicAttack": 65,
-    "physicDefend": 22,
-    "magicAttack": 25,
-    "magicDefend": 15,
-    "healAttack": 20,
-    "hit": 100,
-    "critP": 0,
+    "physic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 60,
+        "defend": 22
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 60,
+        "defend": 22
+      },
+      "next": {
+        "hit": 100,
+        "attack": 60,
+        "defend": 22
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 60,
+        "defend": 22
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 60,
+        "defend": 22
+      }
+    },
+    "magic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 25,
+        "defend": 15
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 25,
+        "defend": 15
+      },
+      "next": {
+        "hit": 100,
+        "attack": 25,
+        "defend": 15
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 25,
+        "defend": 15
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 25,
+        "defend": 15
+      }
+    },
+    "heal": {
+      "hit": 100,
+      "attack": 20
+    },
+    "poison": {
+      "hit": 100
+    },
     "spMax": 100,
-    "jpMax": 10,
-    "damageLimit": 0,
-    "parry": 0
+    "jpMax": 10
   },
   "6002": {
     "id": 6002,
@@ -34,20 +86,71 @@
     "grade": 70,
     "diff": 2,
     "career": "法师",
-    "weapon": 0,
-    "charProp": 0,
-    "weaponProp": 0,
-    "physicAttack": 30,
-    "physicDefend": 12,
-    "magicAttack": 75,
-    "magicDefend": 25,
-    "healAttack": 30,
-    "hit": 100,
-    "critP": 0,
+    "physic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 30,
+        "defend": 12
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 30,
+        "defend": 12
+      },
+      "next": {
+        "hit": 100,
+        "attack": 30,
+        "defend": 12
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 30,
+        "defend": 12
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 30,
+        "defend": 12
+      }
+    },
+    "magic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 75,
+        "defend": 25
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 75,
+        "defend": 25
+      },
+      "next": {
+        "hit": 100,
+        "attack": 75,
+        "defend": 25
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 75,
+        "defend": 25
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 75,
+        "defend": 25
+      }
+    },
+    "heal": {
+      "hit": 100,
+      "attack": 30
+    },
+    "poison": {
+      "hit": 100
+    },
     "spMax": 100,
-    "jpMax": 10,
-    "damageLimit": 0,
-    "parry": 0
+    "jpMax": 10
   },
   "6003": {
     "id": 6003,
@@ -60,19 +163,71 @@
     "diff": 3,
     "career": "医生",
     "weapon": 4,
-    "charProp": 0,
-    "weaponProp": 0,
-    "physicAttack": 35,
-    "physicDefend": 18,
-    "magicAttack": 40,
-    "magicDefend": 22,
-    "healAttack": 60,
-    "hit": 100,
-    "critP": 0,
+    "physic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 35,
+        "defend": 18
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 35,
+        "defend": 18
+      },
+      "next": {
+        "hit": 100,
+        "attack": 35,
+        "defend": 18
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 35,
+        "defend": 18
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 35,
+        "defend": 18
+      }
+    },
+    "magic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 40,
+        "defend": 22
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 40,
+        "defend": 22
+      },
+      "next": {
+        "hit": 100,
+        "attack": 40,
+        "defend": 22
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 40,
+        "defend": 22
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 40,
+        "defend": 22
+      }
+    },
+    "heal": {
+      "hit": 100,
+      "attack": 60
+    },
+    "poison": {
+      "hit": 100
+    },
     "spMax": 100,
-    "jpMax": 10,
-    "damageLimit": 0,
-    "parry": 0
+    "jpMax": 10
   },
   "6011": {
     "id": 6011,
@@ -85,19 +240,71 @@
     "diff": 1,
     "career": "战士",
     "weapon": 2,
-    "charProp": 0,
-    "weaponProp": 0,
-    "physicAttack": 65,
-    "physicDefend": 22,
-    "magicAttack": 25,
-    "magicDefend": 15,
-    "healAttack": 20,
-    "hit": 100,
-    "critP": 0,
+    "physic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 65,
+        "defend": 22
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 65,
+        "defend": 22
+      },
+      "next": {
+        "hit": 100,
+        "attack": 65,
+        "defend": 22
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 65,
+        "defend": 22
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 65,
+        "defend": 22
+      }
+    },
+    "magic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 25,
+        "defend": 15
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 25,
+        "defend": 15
+      },
+      "next": {
+        "hit": 100,
+        "attack": 25,
+        "defend": 15
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 25,
+        "defend": 15
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 25,
+        "defend": 15
+      }
+    },
+    "heal": {
+      "hit": 100,
+      "attack": 20
+    },
+    "poison": {
+      "hit": 100
+    },
     "spMax": 100,
-    "jpMax": 10,
-    "damageLimit": 0,
-    "parry": 0
+    "jpMax": 10
   },
   "6012": {
     "id": 6012,
@@ -109,20 +316,71 @@
     "grade": 70,
     "diff": 2,
     "career": "法师",
-    "weapon": 0,
-    "charProp": 0,
-    "weaponProp": 0,
-    "physicAttack": 30,
-    "physicDefend": 12,
-    "magicAttack": 75,
-    "magicDefend": 25,
-    "healAttack": 30,
-    "hit": 100,
-    "critP": 0,
+    "physic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 30,
+        "defend": 12
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 30,
+        "defend": 12
+      },
+      "next": {
+        "hit": 100,
+        "attack": 30,
+        "defend": 12
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 30,
+        "defend": 12
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 30,
+        "defend": 12
+      }
+    },
+    "magic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 75,
+        "defend": 25
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 75,
+        "defend": 25
+      },
+      "next": {
+        "hit": 100,
+        "attack": 75,
+        "defend": 25
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 75,
+        "defend": 25
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 75,
+        "defend": 25
+      }
+    },
+    "heal": {
+      "hit": 100,
+      "attack": 30
+    },
+    "poison": {
+      "hit": 100
+    },
     "spMax": 100,
-    "jpMax": 10,
-    "damageLimit": 0,
-    "parry": 0
+    "jpMax": 10
   },
   "6013": {
     "id": 6013,
@@ -135,19 +393,71 @@
     "diff": 3,
     "career": "医生",
     "weapon": 4,
-    "charProp": 0,
-    "weaponProp": 0,
-    "physicAttack": 35,
-    "physicDefend": 18,
-    "magicAttack": 40,
-    "magicDefend": 22,
-    "healAttack": 60,
-    "hit": 100,
-    "critP": 0,
+    "physic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 35,
+        "defend": 18
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 35,
+        "defend": 18
+      },
+      "next": {
+        "hit": 100,
+        "attack": 35,
+        "defend": 18
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 35,
+        "defend": 18
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 35,
+        "defend": 18
+      }
+    },
+    "magic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 40,
+        "defend": 22
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 40,
+        "defend": 22
+      },
+      "next": {
+        "hit": 100,
+        "attack": 40,
+        "defend": 22
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 40,
+        "defend": 22
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 40,
+        "defend": 22
+      }
+    },
+    "heal": {
+      "hit": 100,
+      "attack": 60
+    },
+    "poison": {
+      "hit": 100
+    },
     "spMax": 100,
-    "jpMax": 10,
-    "damageLimit": 0,
-    "parry": 0
+    "jpMax": 10
   },
   "6021": {
     "id": 6021,
@@ -160,19 +470,71 @@
     "diff": 1,
     "career": "战士",
     "weapon": 2,
-    "charProp": 0,
-    "weaponProp": 0,
-    "physicAttack": 65,
-    "physicDefend": 22,
-    "magicAttack": 25,
-    "magicDefend": 15,
-    "healAttack": 20,
-    "hit": 100,
-    "critP": 0,
+    "physic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 65,
+        "defend": 22
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 65,
+        "defend": 22
+      },
+      "next": {
+        "hit": 100,
+        "attack": 65,
+        "defend": 22
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 65,
+        "defend": 22
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 65,
+        "defend": 22
+      }
+    },
+    "magic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 25,
+        "defend": 15
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 25,
+        "defend": 15
+      },
+      "next": {
+        "hit": 100,
+        "attack": 25,
+        "defend": 15
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 25,
+        "defend": 15
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 25,
+        "defend": 15
+      }
+    },
+    "heal": {
+      "hit": 100,
+      "attack": 20
+    },
+    "poison": {
+      "hit": 100
+    },
     "spMax": 100,
-    "jpMax": 10,
-    "damageLimit": 0,
-    "parry": 0
+    "jpMax": 10
   },
   "6022": {
     "id": 6022,
@@ -184,20 +546,71 @@
     "grade": 70,
     "diff": 2,
     "career": "法师",
-    "weapon": 0,
-    "charProp": 0,
-    "weaponProp": 0,
-    "physicAttack": 30,
-    "physicDefend": 12,
-    "magicAttack": 75,
-    "magicDefend": 25,
-    "healAttack": 30,
-    "hit": 100,
-    "critP": 0,
+    "physic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 30,
+        "defend": 12
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 30,
+        "defend": 12
+      },
+      "next": {
+        "hit": 100,
+        "attack": 30,
+        "defend": 12
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 30,
+        "defend": 12
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 30,
+        "defend": 12
+      }
+    },
+    "magic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 75,
+        "defend": 25
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 75,
+        "defend": 25
+      },
+      "next": {
+        "hit": 100,
+        "attack": 75,
+        "defend": 25
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 75,
+        "defend": 25
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 75,
+        "defend": 25
+      }
+    },
+    "heal": {
+      "hit": 100,
+      "attack": 30
+    },
+    "poison": {
+      "hit": 100
+    },
     "spMax": 100,
-    "jpMax": 10,
-    "damageLimit": 0,
-    "parry": 0
+    "jpMax": 10
   },
   "6023": {
     "id": 6023,
@@ -210,18 +623,70 @@
     "diff": 3,
     "career": "医生",
     "weapon": 4,
-    "charProp": 0,
-    "weaponProp": 0,
-    "physicAttack": 35,
-    "physicDefend": 18,
-    "magicAttack": 40,
-    "magicDefend": 22,
-    "healAttack": 60,
-    "hit": 100,
-    "critP": 0,
+    "physic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 35,
+        "defend": 18
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 35,
+        "defend": 18
+      },
+      "next": {
+        "hit": 100,
+        "attack": 35,
+        "defend": 18
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 35,
+        "defend": 18
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 35,
+        "defend": 18
+      }
+    },
+    "magic": {
+      "base": {
+        "rand": 1,
+        "hit": 100,
+        "attack": 40,
+        "defend": 22
+      },
+      "kill": {
+        "hit": 100,
+        "attack": 40,
+        "defend": 22
+      },
+      "next": {
+        "hit": 100,
+        "attack": 40,
+        "defend": 22
+      },
+      "spread": {
+        "hit": 100,
+        "attack": 40,
+        "defend": 22
+      },
+      "fback": {
+        "hit": 100,
+        "attack": 40,
+        "defend": 22
+      }
+    },
+    "heal": {
+      "hit": 100,
+      "attack": 60
+    },
+    "poison": {
+      "hit": 100
+    },
     "spMax": 100,
-    "jpMax": 10,
-    "damageLimit": 0,
-    "parry": 0
+    "jpMax": 10
   }
 }

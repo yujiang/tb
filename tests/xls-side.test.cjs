@@ -1,11 +1,9 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
-const fs = require('node:fs');
 const path = require('node:path');
 const tb = require('../bin-debug');
 function tables() {
-	const names = ['attr', 'user', 'summon', 'monster', 'side', 'zhen', 'skill', 'buff', 'passive', 'ai', 'rule'];
-	return Object.fromEntries(names.map(name => [name, JSON.parse(fs.readFileSync(path.join(__dirname, `../resource/assets/json/${name}_xls.json`), 'utf8'))]));
+	return tb.initAllDatas(path.join(__dirname, '../resource/assets/json'));
 }
 function create(data, id = 11001, map) {
 	let uid = 0;
@@ -15,13 +13,46 @@ function create(data, id = 11001, map) {
 	return tb.createSideByXls(id);
 }
 
-// 属性表可为玩家配置招架点数，未填写仍默认为0，不能把旧表或弱点玩法意外启用招架。
-test('xls side: parry is configurable and defaults to zero', () => {
+// 稀疏属性省略的数值和阶段默认为零，显式值保留，展开不修改表配置或共享对象。
+test('xls side: missing attack attributes default to zero independently', () => {
 	const data = tables();
-	delete data.attr[6001].parry;
-	assert.equal(tb.resolveXlsAttr(data, 'user', data.user[8001]).physic.base.parry, 0);
-	data.attr[6001].parry = 30;
-	assert.equal(create(data).units[0].attr.physic.base.parry, 30);
+	const row = data.attr[6001];
+	row.physic = { base: { attack: 65, hit: 100, rand: 0 }, final: { bloodP: 0.2 } };
+	row.magic = {};
+	row.heal = { attack: 20 };
+	row.poison = {};
+	const before = structuredClone(row);
+	const attr = tb.resolveXlsAttr(data, 'user', data.user[8001]);
+	assert.equal(attr.physic.base.attack, 65);
+	assert.equal(attr.physic.base.rand, 0);
+	assert.equal(attr.physic.base.hurt, 0);
+	assert.equal(attr.physic.next.attack, 0);
+	assert.equal(attr.magic.base.hit, 0);
+	assert.equal(attr.heal.defend, 0);
+	assert.equal(attr.poison.hurt, 0);
+	assert.equal(attr.physic.final.bloodP, 0.2);
+	assert.equal(attr.magic.final.immunity, 0);
+	attr.physic.base.attack = 3;
+	assert.deepEqual(row, before);
+	assert.equal(attr.physic.next.attack, 0);
+});
+
+// 属性表直接配置各阶段和最终属性，展开后保持对应分组与显式零值。
+test('xls side: nested attack attributes remain in their configured groups', () => {
+	const data = tables();
+	const row = data.attr[6001];
+	row.physic = { base: { attack: 65, parry: 30 }, next: { attack: 20 }, final: { bloodP: 0.2 } };
+	row.magic = { base: { attack: 25 }, final: { immunityP: 0 } };
+	row.heal = { attack: 20 };
+	row.poison = { hurt: 0.1 };
+	const attr = tb.resolveXlsAttr(data, 'user', data.user[8001]);
+	assert.equal(attr.physic.base.parry, 30);
+	assert.equal(attr.physic.next.attack, 20);
+	assert.equal(attr.physic.final.bloodP, 0.2);
+	assert.equal(attr.magic.base.attack, 25);
+	assert.equal(attr.magic.final.immunityP, 0);
+	assert.equal(attr.heal.attack, 20);
+	assert.equal(attr.poison.hurt, 0.1);
 });
 
 // 原生怪物与XLS玩家、怪物和宠物都将人物ID及实际兵器名传入display；0号人物有效，模板不被修改。

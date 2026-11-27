@@ -78,7 +78,7 @@ user表不提供attackSkill、fbackSkill、supportSkill、ultimateSkill四个装
 
 ## 引用与装载边界
 
-导表工具只转换单元格。宿主先调用 `initFightXls(tables, allocateUid, random)` 注册共享表、全局UID分配器与随机源，之后只调用 `createSideByXls(sideId)`。初始化时注册技能/Buff/被动；创建时展开属性、AI、规则及出战宠物。不读取文件、不设置全局规则，也不自动开始战斗。
+导表工具只转换单元格。宿主先调用 `initFightXls(tables, allocateUid, random)` 绑定组队表、全局UID分配器与随机源，之后只调用 `createSideByXls(sideId)`。技能/Buff/被动须预先注册，可使用initAllDatas；创建时展开属性、AI、规则及出战宠物。不读取文件、不设置全局规则，也不自动开始战斗。
 
 单位和队伍的以下字段属于宿主表格结构，不能直接当作战斗类已经支持的字段：
 
@@ -91,12 +91,11 @@ user表不提供attackSkill、fbackSkill、supportSkill、ultimateSkill四个装
 
 生成的FightSide带独立的mapsize副本；`fight.createSide(attack, defend)` 自动建立对应尺寸地图。双方尺寸不一致，或宿主已有地图的尺寸不同，都会报错。旧代码手动构造的FightSide不带mapsize时仍沿用宿主地图。
 
-装载顺序：常量及全局预设 → 技能/Buff/被动 → AI/规则/属性预设 → 单位模板 → 阵法/队伍 → 战斗。单位先学习主动，再初始化被动，最后应用模板的显式装配。每次实例化都创建独立属性和AI/规则实例，不共用运行状态。
+装载顺序：初始化表格 → 设置全局预设 → 绑定组队依赖 → 创建队伍与战斗。单位先学习主动，再初始化被动，最后应用模板的显式装配。每次实例化都创建独立属性和AI/规则实例，不共用运行状态。
 
 ```ts
-// tables为各个*_xls.json组成的对象；宿主负责读取文件。
+const tables = initAllDatas('resource/assets/json');
 setFightGlobalData(tables.fight_global[13001]);
-initFightConsts(tables.fight_const[14001]);
 const fight = new Fight(12001, tables.fight[12001], 0);
 let nextUid = 0;
 const allocateUid = () => nextUid++;
