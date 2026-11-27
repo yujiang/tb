@@ -1,4 +1,4 @@
-import '../../../src/fight/Buffs/BuffDatas';
+import '../../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -36,7 +36,7 @@ function setup(hp = 400, extra: Partial<SkillData> = {}) {
 		},
 	]);
 	s.target.addSkill(healId, 1);
-	s.target.setAI({ type: 'target', self: true, cond: 'hpLow', condData: 0.5, skill: healId });
+	s.target.setAI({ id: 1, type: 'target', self: true, cond: 'hpLow', condData: 0.5, skill: healId });
 	const decide = () => s.target.getActionInput(s.fight.turn, initFightContex(s.fight));
 	return { ...s, decide };
 }
@@ -113,7 +113,7 @@ test('low HP heal AI: death, unknown skills and cooldown preserve the default fa
 	s.target.die();
 	assert.deepEqual(s.decide(), { cmd: FightCmdEnum.attack });
 	s.target.relife();
-	s.target.setAI({ type: 'target', self: true, cond: 'hpLow', condData: 0.5, skill: 10012199 });
+	s.target.setAI({ id: 1, type: 'target', self: true, cond: 'hpLow', condData: 0.5, skill: 10012199 });
 	assert.deepEqual(s.decide(), { cmd: FightCmdEnum.attack });
 });
 
@@ -137,7 +137,7 @@ for (const extra of [
 // 测试：工厂创建独立的低血自疗AI，非法技能ID在构造时拒绝，不自动学习技能。
 test('low HP heal AI: factory creates independent instances and validates skill IDs', () => {
 	const first = createAI({
-		type: 'target',
+		id: 1, type: 'target',
 		self: true,
 		cond: 'hpLow',
 		condData: 0.5,
@@ -146,13 +146,13 @@ test('low HP heal AI: factory creates independent instances and validates skill 
 	assert.ok(first instanceof FightAITarget);
 	assert.notEqual(
 		first,
-		createAI({ type: 'target', self: true, cond: 'hpLow', condData: 0.5, skill: healId }),
+		createAI({ id: 1, type: 'target', self: true, cond: 'hpLow', condData: 0.5, skill: healId }),
 	);
 	for (const id of [0, -1, 1.5, NaN])
 		assert.throws(
 			() =>
 				new FightAITarget({
-					type: 'target',
+					id: 1, type: 'target',
 					self: true,
 					cond: 'hpLow',
 					condData: 0.5,
@@ -161,10 +161,10 @@ test('low HP heal AI: factory creates independent instances and validates skill 
 			/positive safe integer/,
 		);
 	assert.ok(
-		createAI({ type: 'target', self: true, cond: 'hpLow', condData: 0.5 }) instanceof
+		createAI({ id: 1, type: 'target', self: true, cond: 'hpLow', condData: 0.5 }) instanceof
 			FightAITarget,
 	);
-	assert.throws(() => createAI({ type: 'unregistered', condData: true }), /Unknown AI type/);
+	assert.throws(() => createAI({ id: 1, type: 'unregistered', condData: true }), /Unknown AI type/);
 });
 
 for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {

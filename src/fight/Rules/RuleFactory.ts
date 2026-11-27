@@ -1,4 +1,4 @@
-import type { RuleData } from './RuleDatas';
+import type { RuleData } from '../Datas/RuleDatas';
 import type { FightRule } from './FightRule';
 import { FightRuleHp } from './FightRuleHp';
 import { FightRuleTurn } from './FightRuleTurn';

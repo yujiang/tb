@@ -1,5 +1,5 @@
-import { setFightGlobalData } from '../../src/fight/Fight';
-import { BuffTurnEnum } from '../../src/fight/Buffs/BuffDatas';
+import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
+import { BuffTurnEnum } from '../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { Fight } from '../../src/fight/Fight';
@@ -8,12 +8,12 @@ import { FightSide } from '../../src/fight/FightSide';
 import { FightLoopWest } from '../../src/fight/Loop/FightLoopWest';
 import { FightUnitMonster } from '../../src/fight/Unit/FightUnitMonster';
 import { FightUnitSummon, FightUnitUser } from '../../src/fight/Unit/FightUnitUser';
-import { BuffData, initBuffs, OverlapEnum } from '../../src/fight/Buffs/BuffDatas';
+import { BuffData, initBuffs, OverlapEnum } from '../../src/fight/Datas/BuffDatas';
 import { FightSkill, getDefaultSkill } from '../../src/fight/Skills/FightSkill';
 import { FightContex, initFightContex } from '../../src/fight/Fight';
 import { attackFunc } from '../../src/fight/Skills/Funcs/NormalAttack';
 import { tryBlood, tryDBack } from '../../src/fight/Skills/FightBack';
-import { initSkills, SkillData } from '../../src/fight/Skills/SkillDatas';
+import { initSkills, SkillData } from '../../src/fight/Datas/SkillDatas';
 import { relifeFunc } from '../../src/fight/Skills/Funcs/Relife';
 import {
 	FightCmdEnum,
@@ -99,7 +99,7 @@ function pair(user = false, extraEnemy = false) {
 	});
 	const f = new Fight(
 		1,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		123,
 	);
 	f.random = () => 0.5;
@@ -437,7 +437,7 @@ test('regression: seeded random sequences are reproducible and seed zero works',
 		});
 		const f = new Fight(
 			1,
-			{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+			{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 			seed,
 		);
 		return Array.from({ length: 20 }, () => f.random());

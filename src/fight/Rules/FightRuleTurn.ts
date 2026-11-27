@@ -3,7 +3,7 @@ import { FightRule } from './FightRule';
 import type { FightContex } from '../Fight';
 import type { FightUnit } from '../Unit/FightUnit';
 import { FightCmdEnum, InsertActionPos } from '../struct';
-import type { RuleData } from './RuleDatas';
+import type { RuleData } from '../Datas/RuleDatas';
 
 // 周期技能插入独立行动，不占普通行动，也不触发全体破盾大招槽的主动输入。
 export class FightRuleTurn extends FightRule {

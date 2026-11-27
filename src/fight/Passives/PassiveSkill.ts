@@ -1,7 +1,7 @@
 import { IdLevelArray } from '../struct';
 import { FightUnit } from '../Unit/FightUnit';
-import { getPassiveData, PassiveData } from './PassiveDatas';
-import { FightStatic } from '../Buffs/StaticData';
+import { getPassiveData, PassiveData } from '../Datas/PassiveDatas';
+import { FightStatic } from './FightStatic';
 
 // 被动技能跟buff反而更像
 export class PassiveSkill extends FightStatic {

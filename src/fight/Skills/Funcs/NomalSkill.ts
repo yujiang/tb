@@ -4,7 +4,7 @@ import { afterHurt, afterSelfBuff } from './NoHurt';
 import { tryBlood, tryDBack, tryFBack } from '../FightBack';
 import { FightSkill } from '../FightSkill';
 import { FightContex } from '../../Fight';
-import { getSkillData } from '../SkillDatas';
+import { getSkillData } from '../../Datas/SkillDatas';
 import { trySupport } from '../FightSupport';
 import { multiFunc } from './Multi';
 import { isDebugReaction } from '../../FightDebug';

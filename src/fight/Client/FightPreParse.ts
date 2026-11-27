@@ -1,5 +1,5 @@
 import { fightMsg } from '../struct';
-import { getSkillData } from '../Skills/SkillDatas';
+import { getSkillData } from '../Datas/SkillDatas';
 
 /** 原始消息及其在本批 messages 中的位置；预解析只读取，不修改消息。 */
 export interface FightMessageRef {

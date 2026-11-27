@@ -1,5 +1,5 @@
-import { setFightGlobalData } from '../../../src/fight/Fight';
-import { BuffTurnEnum } from '../../../src/fight/Buffs/BuffDatas';
+import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
+import { BuffTurnEnum } from '../../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -145,7 +145,7 @@ function setup(
 	});
 	const fight = new Fight(
 		97900,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	const caster = new FightUnitMonster(0, attr(100), { name: '施法者' });

@@ -1,4 +1,4 @@
-import { setFightGlobalData } from '../../../src/fight/Fight';
+import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import {
 	Fight,
 	FightAttr,
@@ -85,7 +85,7 @@ export async function runReactionReport(
 	});
 	const fight = new Fight(
 		97200,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	const heroAttr = attr(80, 25, 200);

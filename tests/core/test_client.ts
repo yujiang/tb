@@ -1,5 +1,5 @@
-import { setFightGlobalData } from '../../src/fight/Fight';
-import { BuffTurnEnum } from '../../src/fight/Buffs/BuffDatas';
+import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
+import { BuffTurnEnum } from '../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { Fight } from '../../src/fight/Fight';
@@ -8,9 +8,9 @@ import { FightLoopWest } from '../../src/fight/Loop/FightLoopWest';
 import { FightClient } from '../../src/fight/Client/FightClient';
 import { FightReport } from '../../src/fight/Client/FightReport';
 import { initFightContex } from '../../src/fight/Fight';
-import { initBuffs, BuffData, OverlapEnum } from '../../src/fight/Buffs/BuffDatas';
-import { initPassives } from '../../src/fight/Passives/PassiveDatas';
-import { initSkills } from '../../src/fight/Skills/SkillDatas';
+import { initBuffs, BuffData, OverlapEnum } from '../../src/fight/Datas/BuffDatas';
+import { initPassives } from '../../src/fight/Datas/PassiveDatas';
+import { initSkills } from '../../src/fight/Datas/SkillDatas';
 import { FightUnitMonster } from '../../src/fight/Unit/FightUnitMonster';
 import {
 	FightCmdEnum,
@@ -29,7 +29,7 @@ function setup() {
 	});
 	const fight = new Fight(
 		0,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	const sides = [new FightSide(), new FightSide()];

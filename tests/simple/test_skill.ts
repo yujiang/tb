@@ -1,6 +1,6 @@
 import { FightLoopWest } from '../../src/fight/Loop/FightLoopWest';
 import { BaseAttack, FinalAttack } from '../../src/fight/FightAttr';
-import { initSkills, SkillData } from '../../src/fight/Skills/SkillDatas';
+import { initSkills, SkillData } from '../../src/fight/Datas/SkillDatas';
 import { MapShapeEnum, SelectParam, TargetSelectEnum } from '../../src/fight/struct';
 import { FightUnitMonster } from '../../src/fight/Unit/FightUnitMonster';
 import { createFightAndSide } from './help';

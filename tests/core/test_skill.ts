@@ -1,10 +1,10 @@
-import { setFightGlobalData } from '../../src/fight/Fight';
+import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { Fight } from '../../src/fight/Fight';
 import { BaseAttack, FinalAttack, FightAttr, FightTypeAttr } from '../../src/fight/FightAttr';
 import { FightSide } from '../../src/fight/FightSide';
-import { FightStatic } from '../../src/fight/Buffs/StaticData';
+import { FightStatic } from '../../src/fight/Passives/FightStatic';
 import {
 	calcAttack,
 	calcAttr,
@@ -17,7 +17,7 @@ import { healFunc } from '../../src/fight/Skills/Funcs/Heal';
 import { skillAttackFunc } from '../../src/fight/Skills/Funcs/NomalSkill';
 import { attackFunc } from '../../src/fight/Skills/Funcs/NormalAttack';
 import { FightContex } from '../../src/fight/Fight';
-import { getSkillData, initSkills, SkillData } from '../../src/fight/Skills/SkillDatas';
+import { getSkillData, initSkills, SkillData } from '../../src/fight/Datas/SkillDatas';
 import { TargetSelectEnum } from '../../src/fight/struct';
 import { FightUnit } from '../../src/fight/Unit/FightUnit';
 
@@ -52,7 +52,7 @@ test('simple monsters: default critical chances are fractional and do not force 
 	});
 	const fight = new Fight(
 		97401,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	fight.random = () => 0.5;
@@ -84,7 +84,7 @@ test('simple monsters: explicit zero critical chances stay zero', () => {
 	});
 	const fight = new Fight(
 		97402,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	const side = new FightSide();
@@ -132,7 +132,7 @@ function createFightPair() {
 		duiwei: false,
 	});
 	const fight = new Fight(1, {
-		runaway: false,
+		id: 1, runaway: false,
 		runawayGrade: 0,
 		deathPenalty: 0,
 		winRecover: 0,
@@ -314,7 +314,7 @@ test('simple monsters have finite attributes for skill damage, healing, and pois
 		duiwei: false,
 	});
 	const fight = new Fight(2, {
-		runaway: false,
+		id: 1, runaway: false,
 		runawayGrade: 0,
 		deathPenalty: 0,
 		winRecover: 0,
@@ -497,7 +497,7 @@ test('fight units clone nested attributes while preserving FightAttr methods', (
 		duiwei: false,
 	});
 	const fight = new Fight(3, {
-		runaway: false,
+		id: 1, runaway: false,
 		runawayGrade: 0,
 		deathPenalty: 0,
 		winRecover: 0,

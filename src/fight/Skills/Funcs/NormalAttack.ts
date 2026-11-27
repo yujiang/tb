@@ -4,7 +4,7 @@ import { FightContex } from '../../Fight';
 import { FightTypeAttr, BaseAttack, FinalAttack } from '../../FightAttr';
 import { FightUnit } from '../../Unit/FightUnit';
 import { FightSkill, getDefaultSkill } from '../FightSkill';
-import { SkillData } from '../SkillDatas';
+import { SkillData } from '../../Datas/SkillDatas';
 import { magicAttackFunc, skillAttackFunc } from './NomalSkill';
 
 // const AttackBaseRand = {

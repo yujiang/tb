@@ -200,7 +200,7 @@ test('rule replacement: initialization failures roll back the entire new set', (
 test('AI replacement: configure replace and clear without changing rules', () => {
 	const s = setup();
 	s.setRules([{ type: 'hurt', everyHurt: 2 }]);
-	s.target.setAI({ type: 'target', career: '医生', pos: 'back' });
+	s.target.setAI({ id: 1, type: 'target', career: '医生', pos: 'back' });
 	assert.ok(s.target.ai instanceof FightAITarget);
 	class DefendAI extends EmptyAI {
 		override waitInput() {

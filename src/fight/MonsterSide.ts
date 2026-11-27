@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import { FightSide } from './FightSide';
 import { FightAttr } from './FightAttr';
 import { FightUnitMonster } from './Unit/FightUnitMonster';
-import { MonsterData, getMonsterData } from './Unit/MonsterDatas';
+import { MonsterData, getMonsterData } from './Datas/MonsterDatas';
 import { applyUnitTemplate } from './Unit/ApplyUnitTemplate';
 import { getZhenPos } from './ZhenDatas';
 import { clone } from '../public/Utilts';

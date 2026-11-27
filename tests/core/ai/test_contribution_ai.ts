@@ -1,5 +1,5 @@
-import { setFightGlobalData } from '../../../src/fight/Fight';
-import '../../../src/fight/Buffs/BuffDatas';
+import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
+import '../../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -87,7 +87,7 @@ function setup(type: 'topThreat' | 'topHealer', magic = false) {
 	});
 	const fight = new Fight(
 		10011700,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	const players = [0, 1, 2, 3].map(
@@ -106,7 +106,7 @@ function setup(type: 'topThreat' | 'topHealer', magic = false) {
 	const skill = magic ? magical : physical;
 	boss.addSkill(skill, 1);
 	boss.setAI({
-		type: 'target',
+		id: 1, type: 'target',
 		contributions: type === 'topThreat' ? 'unitHurt' : 'enemyHeal',
 		skill,
 	});
@@ -223,7 +223,7 @@ for (const type of ['topThreat', 'topHealer'] as const) {
 		s.fight.nextTurn();
 		assert.equal(s.decide().target, 0);
 		s.boss.setAI({
-			type: 'target',
+			id: 1, type: 'target',
 			contributions: type === 'topThreat' ? 'unitHurt' : 'enemyHeal',
 			skill: 10011799,
 		});
@@ -263,20 +263,20 @@ test('top healer AI: departed recipients do not erase team healing history', () 
 // 测试：工厂创建两种独立AI，物理/魔法致死配置互不共享，非法技能ID在构造时拒绝。
 test('contribution AI: factories create independent typed instances and validate skill IDs', () => {
 	assert.ok(
-		createAI({ type: 'target', contributions: 'unitHurt', skill: physical }) instanceof
+		createAI({ id: 1, type: 'target', contributions: 'unitHurt', skill: physical }) instanceof
 			FightAITarget,
 	);
 	assert.ok(
-		createAI({ type: 'target', contributions: 'enemyHeal', skill: magical }) instanceof
+		createAI({ id: 1, type: 'target', contributions: 'enemyHeal', skill: magical }) instanceof
 			FightAITarget,
 	);
 	assert.notEqual(
-		createAI({ type: 'target', contributions: 'unitHurt', skill: physical }),
-		createAI({ type: 'target', contributions: 'unitHurt', skill: physical }),
+		createAI({ id: 1, type: 'target', contributions: 'unitHurt', skill: physical }),
+		createAI({ id: 1, type: 'target', contributions: 'unitHurt', skill: physical }),
 	);
 	for (const skill of [0, -1, 1.5, NaN])
 		assert.throws(
-			() => createAI({ type: 'target', contributions: 'unitHurt', skill }),
+			() => createAI({ id: 1, type: 'target', contributions: 'unitHurt', skill }),
 			/positive safe integer/,
 		);
 	const first = createLethalSkillData(physical),
@@ -294,7 +294,7 @@ for (const type of ['topThreat', 'topHealer'] as const) {
 		scores.set(0, 50);
 		scores.set(1, 10);
 		s.boss.setAI({
-			type: 'target',
+			id: 1, type: 'target',
 			contributions: type === 'topThreat' ? 'unitHurt' : 'enemyHeal',
 		});
 		assert.deepEqual(s.decide(), { cmd: FightCmdEnum.attack, target: 0 });
@@ -349,7 +349,7 @@ for (const magic of [false, true]) {
 		s.players[0].attr.career = s.players[1].attr.career = '医生';
 		s.players[0].setPos(6);
 		s.players[1].setPos(0);
-		s.boss.setAI({ type: 'target', career: '医生', pos: 'back', skill: s.skill });
+		s.boss.setAI({ id: 1, type: 'target', career: '医生', pos: 'back', skill: s.skill });
 		const input = s.decide();
 		assert.deepEqual(input, { cmd: FightCmdEnum.skill, skill: s.skill, target: 0 });
 		const ctx = s.fight.processUnit(s.boss, input);
@@ -407,11 +407,11 @@ for (const contributions of [
 							contributions.endsWith('Hurt') ? 'hurt' : 'heal'
 						];
 		scores.set(target.uid, 10);
-		s.boss.setAI({ type: 'target', contributions });
+		s.boss.setAI({ id: 1, type: 'target', contributions });
 		if (friendly) {
 			const skill = s.boss.findSkill(s.skill);
 			skill.getXls().sel.target = TargetSelectEnum.friend;
-			s.boss.setAI({ type: 'target', contributions, skill: s.skill });
+			s.boss.setAI({ id: 1, type: 'target', contributions, skill: s.skill });
 		}
 		assert.equal(s.decide().target, target.uid);
 	});

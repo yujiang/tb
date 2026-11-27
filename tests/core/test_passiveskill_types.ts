@@ -1,14 +1,14 @@
-import { setFightGlobalData } from '../../src/fight/Fight';
-import { BuffTurnEnum } from '../../src/fight/Buffs/BuffDatas';
+import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
+import { BuffTurnEnum } from '../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { Fight } from '../../src/fight/Fight';
 import { BaseAttack, FightAttr } from '../../src/fight/FightAttr';
 import { FightSide } from '../../src/fight/FightSide';
-import { BuffData, initBuffs, OverlapEnum } from '../../src/fight/Buffs/BuffDatas';
-import { initPassives, PassiveData } from '../../src/fight/Passives/PassiveDatas';
+import { BuffData, initBuffs, OverlapEnum } from '../../src/fight/Datas/BuffDatas';
+import { initPassives, PassiveData } from '../../src/fight/Datas/PassiveDatas';
 import { initFightContex } from '../../src/fight/Fight';
-import { initSkills } from '../../src/fight/Skills/SkillDatas';
+import { initSkills } from '../../src/fight/Datas/SkillDatas';
 import { FightUnitMonster } from '../../src/fight/Unit/FightUnitMonster';
 import { FightCmdEnum, IdLevelArray, TargetSelectEnum } from '../../src/fight/struct';
 
@@ -75,7 +75,7 @@ function setup(passives: IdLevelArray) {
 	});
 	const fight = new Fight(
 		1,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		123,
 	);
 	const attacker = new FightUnitMonster(1, attributes(), { name: '被动单位' }, passives);

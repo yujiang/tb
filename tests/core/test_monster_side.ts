@@ -1,5 +1,5 @@
 import { hpBuff } from '../fixtures/hp_buff';
-import { setFightGlobalData } from '../../src/fight/Fight';
+import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -202,7 +202,7 @@ test('monster side: template extraAction creates a separate scheduled action', (
 		duiwei: false,
 	});
 	const fight = new Fight(1001230, {
-		runaway: false,
+		id: 1, runaway: false,
 		runawayGrade: 0,
 		deathPenalty: 0,
 		winRecover: 0,
@@ -254,7 +254,7 @@ test('monster side: one template assembles AI rules and passives together', () =
 	const configured = {
 		...data,
 		id: monsterId + 24,
-		ai: { type: 'target' as const, career: '医生', pos: 'back' },
+		ai: { id: 1, type: 'target' as const, career: '医生', pos: 'back' },
 	};
 	const original = structuredClone(configured);
 	initMonsters([configured]);
@@ -281,7 +281,7 @@ test('monster side: a template-equipped AI attacks the generated rear doctor', (
 	const doctorAttr = attributes();
 	doctorAttr.career = '医生';
 	initMonsters([
-		{ ...data, id: monsterId + 25, ai: { type: 'target', career: '医生', pos: 'back' } },
+		{ ...data, id: monsterId + 25, ai: { id: 1, type: 'target', career: '医生', pos: 'back' } },
 		{ id: monsterId + 26, name: '医生', attr: doctorAttr },
 	]);
 	initZhens([{ id: zhenId + 50, pos: [0, 6] }]);
@@ -296,7 +296,7 @@ test('monster side: a template-equipped AI attacks the generated rear doctor', (
 	});
 	const fight = new Fight(
 		1001502,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	fight.createSide(left, right);
@@ -339,7 +339,7 @@ test('monster side: attributes, passive buffs and rule state are independent for
 	});
 	const fight = new Fight(
 		1001200,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	fight.createSide(side, enemy);
@@ -474,7 +474,7 @@ test('monster side: generated units run together with all three rule axes', asyn
 	});
 	const fight = new Fight(
 		1001200,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	fight.createSide(left, right);

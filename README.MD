@@ -786,3 +786,5 @@ MUD出招文案支持多句轮换，按明确的兵器资料区分刀剑拳掌�
 先用 `initFightXls(tables, allocateUid, random)` 注册共享JSON表、全局UID分配器和随机源，例如传 `() => fight.random()`；随后只需 `createSideByXls(sideId)`。阵法表的mapsize=[宽,高]决定地图大小，当前示例均为[5,5]。`fight.createSide`自动建图并校验双方尺寸；已有地图须一致。旧的手动FightSide未配置mapsize时仍沿用宿主地图。出战宠物优先前、左、右、后，再从全图空格随机；预留主人阵位，替补不入场。此入口不改全局规则；全局规则与单场FightData仍分开。完整接入示例见 [示例表说明](resource/assets/xls/README.md) 和 [XLS组队字典](document/wiki/XLS组队.md)。
 
 被动表`action`用于武学表现：`display.qinggong`选择闪避轻功，`wugong`选择招架武功，`neigong`选择所有减伤/免伤内功，均为passive表ID；构造输入可省略，运行时补0。对应事件按character专属文本 → 被动action → 通用表达回退。配置仅选择文案，不自动学习被动或附加属性。实际减伤用`mitigate`消息同步并调用`unit.mitigate(amount, ctx)`；防御、格挡、弱点盾等均触发，残血截断不触发。详见[武学被动与减伤表现](document/wiki/客户端与表现.md#武学被动与减伤表现)。
+
+`fmud fightId [aside] [dside] [seed]` 中，省略的阵营使用 fight 表的 `aSide`、`dSide`；命令行传入的阵营优先。未提供且表中未配置时会报错。种子默认为 0。宿主可用 `initAllDatas(JSON目录)` 读取并注册表数据，返回表集合；全局规则仍由宿主选取并设置，组队前须调用 `initFightXls` 提供 UID 分配器和随机源。

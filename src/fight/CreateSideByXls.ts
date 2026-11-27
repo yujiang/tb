@@ -5,105 +5,17 @@ import { FightSide } from './FightSide';
 import { FightUnit } from './Unit/FightUnit';
 import { FightUnitUser, FightUnitSummon } from './Unit/FightUnitUser';
 import { FightUnitMonster } from './Unit/FightUnitMonster';
-import { MonsterData } from './Unit/MonsterDatas';
 import { applyUnitTemplate } from './Unit/ApplyUnitTemplate';
-import { AIData } from './AI/AIDatas';
-import { RuleData } from './Rules/RuleDatas';
+import { AIData } from './Datas/AIDatas';
+import { RuleData } from './Datas/RuleDatas';
 import { ZhenData } from './ZhenDatas';
-import { SkillData, initSkills } from './Skills/SkillDatas';
-import { BuffData, initBuffs } from './Buffs/BuffDatas';
-import { PassiveData, initPassives } from './Passives/PassiveDatas';
+import { SkillData, initSkills } from './Datas/SkillDatas';
+import { BuffData, initBuffs } from './Datas/BuffDatas';
+import { PassiveData, initPassives } from './Datas/PassiveDatas';
+import { XlsAttrData, XlsUnitType } from './Datas/XlsAttrDatas';
+import { XlsSideData } from './Datas/XlsSideDatas';
+import { XlsUserData, XlsUnitData } from './Datas/XlsUnitDatas';
 
-/** 属性预设分类；显式属性引用和组合查找均按单位类型校验。 */
-export type XlsUnitType = 'user' | 'summon' | 'monster';
-
-/** 模拟数据的扁平属性预设；其他数值由展开入口补齐，不是完整FightAttr快照。 */
-export interface XlsAttrData {
-	/** 本表唯一整数ID，0有效；供单位attr字段显式引用。 */
-	id: number;
-	/** 编辑用名称，不参与战斗。 */
-	name?: string;
-	/** 适用单位类型，必填；组合键的第一项。 */
-	type: XlsUnitType;
-	/** 单位等级，非负整数，如60或70；组合键的第二项。 */
-	grade: number;
-	/** 难度档位，整数1～5；组合键第三项，同type/grade/diff禁止重复。 */
-	diff: number;
-	/** 初始生命及上限，正数，单位为点。 */
-	hp: number;
-	/** 初始法力及上限，非负数，单位为点。 */
-	mp: number;
-	/** 基础速度点数。 */
-	speed: number;
-	/** 职业字符串，供AI精确匹配。 */
-	career: string;
-	/** WeaponEnum数值；0表示无兵器。 */
-	weapon: number;
-	/** PropEnum人物五行；0表示无。 */
-	charProp: number;
-	/** PropEnum武器五行；0表示无。 */
-	weaponProp: number;
-	/** 物理各阶段attack，单位为点。 */
-	physicAttack: number;
-	/** 物理各阶段defend，单位为点。 */
-	physicDefend: number;
-	/** 魔法各阶段attack，单位为点。 */
-	magicAttack: number;
-	/** 魔法各阶段defend，单位为点。 */
-	magicDefend: number;
-	/** heal.attack，单位为点。 */
-	healAttack: number;
-	/** 物理命中点数，100表示100%，不是1。 */
-	hit: number;
-	/** 物理招架点数，可省略，默认0关闭；命中后按攻击命中与本值计算招架，成功不暴击且完整技能伤害减半。 */
-	parry?: number;
-	/** 暴击概率0～1，0表示无暴击。 */
-	critP: number;
-	/** 怒气上限点数；初始怒气0。 */
-	spMax: number;
-	/** 集气上限点数；初始集气0。 */
-	jpMax: number;
-	/** 单次输出限伤点数，0表示不限。 */
-	damageLimit: number;
-}
-
-/** 三类单位共用的表格模板；原生MonsterData仍接收完整attr。 */
-export interface XlsUnitData extends Omit<MonsterData, 'attr' | 'ai' | 'rules'> {
-	/** 显式attr表ID，0有效；省略才按type+grade+diff查找，填错ID不回退。 */
-	attr?: number;
-	/** 组合查找等级，省略attr时必填非负整数；显式attr时忽略。 */
-	grade?: number;
-	/** 组合查找难度，省略attr时必填整数1～5；显式attr时忽略。 */
-	diff?: number;
-	/** 怪物AI表ID，省略无AI；不是运行AI实例。 */
-	aiId?: number;
-	/** 怪物rule表ID数组，省略空；按此顺序创建独立实例。 */
-	ruleIds?: number[];
-}
-
-/** 玩家表不提供普攻/反击/协战/大招装配字段；被动技能仍可装配。 */
-export interface XlsUserData extends Omit<
-	XlsUnitData,
-	'attackSkill' | 'fbackSkill' | 'supportSkill' | 'ultimateSkill'
-> {
-	/** 出战宠物的summon表ID，省略不出战；0有效，可同时列于summons，但本场不再作为备用宠物。 */
-	fightSummon?: number;
-	/** 可替换宠物的summon表ID数组，省略空；除初始fightSummon外按需创建，每个配置本场只可召唤一次。 */
-	summons?: number[];
-}
-
-export interface XlsSideData {
-	/** 队伍模板ID，不是实际阵营0/1，0有效。 */
-	id: number;
-	/** 编辑用名称，不参与战斗。 */
-	name?: string;
-	/** 队伍类型，user的ids只查user表，monster的ids只查monster表。 */
-	type: 'user' | 'monster';
-	/** 对应类型的模板ID列表，可重复；每次生成分配独立运行UID。 */
-	ids: number[];
-	/** zhen表ID，按ids顺序分配主人/怪物的位置；宠物按前、左、右、后找空位，再随机空位。 */
-	zhen: number;
-}
 
 /** 导出的JSON对象，以各表ID为键；本入口不读取文件，也不设置共享全局规则。 */
 export interface FightXlsTables {

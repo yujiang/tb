@@ -178,6 +178,32 @@ test('fmud: parses arguments and commands without allowing internal flags', () =
 	assert.throws(() => parseFmudCommand('{"ignoreCostCD":true}'), /未知指令/);
 });
 
+// 初始化全部表后可查询战斗、技能和阵型，试玩优先使用命令行阵营并回退到战斗表配置。
+test('fmud: initializes tables and resolves optional sides from fight data', (t) => {
+ const parent = path.join(root, '.test-build');
+ fs.mkdirSync(parent, { recursive: true });
+ const folder = fs.mkdtempSync(path.join(parent, 'fmud-sides-'));
+ t.after(() => { assert.ok(folder.startsWith(parent + path.sep)); fs.rmSync(folder, { recursive: true, force: true }); });
+ fs.cpSync(path.join(root, 'resource/assets/json'), folder, { recursive: true });
+ const file = path.join(folder, 'fight_xls.json');
+ const fights = JSON.parse(fs.readFileSync(file, 'utf8'));
+ fights[12001].aSide = 11002;
+ fights[12001].dSide = 11002;
+ fs.writeFileSync(file, JSON.stringify(fights));
+ const tables = tb.initAllDatas(folder);
+ assert.equal(tb.getFightData(12001).aSide, 11002);
+ assert.ok(tb.getSkillData(Number(Object.keys(tables.skill)[0])));
+ assert.ok(tb.getZhenData(Number(Object.keys(tables.zhen)[0])));
+ for (const positional of [['12001'], ['12001', '11002'], ['12001', '11002', '11002']]) {
+  const result = spawnSync(process.execPath, [cli, ...positional, '--data', folder, '--no-color'], { env: childEnv, encoding: 'utf8', input: '', timeout: 5000 });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /队伍11002 vs 11002/);
+ }
+ const missing = spawnSync(process.execPath, [cli, '12002', '--data', folder], { env: childEnv, encoding: 'utf8', input: '', timeout: 5000 });
+ assert.equal(missing.status, 1);
+ assert.match(missing.stderr, /请指定aside和dside/);
+});
+
 // 两边怪物不读标准输入、不等待绘制，同种子输出一致并正常完成战斗。
 test('fmud: monster versus monster completes automatically and deterministically', () => {
 	const run = () => spawnSync(process.execPath, [cli, '12001', '11002', '11002', '0', '--no-color'], { cwd: path.dirname(root), env: childEnv, input: '', encoding: 'utf8', timeout: 5000 });
@@ -243,7 +269,7 @@ test('fmud: rejects two user sides and handles EOF and bad configuration', async
 });
 
 // .env选择fight_global和常量，JSON目录相对.env解析，配置的回合上限在整轮后生效。
-test('fmud: env selects global and constant presets from a custom table directory', (t) => {
+test('fmud: env selects global preset from a custom table directory', (t) => {
 	const parent = path.join(root, '.test-build');
 	fs.mkdirSync(parent, { recursive: true });
 	const folder = fs.mkdtempSync(path.join(parent, 'fmud-config-'));
@@ -254,12 +280,12 @@ test('fmud: env selects global and constant presets from a custom table director
 	global[13002].maxTurn = 1;
 	fs.writeFileSync(path.join(data, 'fight_global_xls.json'), JSON.stringify(global));
 	const env = path.join(folder, '.env');
-	fs.writeFileSync(env, 'FMUD_GLOBAL_ID=13002\nFMUD_CONST_ID=14002\nFMUD_DATA_DIR=data\n');
+	fs.writeFileSync(env, 'FMUD_GLOBAL_ID=13002\nFMUD_DATA_DIR=data\n');
 	const envFromFile = { ...childEnv };
 	for (const key of ['FMUD_GLOBAL_ID', 'FMUD_CONST_ID', 'FMUD_DATA_DIR']) delete envFromFile[key];
 	const result = spawnSync(process.execPath, [cli, '12001', '11002', '11002', '--env', env, '--no-color'], { env: envFromFile, encoding: 'utf8', input: '', timeout: 5000 });
 	assert.equal(result.status, 0, result.stderr);
-	assert.match(result.stdout, /global=13002 const=14002/);
+	assert.match(result.stdout, /global=13002/);
 	assert.match(result.stdout, /loopType=west/);
 	assert.match(result.stdout, /第 1 回合/);
 	assert.doesNotMatch(result.stdout, /第 2 回合/);

@@ -6,7 +6,9 @@
     "runawayGrade": 10,
     "deathPenalty": 0,
     "winRecover": 0,
-    "winReward": 0
+    "winReward": 0,
+    "aSide": 11004,
+    "dSide": 11002
   },
   "12002": {
     "id": 12002,
@@ -15,7 +17,8 @@
     "runawayGrade": 5,
     "deathPenalty": 10,
     "winRecover": 20,
-    "winReward": 100
+    "winReward": 100,
+    "dSide": 11002
   },
   "12003": {
     "id": 12003,
@@ -24,6 +27,7 @@
     "runawayGrade": 0,
     "deathPenalty": 20,
     "winRecover": 50,
-    "winReward": 300
+    "winReward": 300,
+    "dSide": 11002
   }
 }

@@ -5,8 +5,8 @@ import { FightSide } from './FightSide';
 import { FightUnit, UnitEventFunc, sortByAttr } from './Unit/FightUnit';
 import { FightUnitSummon, FightUnitUser } from './Unit/FightUnitUser';
 import { selectSummonPos } from './SummonPos';
-import { FightUnitEvent } from './Buffs/BuffDatas';
-import type { FightUnitEventMap } from './Buffs/BuffDatas';
+import { FightUnitEvent } from './Datas/BuffDatas';
+import type { FightUnitEventMap } from './Datas/BuffDatas';
 import {
 	EnemySide,
 	FightCmdEnum,
@@ -21,7 +21,7 @@ import { strict as assert } from 'node:assert';
 import EventEmitter from 'node:events';
 import { skillFunc } from './Skills/SkillFuncType';
 import { attackFunc } from './Skills/Funcs/NormalAttack';
-import { getBuffData } from './Buffs/BuffDatas';
+import { getBuffData } from './Datas/BuffDatas';
 import { InsertActionPos } from './struct';
 import type { FightBuff } from './Buffs/FightBuff';
 import {
@@ -30,90 +30,10 @@ import {
 	getDefaultSkillDuiwei,
 	getDefaultSkillProtect,
 } from './Skills/FightSkill';
-import { FightLoopType } from './Loop/FightLoop';
+import { FightData } from './Datas/FightDatas';
+import { FightGlobalData, getFightGlobalData } from './Datas/FightGlobalData';
 
 export type AllUnitType = [FightUnit[], FightUnit[]];
-
-// 宿主启动时统一设置，所有战斗共用。
-export interface FightGlobalData {
-	/** 所有战斗共用的全局回合上限，默认0不设上限；非负安全整数，正数允许完整执行该轮，轮末仍未分胜负则防守方胜。 */
-	maxTurn: number;
-	/** 西游整轮输入等待秒数，默认30；非负有限数、可用小数，显式0运行时仍回退30秒；PC不限时、烟雨不等待收齐。 */
-	waitInputSec: number;
-	/** 默认false；true时默认普攻按对位查找，需先createMap；false时随机敌方存活单位，手动目标仍优先。 */
-	duiwei: boolean;
-	/** 集气开关，默认false；关闭时跳过行动集气、addJp及JP费用，初始化不发送jp/jpMax；true启用集气结算和同步。 */
-	jiqi: boolean;
-	/** 输入校验模式，默认true调用checkOnline，允许死亡行动者提交和普攻守尸、资源延后复验；false调用checkPC严格即时预检。烟雨预设false；两种检测函数自身规则不变。 */
-	attackDie: boolean;
-	/** 保护指令施加的已注册 Buff ID，必须 class:protect；缺省保护指令不可用。 */
-	protectBuff?: number;
-
-	/** 缺省false；敌方最后一面盾打破且全体存活单位均破盾后，完整动作结束后由实际破盾者自动施放装配大招，每队每回合最多一次；无大招或无法施放直接跳过。 */
-	allShieldBreak?: boolean;
-
-	/** 循环类型pc/yanyu/west，默认pc；由createFightLoop创建对应驱动，省略更新时保留当前值。 */
-	loopType?: FightLoopType;
-}
-
-const gData: FightGlobalData = {
-	maxTurn: 0,
-	waitInputSec: 30,
-	duiwei: false,
-	jiqi: false,
-	attackDie: true,
-	protectBuff: undefined,
-	allShieldBreak: false,
-	loopType: 'pc',
-};
-
-/** 返回独立烟雨预设（loopType=yanyu，对位和集气为true，attackDie为false）；查询不修改共享配置。 */
-export function getYanyuGlobalData(): Partial<FightGlobalData> {
-	return {
-		loopType: 'yanyu',
-		duiwei: true,
-		jiqi: true,
-		attackDie: false,
-	};
-}
-
-/** 查询进程共享的全局战斗配置；通过setFightGlobalData更新，表格行不覆盖这些字段。 */
-export function getFightGlobalData(): Readonly<FightGlobalData> {
-	return gData;
-}
-
-/** 启动时按字段设置公共配置，省略字段保留当前值；loopType校验枚举，其余配置合法性由宿主保证。 */
-export function setFightGlobalData(data: Partial<FightGlobalData>) {
-	const next = { ...gData, ...data };
-	const loopType = next.loopType ?? 'pc';
-	assert.ok(
-		loopType === 'pc' || loopType === 'yanyu' || loopType === 'west',
-		'loopType must be pc, yanyu or west',
-	);
-
-	gData.maxTurn = next.maxTurn;
-	gData.waitInputSec = next.waitInputSec;
-	gData.duiwei = next.duiwei;
-	gData.jiqi = next.jiqi;
-	gData.attackDie = next.attackDie;
-	gData.protectBuff = next.protectBuff;
-	gData.allShieldBreak = next.allShieldBreak ?? false;
-	gData.loopType = loopType;
-}
-
-// FightData 填xls实现
-export interface FightData {
-	/** 是否允许逃跑，表格行必填；PC/西游在普通行动位执行，烟雨不接受逃跑输入。 */
-	runaway: boolean;
-	/** 逃跑等级基准，必填有限数；概率clamp(1-(行动者grade-runawayGrade)/100,0,1)，执行时读取。 */
-	runawayGrade: number;
-	/** 败方惩罚配置值，必填；0不调用惩罚，单位与执行交给宿主；成功逃跑不惩罚。 */
-	deathPenalty: number;
-	/** 胜方恢复配置值，必填；单位与执行交给宿主onWin，成功逃跑不恢复。 */
-	winRecover: number;
-	/** 胜方奖励配置值，必填；含义与发放交给宿主onWin，成功逃跑不发奖。 */
-	winReward: number;
-}
 
 // 逃跑概率
 export function getRunwayRate(unit: number, runawayGrade: number) {

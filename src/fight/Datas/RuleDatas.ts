@@ -1,5 +1,12 @@
-import type { HpAxisLine } from './FightRuleHp';
-import type { InsertActionPos } from '../struct';
+import type { IdLevel, InsertActionPos } from '../struct';
+
+export interface HpAxisLine {
+	/** 血线比例，有限数(0,1]；当前hp/hpMax <= 此值时触发，包括初始生命已在血线以下；配置必须按hp严格递减；一次跨多条血线直接进入最深阶段，跳过中间阶段，回血不回退。 */
+	hp: number;
+	/** 阶段Buff的[已注册BuffID, 等级]，必填二元组；ID为正安全整数，等级为非负安全整数，0级有效。触发时先强制移除本规则上一阶段的Buff，再添加本项，不累计旧阶段效果。 */
+	buff: IdLevel;
+}
+
 
 // 模板只放配置，每次生成怪物都创建新规则实例，不共享计数、阶段或监听。
 export type RuleData = {
@@ -23,5 +30,3 @@ export type RuleData = {
 	shieldAdd?: number;
 };
 
-// 保留原有导入路径，创建实现由工厂维护。
-export { createRule } from './RuleFactory';

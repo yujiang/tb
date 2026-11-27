@@ -5,8 +5,8 @@ import { FightAI } from '../AI/FightAI';
 import { FightRule, createRule } from '../Rules/FightRule';
 import { FightAttr } from '../FightAttr';
 import { strict as assert } from 'node:assert';
-import type { AIData } from '../AI/AIDatas';
-import type { RuleData } from '../Rules/RuleDatas';
+import type { AIData } from '../Datas/AIDatas';
+import type { RuleData } from '../Datas/RuleDatas';
 import { createAI } from '../AI/AIFactory';
 
 export class FightUnitMonster extends FightUnit {

@@ -3,7 +3,7 @@ import type { SkillUseType } from '../struct';
 import type { FightContex } from '../Fight';
 import type { FightUnit, PendingHurt, PendingHeal } from '../Unit/FightUnit';
 import type { FightSkill } from '../Skills/FightSkill';
-import type { FightBuff } from './FightBuff';
+import type { FightBuff } from '../Buffs/FightBuff';
 
 export enum OverlapEnum {
 	NOT = 0, // 不叠加

@@ -1,8 +1,8 @@
 import { strict as assert } from 'node:assert';
 import { FightUnit } from './FightUnit';
-import type { MonsterData } from './MonsterDatas';
-import { getSkillData } from '../Skills/SkillDatas';
-import { getPassiveData } from '../Passives/PassiveDatas';
+import type { MonsterData } from '../Datas/MonsterDatas';
+import { getSkillData } from '../Datas/SkillDatas';
+import { getPassiveData } from '../Datas/PassiveDatas';
 import { clone } from '../../public/Utilts';
 
 /** 玩家、宠物与怪物共用学习/被动/装配顺序；AI和规则仍由怪物入口处理。 */

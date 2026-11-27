@@ -17,7 +17,7 @@ import { setupChain } from '../../fixtures/skill_chain';
 test('combined AI: conditions gate contribution selection using condData', () => {
 	const s = setupChain({ rootSelfBuff: false, finalReactions: false, targetHp: 400 });
 	s.target.enemyHurt.set(s.actor.uid, 50);
-	const xls = { type: 'target', cond: 'hpLow', condData: 0.5, contributions: 'unitHurt' };
+	const xls = { id: 1, type: 'target', cond: 'hpLow', condData: 0.5, contributions: 'unitHurt' };
 	const ai = createAI(xls),
 		ctx = initFightContex(s.fight);
 	assert.ok(ai instanceof FightAITarget);
@@ -28,7 +28,7 @@ test('combined AI: conditions gate contribution selection using condData', () =>
 	s.target.onHeal(s.target, 'test', 200, ctx);
 	assert.equal(ai.waitInput(s.target, 1, ctx), undefined);
 	assert.deepEqual(
-		createAI({ type: 'target', contributions: 'unitHurt' }).waitInput(s.target, 1, ctx),
+		createAI({ id: 1, type: 'target', contributions: 'unitHurt' }).waitInput(s.target, 1, ctx),
 		{ cmd: FightCmdEnum.attack, target: s.actor.uid },
 	);
 	assert.equal(createAI({ ...xls, condData: 0 }).waitInput(s.target, 1, ctx), undefined);
@@ -56,7 +56,7 @@ test('combined AI: self targeting takes precedence after condition evaluation', 
 	s.target.addSkill(skill, 1);
 	s.target.enemyHurt.set(s.actor.uid, 50);
 	const ai = createAI({
-		type: 'target',
+		id: 1, type: 'target',
 		self: true,
 		cond: 'hpLow',
 		condData: 0.5,
@@ -88,7 +88,7 @@ test('combined AI: findTarget extensions reuse the base command pipeline', () =>
 			return s.target;
 		}
 	}
-	const ai = new TargetAI({ type: 'custom', skill: skill.getId() }),
+	const ai = new TargetAI({ id: 1, type: 'custom', skill: skill.getId() }),
 		ctx = initFightContex(s.fight);
 	assert.deepEqual(ai.waitInput(s.actor, 2, ctx), {
 		cmd: FightCmdEnum.skill,

@@ -1,5 +1,5 @@
 import { hpBuff } from '../fixtures/hp_buff';
-import { setFightGlobalData } from '../../src/fight/Fight';
+import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {

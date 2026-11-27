@@ -1,17 +1,17 @@
-import { setFightGlobalData } from '../../../src/fight/Fight';
+import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import { healFunc } from '../../../src/fight/Skills/Funcs/Heal';
 import { poisonFunc } from '../../../src/fight/Skills/Funcs/Poison';
-import { BuffTurnEnum } from '../../../src/fight/Buffs/BuffDatas';
+import { BuffTurnEnum } from '../../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { Fight } from '../../../src/fight/Fight';
 import { FightSide } from '../../../src/fight/FightSide';
-import { OverlapEnum, BuffData, initBuffs } from '../../../src/fight/Buffs/BuffDatas';
+import { OverlapEnum, BuffData, initBuffs } from '../../../src/fight/Datas/BuffDatas';
 import { FightBuff, MAX_POWER } from '../../../src/fight/Buffs/FightBuff';
-import { PassiveData } from '../../../src/fight/Passives/PassiveDatas';
+import { PassiveData } from '../../../src/fight/Datas/PassiveDatas';
 import { PassiveSkill } from '../../../src/fight/Passives/PassiveSkill';
 import { FightContex } from '../../../src/fight/Fight';
-import { initSkills, SkillData } from '../../../src/fight/Skills/SkillDatas';
+import { initSkills, SkillData } from '../../../src/fight/Datas/SkillDatas';
 import { skillFunc } from '../../../src/fight/Skills/SkillFuncType';
 import { TargetSelectEnum } from '../../../src/fight/struct';
 import { attackFunc } from '../../../src/fight/Skills/Funcs/NormalAttack';
@@ -26,7 +26,7 @@ function createFightPair(random = () => 0) {
 		duiwei: false,
 	});
 	const fight = new Fight(1, {
-		runaway: false,
+		id: 1, runaway: false,
 		runawayGrade: 0,
 		deathPenalty: 0,
 		winRecover: 0,

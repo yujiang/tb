@@ -1,5 +1,5 @@
 import type { FightUnit } from '../Unit/FightUnit';
-import { BuffTurnEnum, getBuffData } from './BuffDatas';
+import { BuffTurnEnum, getBuffData } from '../Datas/BuffDatas';
 import { FightBuff } from './FightBuff';
 import { BuffBuqu } from './Class/BuffBuqu';
 import { BuffRelife } from './Class/BuffRelife';

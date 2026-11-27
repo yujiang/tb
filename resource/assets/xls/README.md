@@ -123,7 +123,7 @@ fight.createSide(attack, defend);
 
 ## 示例组合
 
-可用于 `fmud fightId side1Id side2Id [seed]` 的组合：
+可用于 `fmud fightId [aside] [dside] [seed]` 的组合：
 
 | 战斗ID | 攻方队伍 | 守方队伍 | 场景 |
 | --- | --- | --- | --- |
@@ -139,3 +139,5 @@ fmud最多允许一边user队；两边monster自动打完，不等待输入或�
 单场 `FightData` 不包含队伍、地图、循环类型和共享全局字段。奖惩数字的含义由宿主定义，库不会把示例奖励数值自动当作金币。
 
 武学表现：passive表新增action；3004回风剑意用于招架，3005护体真气用于所有减伤，3006掠水步用于闪避。user/monster示例分别引用这3项，summon暂填0。只选择文案，不自动加入passiveSkills。character对应专属文案优先，空字段再读武学被动action，最后回退通用表达；新增减伤文本可覆盖内功描写。
+
+`fmud fightId [aside] [dside] [seed]` 中，省略的阵营使用 fight 表的 `aSide`、`dSide`；命令行传入的阵营优先。未提供且表中未配置时会报错。种子默认为 0。宿主可用 `initAllDatas(JSON目录)` 读取并注册表数据，返回表集合；全局规则仍由宿主选取并设置，组队前须调用 `initFightXls` 提供 UID 分配器和随机源。

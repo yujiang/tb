@@ -1,4 +1,4 @@
-import '../../src/fight/Buffs/BuffDatas';
+import '../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {

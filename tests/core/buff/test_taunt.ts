@@ -1,6 +1,6 @@
-import { setFightGlobalData } from '../../../src/fight/Fight';
+import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import { FightSkill, getDefaultSkill } from '../../../src/fight/Skills/FightSkill';
-import { BuffTurnEnum } from '../../../src/fight/Buffs/BuffDatas';
+import { BuffTurnEnum } from '../../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -119,7 +119,7 @@ function setup(extra: Partial<BuffData> = {}) {
 	});
 	const fight = new Fight(
 		97800,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	fight.createMap(3, 2);

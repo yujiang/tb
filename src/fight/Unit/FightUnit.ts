@@ -13,23 +13,23 @@ import {
 	SkillUseType,
 } from '../struct';
 import { FightSkill } from '../Skills/FightSkill';
-import { getSkillData } from '../Skills/SkillDatas';
+import { getSkillData } from '../Datas/SkillDatas';
 import { createBuff, FightBuff } from '../Buffs/FightBuff';
 import { findForbidStatusByAction, findForbidStatusByBeaction } from '../Buffs/FightStatus';
-import { BuffTurnEnum, FightUnitEvent, getBuffData, OverlapEnum } from '../Buffs/BuffDatas';
+import { BuffTurnEnum, FightUnitEvent, getBuffData, OverlapEnum } from '../Datas/BuffDatas';
 import type {
 	FightUnitEventMap,
 	FightUnitContextEvent,
 	FightUnitPlainEvent,
-} from '../Buffs/BuffDatas';
+} from '../Datas/BuffDatas';
 import { createPassiveSkills, PassiveSkill } from '../Passives/PassiveSkill';
 import { calcAttr } from '../Skills/Calc';
 import EventEmitter from 'node:events';
 import { OrderedEventEmitter } from '../../public/OrderedEventEmitter';
-import { fightConsts } from '../FightConsts';
 import { getDebugHurtHpLimit } from '../FightDebug';
 import { createUnitDisplay } from './CreateUnitDisplay';
 import { strict as assert } from 'node:assert';
+import { getFightGlobalData } from '../Datas/FightGlobalData';
 
 export enum UnitType {
 	user,
@@ -111,13 +111,14 @@ export abstract class FightUnit {
 		display: FightDisplayInput,
 		passiveSkills: IdLevelArray = [],
 	) {
+		const g = getFightGlobalData()
 		this.uid = id;
 		this.attrOri = attr;
 		// 兼容直接传入普通对象的宿主数据；在首次绑定单位时补齐公共默认值。
-		this.attrOri.jpAdd ??= fightConsts.jpAdd;
+		this.attrOri.jpAdd ??= g.jpAdd;
 		this.attrOri.damageLimit ??= 0;
-		this.attrOri.spHurtRate ??= fightConsts.spHurtRate;
-		this.attrOri.spOutputRate ??= fightConsts.spOutputRate;
+		this.attrOri.spHurtRate ??= g.spHurtRate;
+		this.attrOri.spOutputRate ??= g.spOutputRate;
 		this.display = createUnitDisplay(display);
 		this.setPassiveSkills(passiveSkills);
 		this.calcAttr();

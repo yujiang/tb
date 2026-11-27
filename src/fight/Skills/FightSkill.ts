@@ -5,7 +5,7 @@ import { BaseAttack, FinalAttack } from '../FightAttr';
 import { SelectParam, TargetSelectEnum } from '../struct';
 import { FightUnit } from '../Unit/FightUnit';
 import { calcAttack, calcHurt, mergeTableLevel } from './Calc';
-import { getSkillData, SkillData } from './SkillDatas';
+import { getSkillData, SkillData } from '../Datas/SkillDatas';
 import { strict as assert } from 'node:assert';
 import { isDebugHit, isDebugMiss } from '../FightDebug';
 

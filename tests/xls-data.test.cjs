@@ -6,7 +6,7 @@ const path = require('node:path');
 const tb = require('../bin-debug');
 const { exportXlsOnce } = require('../bin-debug/tools/xls/watch_xls');
 const root = path.resolve(__dirname, '..');
-const names = ['skill', 'buff', 'passive', 'ai', 'rule', 'attr', 'monster', 'user', 'summon', 'zhen', 'side', 'fight', 'fight_global', 'fight_const', 'character'];
+const names = ['skill', 'buff', 'passive', 'ai', 'rule', 'attr', 'monster', 'user', 'summon', 'zhen', 'side', 'fight', 'fight_global', 'character'];
 const readTables = folder => Object.fromEntries(names.map(name => [name, JSON.parse(fs.readFileSync(path.join(folder, `${name}_xls.json`), 'utf8'))]));
 
 function register(data) {
@@ -235,10 +235,8 @@ test('xls data: trap example interrupts movement after announcing the incoming a
 test('xls data: template examples instantiate and execute real skills', () => {
 	const data = readTables(path.join(root, 'resource/assets/json'));
 	const previousGlobal = { ...tb.getFightGlobalData() };
-	const previousConsts = { ...tb.fightConsts };
 	try {
 		tb.setFightGlobalData(data.fight_global[13001]);
-		tb.initFightConsts(data.fight_const[14001]);
 		register(data);
 		let uid = 0;
 		const allocateUid = () => uid++;
@@ -272,6 +270,5 @@ test('xls data: template examples instantiate and execute real skills', () => {
 		assert.ok(mage.getHp() > beforeHeal);
 	} finally {
 		tb.setFightGlobalData(previousGlobal);
-		tb.initFightConsts(previousConsts);
 	}
 });

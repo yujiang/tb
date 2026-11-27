@@ -1,4 +1,4 @@
-import type { AIData } from './AIDatas';
+import type { AIData } from '../Datas/AIDatas';
 import type { FightAI } from './FightAI';
 import { FightAITarget } from './FightAITarget';
 

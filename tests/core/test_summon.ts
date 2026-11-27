@@ -9,7 +9,7 @@ function setup(Loop: typeof tb.FightLoopPC | typeof tb.FightLoopWest = tb.FightL
 	const tables = Object.fromEntries(names.map(name => [name, JSON.parse(fs.readFileSync(path.join(process.cwd(), `resource/assets/json/${name}_xls.json`), 'utf8'))])) as tb.FightXlsTables;
 	configure(tables);
 	let uid = 0;
-	const fight = new tb.Fight(1, { runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 }, 0);
+	const fight = new tb.Fight(1, { id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 }, 0);
 	tb.initFightXls(tables, () => uid++, () => fight.random());
 	fight.createSide(tb.createSideByXls(11004), tb.createSideByXls(11002));
 	const loop = new Loop(fight), client = new tb.FightClient(), lines: string[] = [];

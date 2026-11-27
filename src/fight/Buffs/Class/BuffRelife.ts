@@ -1,6 +1,6 @@
 // 自动复活：真实死亡后等完整动作结束，按自身最大生命比例复活，每场成功触发一次。
 import { FightBuff } from '../FightBuff';
-import type { BuffData } from '../BuffDatas';
+import type { BuffData } from '../../Datas/BuffDatas';
 import type { Fight, FightContex } from '../../Fight';
 import type { FightUnit, UnitContextEventFunc, UnitEventArgs } from '../../Unit/FightUnit';
 

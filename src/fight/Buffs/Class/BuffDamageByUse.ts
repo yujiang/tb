@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { FightBuff } from '../FightBuff';
-import type { BuffData } from '../BuffDatas';
+import type { BuffData } from '../../Datas/BuffDatas';
 import type { FightUnit, UnitContextEventFunc, UnitEventArgs } from '../../Unit/FightUnit';
 import type { SkillUseType } from '../../struct';
 import type { FightSkill } from '../../Skills/FightSkill';

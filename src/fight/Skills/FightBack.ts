@@ -2,7 +2,7 @@ import { FightContex } from '../Fight';
 import { FightUnit } from '../Unit/FightUnit';
 import { FightSkill } from './FightSkill';
 import { magicAttackFunc } from './Funcs/NomalSkill';
-import { SkillData } from './SkillDatas';
+import { SkillData } from '../Datas/SkillDatas';
 import { canAttackSkill } from './AttackChecks';
 
 // 优先用装备的技能反击，最后采用attackBack

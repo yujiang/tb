@@ -1,5 +1,6 @@
 // 每只怪物只选一个决策 AI；选择方法与使用的技能独立配置，固定行为组合放在 RuleData 中。
 export type AIData = {
+	id: number;
 	/** 必填AI类型，目前工厂仅内置target；条件、选人和技能在同一配置组合，未知值报错，自定义工厂类型需另行注册。 */
 	type: string;
 	/** 已学技能ID，正安全整数；省略时使用装配普攻或默认普攻；不自动学习，不使用独立大招槽。 */
@@ -26,4 +27,18 @@ export type AIData = {
 	condData?: any;
 };
 
-export { createAI } from './AIFactory';
+
+const AIs = new Map<number, AIData>();
+
+export function initAIs(datas: AIData[]) {
+	for (const data of datas) {
+		AIs.set(data.id, data);
+	}
+}
+
+export function getAIData(id: number): AIData {
+	if (!id) return;
+
+	return AIs.get(id);
+}
+

@@ -2,16 +2,10 @@ import { strict as assert } from 'node:assert';
 import { FightRule } from './FightRule';
 import type { FightContex } from '../Fight';
 import type { FightUnit } from '../Unit/FightUnit';
-import type { RuleData } from './RuleDatas';
 import type { IdLevel } from '../struct';
 import type { FightBuff } from '../Buffs/FightBuff';
+import { HpAxisLine, RuleData } from '../Datas/RuleDatas';
 
-export interface HpAxisLine {
-	/** 血线比例，有限数(0,1]；当前hp/hpMax <= 此值时触发，包括初始生命已在血线以下；配置必须按hp严格递减；一次跨多条血线直接进入最深阶段，跳过中间阶段，回血不回退。 */
-	hp: number;
-	/** 阶段Buff的[已注册BuffID, 等级]，必填二元组；ID为正安全整数，等级为非负安全整数，0级有效。触发时先强制移除本规则上一阶段的Buff，再添加本项，不累计旧阶段效果。 */
-	buff: IdLevel;
-}
 
 export class FightRuleHp extends FightRule {
 	private readonly lines: HpAxisLine[];

@@ -1,7 +1,7 @@
 import { FightAttr } from '../FightAttr';
 import { FightDisplayInput, IdLevelArray, SpeedSkill } from '../struct';
-import { RuleData } from '../Rules/RuleDatas';
-import { AIData } from '../AI/AIDatas';
+import { RuleData } from './RuleDatas';
+import { AIData } from './AIDatas';
 
 export interface MonsterData extends FightDisplayInput {
 	/** 怪物模板 ID，0 有效；不是运行单位 uid；同模板可以重复生成，uid 由宿主分配。 */

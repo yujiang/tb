@@ -9,7 +9,9 @@
     "attackDie": false,
     "protectBuff": 2003,
     "allShieldBreak": true,
-    "loopType": "pc"
+    "loopType": "pc",
+    "spHurtRate": 0.03,
+    "spOutputRate": 0.01
   },
   "13002": {
     "id": 13002,
@@ -21,7 +23,9 @@
     "attackDie": true,
     "protectBuff": 2003,
     "allShieldBreak": false,
-    "loopType": "west"
+    "loopType": "west",
+    "spHurtRate": 0.03,
+    "spOutputRate": 0.01
   },
   "13003": {
     "id": 13003,
@@ -33,6 +37,7 @@
     "attackDie": false,
     "protectBuff": 2003,
     "allShieldBreak": false,
-    "loopType": "yanyu"
+    "loopType": "yanyu",
+    "jpAdd": 1
   }
 }

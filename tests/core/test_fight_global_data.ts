@@ -13,16 +13,19 @@ test('fight global data: complete defaults are separate from table rows', () => 
 		protectBuff: undefined,
 		allShieldBreak: false,
 		loopType: 'pc',
+		jpAdd: 1,
+		spHurtRate: 0,
+		spOutputRate: 0,
 	});
 	const fight = new Fight(10013301, {
-		runaway: false,
+		id: 1, runaway: false,
 		runawayGrade: 0,
 		deathPenalty: 0,
 		winRecover: 0,
 		winReward: 0,
 	});
 	assert.deepEqual(fight.xls, {
-		runaway: false,
+		id: 1, runaway: false,
 		runawayGrade: 0,
 		deathPenalty: 0,
 		winRecover: 0,
@@ -44,14 +47,14 @@ test('fight global data: one setup applies to multiple battles with independent 
 			allShieldBreak: true,
 		});
 		const first = new Fight(10013302, {
-			runaway: false,
+			id: 1, runaway: false,
 			runawayGrade: 0,
 			deathPenalty: 0,
 			winRecover: 0,
 			winReward: 0,
 		});
 		const row = {
-			runaway: true,
+			id: 1, runaway: true,
 			runawayGrade: 0,
 			deathPenalty: 0,
 			winRecover: 0,
@@ -86,7 +89,7 @@ test('fight global data: partial updates preserve omissions and accept explicit 
 			allShieldBreak: true,
 		});
 		const fight = new Fight(10013304, {
-			runaway: false,
+			id: 1, runaway: false,
 			runawayGrade: 0,
 			deathPenalty: 0,
 			winRecover: 0,
@@ -108,7 +111,10 @@ test('fight global data: partial updates preserve omissions and accept explicit 
 			attackDie: true,
 			protectBuff: undefined,
 			allShieldBreak: false,
-			loopType: 'pc',
+		loopType: 'pc',
+			jpAdd: 1,
+			spHurtRate: 0,
+			spOutputRate: 0,
 		});
 	} finally {
 		setFightGlobalData(original);
@@ -124,7 +130,7 @@ test('fight global data: jiqi supports updates, omissions and explicit false', (
 		setFightGlobalData({ maxTurn: 5 });
 		assert.equal(getFightGlobalData().jiqi, true);
 		const fight = new Fight(10013305, {
-			runaway: false,
+			id: 1, runaway: false,
 			runawayGrade: 0,
 			deathPenalty: 0,
 			winRecover: 0,

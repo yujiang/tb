@@ -1,4 +1,4 @@
-import { setFightGlobalData } from '../../../src/fight/Fight';
+import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -185,7 +185,7 @@ function setup(
 	});
 	const fight = new Fight(
 		99210,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		42,
 	);
 	const a = new FightUnitUser(0, attr(), { name: '协战者' }, passive ? [[ids.passive, 3]] : []);

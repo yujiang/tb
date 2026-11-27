@@ -1,4 +1,4 @@
-import { setFightGlobalData } from '../../src/fight/Fight';
+import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -107,7 +107,7 @@ test('report demo: weakness shield breaks, stuns and refills before the next rou
 	});
 	const fight = new Fight(
 		1001030,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	for (const unit of [...allies, boss]) unit.setPos(unit.uid);

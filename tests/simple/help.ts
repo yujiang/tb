@@ -1,4 +1,4 @@
-import { setFightGlobalData } from '../../src/fight/Fight';
+import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { Fight } from '../../src/fight/Fight';
 import { FightSide } from '../../src/fight/FightSide';
 
@@ -11,7 +11,7 @@ export function createFightAndSide(fid: number) {
 		duiwei: false,
 	});
 	const fight = new Fight(fid, {
-		runaway: false,
+		id: 1, runaway: false,
 		runawayGrade: 0,
 		deathPenalty: 0,
 		winRecover: 0,

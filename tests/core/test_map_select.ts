@@ -1,4 +1,4 @@
-import { setFightGlobalData } from '../../src/fight/Fight';
+import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { FightSkill, getDefaultSkill } from '../../src/fight/Skills/FightSkill';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -15,7 +15,7 @@ setFightGlobalData({
 	duiwei: false,
 });
 const fight = new Fight(100, {
-	runaway: false,
+	id: 1, runaway: false,
 	runawayGrade: 0,
 	deathPenalty: 0,
 	winRecover: 0,

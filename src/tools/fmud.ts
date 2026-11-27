@@ -5,14 +5,13 @@ import { parseEnv } from 'node:util';
 import { Readable, Writable } from 'node:stream';
 import { ConsoleLineRenderer } from './ConsoleLineRenderer';
 import {
-	Fight, FightData, FightGlobalData, FightConstData, FightXlsTables,
+	Fight,
 	FightLoopPC, FightLoopWest, FightLoopYanYu, createFightLoop, FightMud, FightClient, FightUnit, FightUnitUser, FightInput, FightCmdEnum, fightMsg,
-	CharacterData,
-	initFightConsts, initFightXls, createSideByXls, setFightGlobalData, getBuffData,
+	initFightXls, initAllDatas, createSideByXls, setFightGlobalData, getBuffData,
 } from '../index';
 
 const projectRoot = resolve(__dirname, '../..');
-const help = `用法：fmud fightId side1Id side2Id [seed] [--auto] [--no-color] [--env 文件] [--data JSON目录]
+const help = `用法：fmud fightId [aside] [dside] [seed] [--auto] [--no-color] [--env 文件] [--data JSON目录]
 最多一边是user队；两边monster自动打完。默认种子0。
 指令：a [目标UID] 普攻 | s 技能ID [目标UID] | d 防御 | p 目标UID 保护
       r 逃跑 | summon 宠物配置ID | summons 查看备用宠物 | dismiss 宠物UID
@@ -23,9 +22,9 @@ export interface FmudOptions {
 	/** fight表ID，非负安全整数。 */
 	fightId: number;
 	/** 攻方side表ID。 */
-	side1Id: number;
+	side1Id?: number;
 	/** 守方side表ID；最多一方user。 */
-	side2Id: number;
+	side2Id?: number;
 	/** 战斗种子，安全整数，缺省0，零有效。 */
 	seed: number;
 	/** true时玩家也自动普攻，缺省false；战斗描写仍逐行显示，不需要绘制确认。 */
@@ -67,14 +66,14 @@ export function parseFmudArgs(args: string[]): FmudOptions | undefined {
 		} else if (arg.startsWith('--')) throw new Error(`未知选项：${arg}`);
 		else positional.push(arg);
 	}
-	if (positional.length < 3 || positional.length > 4) {
+	if (positional.length > 4) {
 		throw new Error(help);
 	}
 
 	return {
 		...options,
-		fightId: integer(positional[0], 'fightId'), side1Id: integer(positional[1], 'side1Id'),
-		side2Id: integer(positional[2], 'side2Id'), seed: integer(positional[3] ?? '0', 'seed', true),
+		fightId: integer(positional[0], 'fightId'), side1Id: positional[1] === undefined ? undefined : integer(positional[1], 'aside'),
+		side2Id: positional[2] === undefined ? undefined : integer(positional[2], 'dside'), seed: integer(positional[3] ?? '0', 'seed', true),
 	};
 }
 
@@ -152,25 +151,15 @@ function loadTables(options: FmudOptions) {
 
 	const env = { ...(existsSync(envPath) ? parseEnv(readFileSync(envPath, 'utf8')) : {}), ...process.env };
 	const dataDir = options.dataDir ?? resolve(dirname(envPath), env.FMUD_DATA_DIR ?? 'resource/assets/json');
-	const names = ['fight', 'fight_global', 'fight_const', 'attr', 'user', 'summon', 'monster', 'side', 'zhen', 'skill', 'buff', 'passive', 'ai', 'rule', 'character'];
-	const tables = Object.fromEntries(names.map(name => {
-		const file = resolve(dataDir, `${name}_xls.json`);
-		try { return [name, JSON.parse(readFileSync(file, 'utf8'))]; }
-		catch (error) { throw new Error(`读取表格失败：${file}：${error instanceof Error ? error.message : String(error)}`); }
-	})) as FightXlsTables & {
-		fight: Record<number, FightData>;
-		fight_global: Record<number, FightGlobalData>;
-		fight_const: Record<number, FightConstData>;
-		character: Record<number, CharacterData>;
-	};
+	const tables = initAllDatas(dataDir);
 	const globalId = integer(env.FMUD_GLOBAL_ID ?? '13001', 'FMUD_GLOBAL_ID');
-	const constId = integer(env.FMUD_CONST_ID ?? '14001', 'FMUD_CONST_ID');
+	// const constId = integer(env.FMUD_CONST_ID ?? '14001', 'FMUD_CONST_ID');
 	const lineMs = integer(env.FMUD_LINE_MS ?? '200', 'FMUD_LINE_MS');
 	if (!tables.fight_global[globalId]) throw new Error(`未知fight_global：${globalId}`);
 
-	if (!tables.fight_const[constId]) throw new Error(`未知fight_const：${constId}`);
+	// if (!tables.fight_const[constId]) throw new Error(`未知fight_const：${constId}`);
 
-	return { tables, globalId, constId, lineMs };
+	return { tables, globalId, lineMs };
 }
 
 /** 本地终端宿主：复用PC循环、MUD消息和JSON组队；返回CLI退出码，不在导入时运行。 */
@@ -179,10 +168,16 @@ export async function runFmud(args: string[], input: Readable = process.stdin, o
 	const options = parseFmudArgs(args);
 	if (!options) { print(help); return 0; }
 
-	const { tables, globalId, constId, lineMs } = loadTables(options);
+	const { tables, globalId, lineMs } = loadTables(options);
 	if (!tables.fight[options.fightId]) throw new Error(`未知fight：${options.fightId}`);
 
-	const sides = [options.side1Id, options.side2Id].map(id => {
+	const side1Id = options.side1Id ?? tables.fight[options.fightId].aSide;
+	const side2Id = options.side2Id ?? tables.fight[options.fightId].dSide;
+	if (side1Id === undefined || side2Id === undefined) {
+		throw new Error('请指定aside和dside，或在fight表中配置aSide和dSide');
+	}
+
+	const sides = [side1Id, side2Id].map(id => {
 		if (!tables.side[id]) throw new Error(`未知side：${id}`);
 
 		return tables.side[id];
@@ -191,11 +186,11 @@ export async function runFmud(args: string[], input: Readable = process.stdin, o
 	if (userSides > 1) throw new Error('fmud最多允许一边是user队，不能双方都由玩家控制');
 
 	setFightGlobalData(tables.fight_global[globalId]);
-	initFightConsts(tables.fight_const[constId]);
+	// initFightConsts(tables.fight_const[constId]);
 	const fight = new Fight(options.fightId, tables.fight[options.fightId], options.seed);
 	let nextUid = 0;
 	initFightXls(tables, () => nextUid++, () => fight.random());
-	fight.createSide(createSideByXls(options.side1Id), createSideByXls(options.side2Id));
+	fight.createSide(createSideByXls(side1Id), createSideByXls(side2Id));
 	const renderer = new ConsoleLineRenderer(print, lineMs);
 	const write = print;
 	const automatic = options.auto || userSides === 0;
@@ -417,7 +412,7 @@ export async function runFmud(args: string[], input: Readable = process.stdin, o
 			}
 		}
 	});
-	write(`fmud 战斗${options.fightId} 队伍${options.side1Id} vs ${options.side2Id} seed=${options.seed} global=${globalId} const=${constId} loopType=${fight.globalData.loopType}${automatic ? ' [自动]' : ''}`);
+	write(`fmud 战斗${options.fightId} 队伍${side1Id} vs ${side2Id} seed=${options.seed} global=${globalId} loopType=${fight.globalData.loopType}${automatic ? ' [自动]' : ''}`);
 	if (!automatic) showHelp();
 
 	try {

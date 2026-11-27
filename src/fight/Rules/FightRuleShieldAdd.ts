@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { FightRule } from './FightRule';
-import type { RuleData } from './RuleDatas';
+import type { RuleData } from '../Datas/RuleDatas';
 import type { FightUnit } from '../Unit/FightUnit';
 
 export class FightRuleShieldAdd extends FightRule {

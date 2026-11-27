@@ -1,5 +1,3 @@
-import { fightConsts } from './FightConsts';
-
 // 战斗属性, 需要注入
 export enum PropEnum {
 	none, //默认，不被克也不被生
@@ -156,11 +154,11 @@ export class FightAttr {
 	/** 速度基础数值，普通行动排序还计初始化乱敏；不影响追加行动的固定插入位置。 */
 	speed: number; // 速度
 	/** 每次有效行动条行动后增加的集气点数；默认取创建属性时的fightConsts.jpAdd（初始1），Buff/被动可修正。 */
-	jpAdd = fightConsts.jpAdd;
+	jpAdd?: number;
 	/** 每点实际受伤增加的怒气；默认取创建属性时的fightConsts.spHurtRate（初始0），Buff/被动可修正，比例不限定0～1。 */
-	spHurtRate = fightConsts.spHurtRate;
+	spHurtRate?: number;
 	/** 每点实际输出伤害或治疗增加的怒气；默认取创建属性时的fightConsts.spOutputRate（初始0），Buff/被动可修正。 */
-	spOutputRate = fightConsts.spOutputRate;
+	spOutputRate?: number;
 
 	/** 服务端兵器枚举，与NPC弱点直接匹配，不自动转换MUD兵器文字。 */
 	weapon: WeaponEnum; // 武器类型

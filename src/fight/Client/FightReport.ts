@@ -13,8 +13,8 @@ import { PropEnum, WeaponEnum } from '../FightAttr';
 import { fightMsg } from '../struct';
 import { FightClient } from './FightClient';
 import { FightResultEnum } from '../struct';
-import { getBuffData } from '../Buffs/BuffDatas';
-import { getSkillData } from '../Skills/SkillDatas';
+import { getBuffData } from '../Datas/BuffDatas';
+import { getSkillData } from '../Datas/SkillDatas';
 import { FightPreParse, FightSupportGroup } from './FightPreParse';
 
 const colors = {

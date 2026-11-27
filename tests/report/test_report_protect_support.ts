@@ -1,4 +1,4 @@
-import { setFightGlobalData } from '../../src/fight/Fight';
+import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -108,7 +108,7 @@ test('report demo: protect and support share a real round with incremental clien
 	});
 	const fight = new Fight(
 		99560,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	const swordsman = new FightUnitUser(0, attributes(100, 120), { name: '剑客' });

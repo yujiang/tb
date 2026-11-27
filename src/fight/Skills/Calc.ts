@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { Fight, FightContex } from '../Fight';
 import { FinalAttack, BaseAttack, FightAttr, FightTypeAttr } from '../FightAttr';
-import { FightStatic } from '../Buffs/StaticData';
+import { FightStatic } from '../Passives/FightStatic';
 import { clone } from '../../public/Utilts';
 import { isDebugCrit } from '../FightDebug';
 

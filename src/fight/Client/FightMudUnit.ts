@@ -2,8 +2,8 @@ import type { FightClient, FightClientUnit } from './FightClient';
 import type { ReportColor } from './FightReport';
 import { FightRenderUnit, FightRenderContext } from './FightRenderUnit';
 import { FightMudTables, MudTexts, MudText, pickMudText, resolveMudText } from './FightMudDatas';
-import { getSkillData } from '../Skills/SkillDatas';
-import { getPassiveData } from '../Passives/PassiveDatas';
+import { getSkillData } from '../Datas/SkillDatas';
+import { getPassiveData } from '../Datas/PassiveDatas';
 import { mudActionTexts, mudMissTexts, mudImpactTexts } from './FightMudProse';
 
 export interface FightMudOutput {

@@ -49,11 +49,10 @@ test('package entry exports the current Fight implementation and has declaration
 		winReward: 0,
 	});
 	assert.equal(battle.globalData, api.getFightGlobalData());
-	assert.equal(typeof api.initFightConsts, 'function');
+	assert.equal(typeof api.initAllDatas, 'function');
 	assert.equal(typeof api.createSideByXls, 'function');
 	assert.equal(typeof api.initFightXls, 'function');
 	assert.equal(typeof api.resolveXlsAttr, 'function');
-	assert.deepEqual(api.fightConsts, { spHurtRate: 0, spOutputRate: 0, jpAdd: 1 });
 	assert.equal(typeof api.FightLoopWest, 'function');
 	assert.equal(typeof api.FightLoopYanYu, 'function');
 	assert.equal(typeof api.FightLoopPC, 'function');

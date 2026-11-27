@@ -1,5 +1,5 @@
 import { FightBehavior } from '../FightBehavior';
-import type { RuleData } from './RuleDatas';
+import type { RuleData } from '../Datas/RuleDatas';
 import type { FightUnit } from '../Unit/FightUnit';
 import type { FightContex } from '../Fight';
 

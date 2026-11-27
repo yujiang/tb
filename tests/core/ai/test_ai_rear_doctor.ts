@@ -1,4 +1,4 @@
-import { setFightGlobalData } from '../../../src/fight/Fight';
+import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -63,7 +63,7 @@ function setup(nx = 3, ny = 3) {
 	});
 	const fight = new Fight(
 		1001500,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	fight.createMap(nx, ny);
@@ -80,7 +80,7 @@ function setup(nx = 3, ny = 3) {
 	a.units.push(doctor, frontDoctor, warrior);
 	b.units.push(monster);
 	fight.createSide(a, b);
-	monster.ai = new FightAITarget({ type: 'target', career: '医生', pos: 'back' });
+	monster.ai = new FightAITarget({ id: 1, type: 'target', career: '医生', pos: 'back' });
 	const loop = new FightLoopPC(fight),
 		client = new FightClient();
 	loop.onMsg((msgs) => client.onMsg(structuredClone(msgs)));
@@ -226,7 +226,7 @@ test('rear doctor AI: target decisions are deterministic for the same seed', () 
 // 仅职业筛选不依赖地图，未配置站位时前排与位置零都可以被选中。
 test('target AI: career-only selection works without a map', () => {
 	const s = setup();
-	s.monster.setAI({ type: 'target', career: '医生' });
+	s.monster.setAI({ id: 1, type: 'target', career: '医生' });
 	s.fight.map = undefined;
 	s.fight.random = () => 0.99;
 	assert.equal(s.decide().target, s.frontDoctor.uid);

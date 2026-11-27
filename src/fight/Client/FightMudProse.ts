@@ -1,4 +1,4 @@
-import type { SkillData } from '../Skills/SkillDatas';
+import type { SkillData } from '../Datas/SkillDatas';
 
 // 原创展示文案；动作只写攻势，不预先宣告命中、伤口、位移成功或状态效果。
 const physical = [

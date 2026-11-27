@@ -1,5 +1,5 @@
-import { setFightGlobalData } from '../../../src/fight/Fight';
-import { BuffTurnEnum } from '../../../src/fight/Buffs/BuffDatas';
+import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
+import { BuffTurnEnum } from '../../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -93,7 +93,7 @@ function setup(
 	});
 	const fight = new Fight(
 		97700,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	const a = new FightSide(),
@@ -464,7 +464,7 @@ test('auto relife: a new battle grants a reused unit another successful revival'
 	});
 	const nextFight = new Fight(
 		97705,
-		{ runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
+		{ id: 1, runaway: false, runawayGrade: 0, deathPenalty: 0, winRecover: 0, winReward: 0 },
 		0,
 	);
 	const a = new FightSide(),

@@ -1,9 +1,9 @@
 import { FightContex } from '../Fight';
 import { FightUnit, PendingHurt, UnitContextEventFunc } from '../Unit/FightUnit';
-import { BuffData, BuffTurnEnum } from './BuffDatas';
+import { BuffData, BuffTurnEnum } from '../Datas/BuffDatas';
 import { findForbidStatusByAction } from './FightStatus';
 import { buffFunc } from './BuffFuncType';
-import { FightStatic } from './StaticData';
+import { FightStatic } from '../Passives/FightStatic';
 import type { FightSkill } from '../Skills/FightSkill';
 import type { SkillUseType } from '../struct';
 

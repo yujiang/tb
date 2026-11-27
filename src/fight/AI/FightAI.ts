@@ -2,7 +2,7 @@ import type { FightContex } from '../Fight';
 import { FightCmdEnum, type FightInput } from '../struct';
 import type { FightUnit } from '../Unit/FightUnit';
 import { FightBehavior } from '../FightBehavior';
-import type { AIData } from './AIDatas';
+import type { AIData } from '../Datas/AIDatas';
 import { getDefaultSkill, type FightSkill } from '../Skills/FightSkill';
 import { strict as assert } from 'node:assert';
 

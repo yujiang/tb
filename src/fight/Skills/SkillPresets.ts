@@ -1,6 +1,6 @@
 import { PropEnum } from '../FightAttr';
 import { TargetSelectEnum } from '../struct';
-import type { SkillData } from './SkillDatas';
+import type { SkillData } from '../Datas/SkillDatas';
 
 /** 创建独立的致死攻击配置；id由宿主分配并通过initSkills注册，magic缺省false物理版，true魔法版。 */
 const MAX_ATTACK = 999999;

@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { FightRule } from './FightRule';
 import type { FightUnit, HurtOptions } from '../Unit/FightUnit';
-import type { RuleData } from './RuleDatas';
+import type { RuleData } from '../Datas/RuleDatas';
 import { FightContex } from '../Fight';
 
 // 只在允许攻击时计次；完整 action 结束后，对伤害来源发动普通攻击，不走 fback, 不进入行动条。

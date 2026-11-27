@@ -1,5 +1,5 @@
 import { IdLevel, IdLevelArray } from '../struct';
-import { StaticData } from '../Buffs/StaticData';
+import { StaticData } from './StaticData';
 
 // 被动技能 有3种
 // 1. 状态，(但是客户端看不到)

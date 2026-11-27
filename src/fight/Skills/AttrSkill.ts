@@ -4,7 +4,7 @@ import { Fight, FightContex } from '../Fight';
 import { FightUnit } from '../Unit/FightUnit';
 import { calcAttack, calcPoison } from './Calc';
 import { FightSkill } from './FightSkill';
-import { getSkillData, SkillData } from './SkillDatas';
+import { getSkillData, SkillData } from '../Datas/SkillDatas';
 import { getHealMul } from '../FightAttr';
 
 export type AttrFunc = (

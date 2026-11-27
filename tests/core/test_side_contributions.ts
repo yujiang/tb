@@ -1,4 +1,4 @@
-import { setFightGlobalData } from '../../src/fight/Fight';
+import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { Fight, initFightContex } from '../../src';
@@ -64,7 +64,7 @@ test('side contributions: resetting or binding a new battle clears prior records
 		duiwei: false,
 	});
 	const next = new Fight(10011800, {
-		runaway: false,
+		id: 1, runaway: false,
 		runawayGrade: 0,
 		deathPenalty: 0,
 		winRecover: 0,

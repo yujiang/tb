@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert';
 import type { FightContex } from './Fight';
 import type { FightAttr } from './FightAttr';
 import type { FightUnit, UnitContextEventFunc } from './Unit/FightUnit';
-import type { FightUnitContextEvent } from './Buffs/BuffDatas';
+import type { FightUnitContextEvent } from './Datas/BuffDatas';
 import { getDefaultSkill } from './Skills/FightSkill';
 import { EnemySide, FightCmdEnum, FightInput } from './struct';
 

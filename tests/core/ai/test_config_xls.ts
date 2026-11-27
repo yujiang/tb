@@ -5,17 +5,17 @@ import { createAI, createRule, AIData, RuleData, FightRule, InsertActionPos } fr
 
 // 测试：工厂必须把完整xls交给AI，getXls能读取完整配置。
 test('AI xls: factory-created instances can read their condData configuration', () => {
-	const xls = { type: 'target', career: '医生', pos: 'back', condData: { stage: 'phase-one' } };
+	const xls = { id: 1, type: 'target', career: '医生', pos: 'back', condData: { stage: 'phase-one' } };
 	const ai = createAI(xls);
 	assert.equal(ai.getXls(), xls);
 	assert.equal(ai.getXls().condData, xls.condData);
 });
 
 for (const xls of [
-	{ type: 'target', contributions: 'unitHurt', skill: 1, condData: false },
-	{ type: 'target', contributions: 'enemyHeal', condData: 0 },
+	{ id: 1, type: 'target', contributions: 'unitHurt', skill: 1, condData: false },
+	{ id: 1, type: 'target', contributions: 'enemyHeal', condData: 0 },
 	{
-		type: 'target',
+		id: 1, type: 'target',
 		self: true,
 		cond: 'hpLow',
 		condData: 0.5,

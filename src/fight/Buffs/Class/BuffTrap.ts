@@ -1,7 +1,7 @@
 import { FightBuff } from '../FightBuff';
 import type { FightUnit, UnitContextEventFunc, UnitEventArgs } from '../../Unit/FightUnit';
 import { FightSkill } from '../../Skills/FightSkill';
-import { getSkillData } from '../../Skills/SkillDatas';
+import { getSkillData } from '../../Datas/SkillDatas';
 import { skillAttack } from '../../Skills/Funcs/NomalSkill';
 
 // 陷阱挂在受保护单位身上；布置和触发分别走普通技能与命中前事件。
