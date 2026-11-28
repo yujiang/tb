@@ -58,7 +58,13 @@ for (const [globalId, mode] of [['13001', 'pc'], ['13002', 'west']]) {
 	});
 
 	// 重复指令按单位保存；首次无记录时继续输入，之后分别重复玩家防御和宠物指定目标普攻。
-	test(`fmud: ${mode} repeats each unit's last accepted command with q`, async () => {
+	test(`fmud: ${mode} repeats each unit's last accepted command with q`, async (t) => {
+		const getCounter = tb.FightUnit.prototype.getFBackSkill;
+		// 此场景只验证指令重复，关闭额外反击，避免把反击描写计为主动普攻。
+		t.mock.method(tb.FightUnit.prototype, 'getFBackSkill', function () {
+			const skill = getCounter.call(this);
+			return new tb.FightSkill({ ...skill.getXls(), rand: 0 }, skill.level);
+		});
 		process.env.FMUD_GLOBAL_ID = globalId;
 		const input = new PassThrough();
 		const commands = ['q', 'd', 'a 2', 'q', 'q', 'quit'];

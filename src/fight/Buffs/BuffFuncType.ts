@@ -25,7 +25,7 @@ function getBuffSkill(buff: FightBuff, attr: string) {
 		const data = getSkillData(xls.skill);
 		if (!data) return;
 
-		return new AttrSkill(data, xls.skillLevel ?? 0, attr);
+		return new AttrSkill(data, xls.skillLevel ?? 0, undefined, attr);
 	}
 }
 

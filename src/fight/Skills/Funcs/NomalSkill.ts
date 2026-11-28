@@ -40,9 +40,9 @@ class MagicSkill extends FightSkill {
 		return this.name;
 	}
 
-	setFt(ft: FightTypeAttr) {
+	setFt(ft: FightTypeAttr, attack: BaseAttack = ft.base) {
 		this.ft = ft;
-		this.mergeAttack(ft.base, ft.final);
+		this.mergeAttack(attack, ft.final);
 	}
 
 	createMagicSkill(name: string, id: number, attack: BaseAttack) {
@@ -93,7 +93,7 @@ export function skillAttack(
 	if (ctx.reactionSteps > 64) throw new Error('Reaction limit exceeded (64 effects per action)');
 
 	// 发动概率, 比如连击...
-	if (!force && !isDebugReaction(reaction) && f.randomGreat(skill.getRand())) {
+	if (!force && !isDebugReaction(reaction) && !skill.passRand(f)) {
 		if (!reaction && skill.getId() !== 0) {
 			ctx.msgs.push(['skillFailed', attacker.uid, defender.uid, skill.getId()]);
 		}
@@ -141,13 +141,13 @@ export function skillAttack(
 	ctx.effects = [];
 
 	const ismagic = skill.isMagic();
-	const blocked = skill.physicParryTest(f, defender);
+	const blocked = skill.physicParryTest(f, attacker, defender);
 	ctx.blocked = blocked;
 	if (blocked) ctx.msgs.push(['block', defender.uid, attacker.uid]);
 
 	let damage = skill.calcHurt(f, defender, ctx, attacker, damageRate, !blocked);
-	const originalDamage = ctx.damageBeforeReduction ?? damage;
 	if (blocked) damage *= 0.5;
+	const originalDamage = damage;
 
 	damage = defender.onHurt(attacker, 'skill', damage, ctx, {
 		originalDamage,
@@ -275,8 +275,14 @@ export function skillAttackFunc(
 	reaction?: AttackReaction,
 ) {
 	const magic = new MagicSkill(skill.getXls(), skill.level);
-	magic.setFt(skill.isMagic() ? attacker.attr.magic : attacker.attr.physic);
-	return magicAttackFunc(attacker, defender, magic, ctx, reaction);
+	const ft = skill.isMagic() ? attacker.attr.magic : attacker.attr.physic;
+	magic.setFt(ft, reaction === 'fback' ? ft.fback : ft.base);
+	const taunt = !reaction && !skill.isMulti() ? ctx.fight.getTauntBuff(attacker, skill) : undefined;
+	const result = magicAttackFunc(attacker, defender, magic, ctx, reaction);
+	if (taunt && taunt.getTauntTarget() === defender) {
+		attacker.emitContext('taunt', ctx, taunt);
+	}
+	return result;
 }
 
 export function magicAttackFunc(

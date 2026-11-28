@@ -1,3 +1,4 @@
+import './default_skills';
 import { FightAI } from '../../src/fight/AI/FightAI';
 import type { AIData } from '../../src/fight/Datas/AIDatas';
 import type { FightUnit } from '../../src/fight/Unit/FightUnit';

@@ -1,3 +1,4 @@
+import '../fixtures/default_skills';
 import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -24,15 +25,14 @@ function attr(speed: number): FightAttr {
 	const base = (attack = 10, rand = 0) => ({
 		attack,
 		rand,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
+
 		hit: 100,
 		dodge: 0,
 		parry: 0,
 		defend: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
+		hurtP: 0,		critP: 0,
 		critPAnit: 0,
 		critDeep: 0,
 		critDeepAnit: 0,
@@ -46,7 +46,7 @@ function attr(speed: number): FightAttr {
 		kill: base(),
 		spread: base(),
 		fback: base(),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	attr.physic = group();
 	attr.magic = group();
@@ -76,7 +76,7 @@ async function setup(cd?: number) {
 		allShieldBreak: false,
 		maxTurn: 1,
 		waitInputSec: 1,
-		duiwei: true,
+		duiwei: true, defaultAttackSkill: true ? 990003 : 990001, defaultProtectSkill: 990002,
 	});
 	const fight = new Fight(
 		99960,
@@ -355,10 +355,10 @@ test('yanyu: automatic turns use speed-ordered normal attacks rather than stored
 	assert.deepEqual(
 		s.messages.filter((msg) => msg[0] === 'skill').map((msg) => [msg[1], msg[2], msg[3]]),
 		[
-			[0, 0, 2],
-			[0, 1, 3],
-			[0, 2, 0],
-			[0, 3, 1],
+			[990003, 0, 2],
+			[990003, 1, 3],
+			[990003, 2, 0],
+			[990003, 3, 1],
 		],
 	);
 	for (const unit of [s.a, s.b, s.c, s.d]) assert.equal(unit.getHp(), 990);

@@ -18,7 +18,7 @@ export function relifeFunc(
 		return false;
 	}
 
-	const heal = Math.floor(skill.getHealRate() * defender.getHpMax());
+	const heal = Math.floor(skill.getRelifeP() * defender.getHpMax());
 	if (heal <= 0) {
 		ctx.msgs.push(['无法复活', defender.uid]);
 		return false;

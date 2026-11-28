@@ -57,7 +57,7 @@ Loop 在完整行动结束后刷新所有脏单位，再按当前速度重排剩
 
 单位可通过 `addSkill(attackId, level)` 学习，再用 `setAttackSkill(attackId)`（字段 `attackSkill`）装配攻击技能替代普攻，`getAttackSkill()` 查询，`setAttackSkill(0)` 卸下。显式 `attack` 和默认 `none` 指令优先使用有效装配；未学会或未装配时回退到原物理普攻。替代普攻走攻击管线、使用技能自身配置和已学等级，不额外支付主动费用，发动失败不补原普攻；仍检查 `attack` 禁止状态并保留普攻目标、嘲讽和守尸规则。被动及技能命中后的公共效果也可配置 `attackSkill`，只装配、不学习或改等级，`attackSkill: 0` 可卸下；与 `supportSkill/fbackSkill` 的职责一致。详细配置与边界见 `document/技能.md`。
 
-属性相克与相生使用 `PropEnum.none/金/木/水/火/土`，单位的 `FightAttr.charProp` 和 `weaponProp` 默认无属性，技能用 `skillProp` 覆盖。攻击及毒伤取 `skillProp ?? 施放者.weaponProp`，治疗取 `skillProp ?? 施放者.charProp`，默认目标取 `charProp`；NPC 配置弱点后，受伤改用下述弱点规则，治疗仍取 `charProp`；显式 `none` 不回退。相克采用传统五行“金→木→土→水→火→金”，相生按“金→水→木→火→土→金”，关系函数命中时返回 1.5，其余为 1。攻击伤害将相克加成与 damageRate 加法合并：基础公式伤害（含免伤）× (damageRate + 相克倍率 - 1 + 暴击加成)，相克固定加 0.5；治疗合并 healRate、相生与暴击加成，毒伤合并 poisonRate 与相克加成，毒伤不判暴击。均在资源实际变化之前应用。普通攻击、各类子技能及周期效果均使用真实施放者，复活、吸血及已经计算好的反伤/反射/分担数值不重复乘属性倍率。旧 `BaseAttack.property` 已移除。详细规则见 `document/技能.md`，回归测试为 `tests/core/skill/test_properties.ts`。
+属性相克与相生使用 `PropEnum.none/金/木/水/火/土`，单位的 `FightAttr.charProp` 和 `weaponProp` 默认无属性，技能用 `skillProp` 覆盖。攻击及毒伤取 `skillProp ?? 施放者.weaponProp`，治疗取 `skillProp ?? 施放者.charProp`，默认目标取 `charProp`；NPC 配置弱点后，受伤改用下述弱点规则，治疗仍取 `charProp`；显式 `none` 不回退。相克采用传统五行“金→木→土→水→火→金”，相生按“金→水→木→火→土→金”，关系函数命中时返回加成0.5，其余为0。数值与百分比参数分别相加：基础值=attack×(1+attackP)-defend×(1+defendP)+hurt；普通伤害=(基础值-immunity)×(1+hurtP+生克+暴击+次数增伤-immunityP)，最低1；治疗统一合并hurtP、相生与暴击；毒伤=(attack-defend+clamp(hurt,0,1)×目标当前生命)×(1+hurtP+生克)，最低1。均在资源实际变化之前应用。普通攻击、各类子技能及周期效果均使用真实施放者，复活、吸血及已经计算好的反伤/反射/分担数值不重复乘属性倍率。旧 `BaseAttack.property` 已移除。详细规则见 `document/技能.md`，回归测试为 `tests/core/skill/test_properties.ts`。
 
 NPC 的弱点分为 `weakProp?: PropEnum[]`（五行）和 `weakWeapon?: WeaponEnum[]`（兵器）。例如 `weakProp: [PropEnum.火]`、`weakWeapon: [WeaponEnum.刀]` 表示怕火或怕刀，直接匹配攻击属性或真实施放者的兵器，无弱点盾的 NPC 命中任一弱点时给伤害或毒伤倍率加 0.5，多个命中不叠加。启用弱点盾的 NPC 通过盾减伤体现弱点。任一列表已配置时替代该 NPC 的受伤相克；空列表没有弱点，两者都未配置时仍使用人物相克。玩家、召唤物及治疗相生的规则不变。旧混合 `WeakPoint` 类型和 `weakPoint` 字段已替换，枚举数值未调整。
 
@@ -65,7 +65,7 @@ NPC 可配置 `FightAttr.shield` 开启弱点盾，`undefined` 不启用，`0` �
 
 只有破盾后才在下个全局回合的 `processBeforeTurn()` 回满，未破的盾保留剩余格数，同回合重复处理不恢复；回盾解除盾造成的眩晕，其他 Buff 的眩晕仍有效。属性重算和死亡不补盾，新战斗初始化重置。单位展示数据增加可选 `shield/shieldMax`，变化通过 `["shield", uid, current, "recover"?]` 发送，恢复时才带 `"recover"`；客户端校验包含盾状态，简报显示扣盾、破盾和回盾。测试见 `tests/core/skill/test_shield.ts`。
 
-暴击与技能、属性加成统一相加，普通暴击加成是 `0.5 + clamp(critDeep - critDeepAnit, 0, 1)`；暴击未发生时加 0，概率只判一次，保留 `crit` 标记。伤害先计算基础公式及固定/比例免伤，之后才乘合并倍率；治疗也使用合并倍率。基础伤害 100、damageRate=1，同时相克与普通暴击时为 200，不再是独立乘区的 225。
+暴击与技能、属性加成统一相加，普通暴击加成是 `0.5 + clamp(critDeep - critDeepAnit, 0, 1)`；暴击未发生时加 0，概率只判一次，保留 `crit` 标记。固定免伤先扣点数，比例免伤与hurtP、生克、暴击及次数增伤统一相加，最后计算一次。基础伤害100、hurtP=0，同时相克与普通暴击时为200。
 
 生克效果沿用 `hurt/heal` 协议下标 6 的 `effects`：治疗相生加 `"生"`，攻击及毒伤相克加 `"克"`，可与 `"crit"` 同时存在，无对应关系则不加。每次公式计算独立记录，不串用前一次标记，吸血和复活恢复不继承旧生克效果。简报保留数字颜色并显示“伤害（克）”“点生命（治疗，生）”，不新增协议字段。
 
@@ -77,7 +77,7 @@ NPC 可配置 `FightAttr.shield` 开启弱点盾，`undefined` 不启用，`0` �
 
 `addBuff` 格式为 `["addBuff", why, unitId, attackerId, buffId, level, timing]`，可见实例的 `timing` 为 `[start, lastTurn]`，隐藏实例为 `null`；不重复发送名称、Buff ID 或等级。同编号新增消息替换旧实例，初始 `buffs` 仍使用 `[id, level, start, lastTurn]`。死亡清理逐个发送 `removeBuff`，只移除实际清除的 Buff，格式为 `["removeBuff", why, unitId, attackerId, buffId]`，不重复发送 Buff 名称；复活发送 `["relife", uid]`，随后治疗消息更新血量。`FightClient` 不重新判定保留规则或运行结算；`FightReport` 可从客户端本地配置查询 Buff 名称。`checkSame(fight)` 只比较双方单位展示状态，不修复差异。直接改写服务端站位、display 或资源等字段而未发送相应消息时，客户端不会自动获知，检查应失败。
 
-`FightReport` 将同一条增量消息链转成中文简报，与 `FightClient` 可同时绑定到循环：`report.bindFightLoop(loop)`。也可直接传入单条或批量消息：`report.onMsg(msgs)`。默认逐行打印：只给行首人名加阵营色（攻击方绿、防守方红，跳过连击等行首标注），后续人名及行动条列表保持原色，技能名称（含方括号）为青色、Buff 名称为紫色；治疗量数字为绿色、伤害量数字为红色、暴击伤害量数字为橙色，未命中三个字为蓝色，其余文字和当前/剩余生命保持默认颜色。死亡整句为暗红色，复活整句为亮绿色（ANSI 颜色，着色部分结束立即复位）。`new FightReport(line => save(line), false)` 可自定义输出并关闭颜色，传入 `() => {}` 可静默收集。`report.lines` 和 `report.toString()` 始终保存不含颜色控制码的纯文本；收到新 `start` 时清空上一场简报。简报包含回合、行动顺序、技能、伤害、实际治疗量、费用、Buff 增删、死亡复活及胜负；技能和 Buff 用 `[名称]` 显示，同名单位通过编号区分。技能和 Buff 名称分别通过 `getSkillData(id)`、`getBuffData(id)` 查询本地配置，宿主需在客户端预先加载对应表，配置缺失时回退到编号（普通攻击 ID 为 0），未知消息保留原始数据。报告不读取服务端状态，不推测未收到的动作，也不提供逻辑战斗恢复功能。
+`FightReport` 将同一条增量消息链转成中文简报，与 `FightClient` 可同时绑定到循环：`report.bindFightLoop(loop)`。也可直接传入单条或批量消息：`report.onMsg(msgs)`。默认逐行打印：只给行首人名加阵营色（攻击方绿、防守方红，跳过连击等行首标注），后续人名及行动条列表保持原色，技能名称（含方括号）为青色、Buff 名称为紫色；治疗量数字为绿色、伤害量数字为红色、暴击伤害量数字为橙色，未命中三个字为蓝色，其余文字和当前/剩余生命保持默认颜色。死亡整句为暗红色，复活整句为亮绿色（ANSI 颜色，着色部分结束立即复位）。`new FightReport(line => save(line), false)` 可自定义输出并关闭颜色，传入 `() => {}` 可静默收集。`report.lines` 和 `report.toString()` 始终保存不含颜色控制码的纯文本；收到新 `start` 时清空上一场简报。简报包含回合、行动顺序、技能、伤害、实际治疗量、费用、Buff 增删、死亡复活及胜负；技能和 Buff 用 `[名称]` 显示，同名单位通过编号区分。技能和 Buff 名称分别通过 `getSkillData(id)`、`getBuffData(id)` 查询本地配置，宿主需在客户端预先加载对应表，配置缺失时回退到编号（默认普攻使用配置的技能表ID），未知消息保留原始数据。报告不读取服务端状态，不推测未收到的动作，也不提供逻辑战斗恢复功能。
 
 `FightMud` 继承 `FightReport`，使用同样的构造参数、`onMsg`、`bindFightLoop`、`lines` 和 `toString()`，将出招、连击、连招、追击、反击、受伤、治疗、保护、死亡和复活改为 MUD 风格的武侠叙述。技能名青色、Buff 名紫色及原有数字配色继续保留，沿用仅行首人名按阵营着色的规则；保存文本仍为纯文本。初始化列出阵营单位、角色出场与初始 Buff，行动条消息仍更新内部客户端状态，文字不重复播报队列。
 
@@ -146,9 +146,9 @@ for (const group of plan.groups) {
 
 协战表现推荐通过填表收敛：协战技能配置 `nofback: true, nodback: true`（必须显式禁止，省略表示允许），避免引出目标反击及普通反伤；其链接的子技能也需逐个保持对应配置。主攻技能的开关独立配置，程序不额外强制覆盖。`nodback` 不控制反射 Buff。
 
-单位维护本场技能实际发动次数：`unit.getSkillUseCount(skillId)` 按技能ID查询，`unit.getSkillTypeUseCount('support')`、`unit.getSkillTypeUseCount('fback')` 分别查询协战、反击累计次数。未使用返回0，默认普攻及内置反击等无表ID攻击统一归入ID0，可按类型区分。`SkillUseType` 包含 `normal`（普通行动，包括普攻和主动技能）、`support/fback/next/combo/kill/spread/trap`。概率失败、费用/CD/状态/目标校验失败不计数；实际发动后未命中或被陷阱中断仍计数。群攻、一次溅射各按一次施放计数；子技能独立计数，模仿本身与实际回放分别计数，Buff周期效果不算单位再次使用技能。
+单位维护本场技能实际发动次数：`unit.getSkillUseCount(skillId)` 按技能ID查询，`unit.getSkillTypeUseCount('support')`、`unit.getSkillTypeUseCount('fback')` 分别查询协战、反击累计次数。未使用返回0，默认普攻与反击均按配置的真实技能表ID计数，可按类型区分。`SkillUseType` 包含 `normal`（普通行动，包括普攻和主动技能）、`support/fback/next/combo/kill/spread/trap`。概率失败、费用/CD/状态/目标校验失败不计数；实际发动后未命中或被陷阱中断仍计数。群攻、一次溅射各按一次施放计数；子技能独立计数，模仿本身与实际回放分别计数，Buff周期效果不算单位再次使用技能。
 
-越战越勇Buff使用 `class: 'damageByUse'`，默认只增强协战：按本场累计协战次数，每次给本次协战加0.05伤害倍率，最高+0.5，当前这次也享受。可显式配置 `damageUse: { type: 'support', rate: 0.05, max: 0.5 }`，改type为fback即可做同类反击增伤。加成与技能damageRate相加，不影响其他出手类型或技能表；Buff移除后停止增伤，再次添加读取本场历史次数。持续时间及死亡保留沿用Buff配置，times:0表示不按次数消耗，正数仅在匹配类型发动时消耗，最后一次仍有加成。详见 [Buff与被动](document/wiki/Buff与被动.md)。
+越战越勇Buff使用 `class: 'damageByUse'`，默认只增强协战：按本场累计协战次数，每次给本次协战加0.05伤害倍率，最高+0.5，当前这次也享受。可显式配置 `damageUse: { type: 'support', rate: 0.05, max: 0.5 }`，改type为fback即可做同类反击增伤。加成与hurtP、生克、暴击等最终比例参数相加，不影响其他出手类型或技能表；Buff移除后停止增伤，再次添加读取本场历史次数。持续时间及死亡保留沿用Buff配置，times:0表示不按次数消耗，正数仅在匹配类型发动时消耗，最后一次仍有加成。详见 [Buff与被动](document/wiki/Buff与被动.md)。
 
 增伤由Buff的 `getDamageRate(unit, skill, type)` 返回贡献，单位 `getDamageRate(skill, type)` 统一求和。每次发动更新次数后收集一次，再发useSkill通知；本次伤害使用收集结果，群体目标共用，不修改技能对象，也没有add/reset步骤。这样普通属性Buff仍按现有属性管线生效，多个增伤Buff独立提供值；Buff到期不会丢失最后一次已收集的加成。
 
@@ -189,7 +189,7 @@ const result = await loop.run();
 
 `SelectParam` 统一使用 `num`：主技能表示直接施放的总人数，`num: 1` 或省略为单体；溅射子技能表示副目标人数（默认 `1`，不包含主目标，`0` 不选）。例如主技能配置 `spread: 子技能ID`，子技能配置 `sel: { target: TargetSelectEnum.enemy, num: 2 }`，表示单体命中后溅射另外两人；子技能的 `shape` 配置优先于人数，排序也读取子技能。旧主表的 `numSpread/shape/sortAttr/sortDescend` 溅射配置需迁移到子技能的 `sel`，其中 `numSpread` 改为 `num`。`combo` 和协战仍继承实际主目标。
 
-治疗示例见 `tests/report/fixtures/heal_targets.ts`：同一初始场面分别演示主目标 `healRate: 1` 加两个 spread 目标 `healRate: 0.7`，以及 `friend, num: 3` 的直接群疗。主技能人数省略为单体，spread 子技能配置 `num: 2`；两者按血量排序并跳过禁疗和死亡单位，包含实际回血量、一次扣费和客户端一致性检查。运行 `npm run test:build` 后执行 `node .test-build/tests/report/fixtures/heal_targets.js` 可查看两段简报。
+治疗示例见 `tests/report/fixtures/heal_targets.ts`：同一初始场面分别演示主目标 `attack: { hurtP: 0 }` 加两个 spread 目标 `attack: { hurtP: -0.3 }`，以及 `friend, num: 3` 的直接群疗。主技能人数省略为单体，spread 子技能配置 `num: 2`；两者按血量排序并跳过禁疗和死亡单位，包含实际回血量、一次扣费和客户端一致性检查。运行 `npm run test:build` 后执行 `node .test-build/tests/report/fixtures/heal_targets.js` 可查看两段简报。
 
 为保持场面清晰，建议填表时仅让单一主目标触发协战和保护：群攻技能及溅射子技能填写 `nosupport: true, noprotect: true`，单体主技能按需配置。这是填表建议，程序不因群攻或溅射身份强制关闭能力；禁止字段省略或 `false` 时不额外禁止。群攻拆成逐目标结算时保留原配置，溅射子技能独立读取自己的配置，后续链接的子技能也应逐个检查。溅射仍保留原来的单次攻击结算流程。
 
@@ -307,51 +307,29 @@ Buff 配置 `class: "buqu"` 创建 `BuffBuqu`，省略 `class` 仍创建普通 `
 
 已反射的伤害或治疗携带本次效果的 `reflected: true`，不会被接收者再次反射；没有新建战斗上下文，转移使用原动作上下文并经过 `resolveAction`，仍受全局嵌套反应上限约束。`times` 为正时，伤害和治疗共用次数，物理伤害在仅反射魔法模式下不消耗；被转移到禁疗或满血目标也算一次拦截。替换、驱散、到期、次数耗尽和死亡清理都会解绑两个监听，`dieNotRemove` 等字段仍按原规则处理。客户端接收最终目标的 `hurt/heal`、Buff 增删与 `buffTimes` 次数消息；简报用 `buffTrigger` 说明转移去向，并显示反射伤害/反射治疗，不使用 `sync`。
 
-配置技能的 `next/combo/kill` 子技能可继续执行自身的配置链，各段使用各自的发动概率、吸血和追击配置，`next/kill` 保持逐段反伤和反击，`combo` 按下述规则统一处理；只有根技能收取一次费用，子技能不重复收费，整条链共用同一个 `FightContex` 及原有的 64 次反应限制。普攻由单位属性产生的内置连击、追击仍保持单次触发，不会因扩展而自动递归。配置链循环或过长时会抛出 `Reaction limit`，不能将部分结算当作成功继续战斗。
+配置技能的 `next/combo/kill` 子技能可继续执行自身的配置链，各段使用各自的发动概率、吸血和追击配置，`next/kill` 保持逐段反伤和反击，`combo` 按下述规则统一处理；只有根技能收取一次费用，子技能不重复收费，整条链共用同一个 `FightContex` 及原有的 64 次反应限制。默认普攻的连击、追击也在技能表中配置，复用相同管线。配置链循环或过长时会抛出 `Reaction limit`，不能将部分结算当作成功继续战斗。
 
 `SkillData.combo` 复用 `next` 的子技能创建、攻击属性和结算流程，自动沿用上一段实际主目标（包括主技能被嘲讽重定向后的目标），无需额外的目标继承字段。目标离场、死亡或不符合子技能目标资格时停止，不排序、不重新抽样、不被中途新增的嘲讽重定向。`next` 按子技能自身 `sel` 重新选目标，`combo` 固定继承主目标；两者同时配置时 `next` 优先。计数仍记入 `nextNum`，结算流程和攻击属性继续复用；动作消息用 `combo` 标记连招，简报显示 `【连招】`。普通 `next` 消息仍显示 `【连击】`，命中与未命中都按此区分。`selectMainTarget(unit, sel)` 只负责普通选目标。
 
 连招中间段无论配置的 `nofback/nodback` 如何，都不触发普通反击或反伤，也不会被反击打断。仅在成功命中配置的最后一段、双方都未死亡时，先按末段 `nodback` 禁止字段结算一次整招反伤，再按末段 `nofback` 禁止字段尝试一次反击。反伤基数为整条连招对主目标实际扣血的累计值，倍率及伤害类型沿用末段对应的反伤属性；例如三段实际伤害为 40、70、100，反伤比例 20%，末段结束后一次反伤 42。反伤致死则不再反击。后续段未发动、未命中、目标失效或任一方死亡时，不补结算；死亡后立即复活也视为打断。死亡时配置的 `kill` 仍按原规则执行。伤害累计只在同一条连招内传递，追击、反击、事件中的嵌套动作和溅射伤害不计入主目标累计，连招内溅射也不即时触发普通反伤。吸血和 Buff 效果仍按段处理。
 
 
-`SkillData.attackRate` 是有限、非负的单位攻击力倍率，默认 `1`，显式 `0` 有效。合并公式为 `单位当前 attack × attackRate + 技能 attack.attack + attackLevel.attack × level`：只缩放单位的 `attack` 数值，不缩放命中、暴击、伤害加成等其他字段，也不缩放技能固定加成和成长。使用包含 Buff/被动加成的当前属性，主攻击、连击、追击、溅射及反击分别使用原管线对应的属性组；治疗、毒伤在合并单位属性时复用同一规则。重复合并始终从传入单位属性及原配置重算，不累计倍率，不修改 `attrOri`、单位属性或原配置。
+属性参数统一按加法合并：单位当前字段 + 技能固定字段 + 成长字段 × 技能等级。攻击点数与attackP分别保存，结算时才计算attack×(1+attackP)。例如单位attack=100、技能等级2、attack={attack:20,attackP:0.5}、attackLevel={attack:5}，合并后的attack=130、attackP=0.5，实际攻击项为195。百分比作用于合并后的完整数值，不能再用旧attackRate表达只缩放单位来源。
 
-例如单位攻击力 100、技能等级 2，配置如下时，本次攻击力为 `100 × 1.5 + 20 + 5 × 2 = 180`，之后再参与防御、暴击等伤害公式：
-
-```ts
-attackRate: 1.5,
-attack: { attack: 20 },
-attackLevel: { attack: 5 },
-```
-
-`attackRate: 0` 可表达只使用技能固定值及成长。尚未合并单位的原始技能数值仍只有固定加成和等级成长（单位项为 0），不会把原始配置也乘上倍率；周期 Buff 等现有原始数值读取路径保持这一规则。
-
-`SkillData.bloodP` 是本次技能的固定吸血比例：`1`固定100%，`0`明确不吸血，可填大于1的非负有限数。省略时，`skill.getBloodP()`沿用人物对应物理/魔法属性、技能`final.bloodP`与`finalLevel.bloodP × level`合并后的比例。因此`final.bloodP: 0.1`仍表达增加10%，与固定比例兼容；固定值不随finalLevel成长，也不改变人物属性，各子技能读取自己的配置，noblood仍优先禁止。吸血保持实际扣血基数及既有触发条件，回血通过onHeal产生消息。内部`tryBlood(attacker, defender, magic, damage, bloodP, ctx)`以ctx为最后一项，bloodP传undefined时沿用人物分组比例。
-
-`SkillData.damageRate` 是有限、非负的最终伤害倍率，默认 `1`，显式 `0` 有效；在普通伤害公式完成后，与相克、暴击加成按加法合并（相克加 0.5，暴击加 0.5 加暴击增伤减免后的有效值，其余加 0），进入 `onHurt` 前乘以合并倍率，再按正常减伤、反射、实际扣血、吸血和反伤流程处理。它与 `attackRate` 可以组合：`attackRate` 在减去防御之前缩放单位攻击力，`damageRate` 在普通伤害公式之后缩放最终伤害。各段 `attack/attackLevel` 等仍从对应单位属性合并，不改基础属性；倍率不改变配置或累计成长。没有属性相克时，0.4、0.7、1.0 的名义总倍率为 2.1；相克时各段分别增加 0.5，零 damageRate 也不屏蔽属性或暴击加成，但逐段取整、属性差异、减伤及剩余生命会影响实际总和。
-
-`SkillData.healRate`、`poisonRate` 分别为治疗公式结果、毒伤公式结果的倍率，默认 `1`，显式 `0` 有效；必须为有限非负数。`attackRate` 仍先参与单位攻击属性合并，随后按对应公式计算，再乘合并倍率（healRate + 相生加成 + 暴击加成，或 poisonRate + 相克加成），最后进入 `onHeal/onHurt` 取整及生命上限处理。相生/相克固定加 0.5，否则加 0；零 rate 不屏蔽属性及对应的暴击加成。周期 Buff 引用的技能也读取这两个倍率。`damageRate` 不额外缩放治疗或毒伤。
-
-复活技能 `func: "relife"` 直接恢复 `healRate × 被复活者最大生命`，向下取整，上限为最大生命；不再使用 `attack.attack` 表示复活比例，也不读取攻击属性或攻击等级成长。旧复活配置需将 `attack: {attack: 0.5}` 改为 `healRate: 0.5`，表示恢复目标最大生命的 50%；省略倍率为 `1`（满血复活）。结果不足 1 血时不复活，避免生成存活但零血的单位。示例（其余通用字段照常填写）：
-
-```ts
-{ func: "heal", healRate: 1.5 }     // 无相生时治疗公式结果 × 1.5
-{ func: "poison", poisonRate: 0.5 } // 无相克时毒伤公式结果 × 0.5
-{ func: "relife", healRate: 0.3 }   // 复活并恢复目标最大生命的 30%
-```
+普通伤害、治疗及毒伤使用attack.hurtP表达最终加成，默认0；例如hurtP=-0.6表示基础40%，并与生克、暴击等最终比例相加。复活使用relifeP，默认0.2，relifeP=0不复活；与攻击属性及成长无关。周期Buff直接读取引用技能的固定数值和skillLevel成长，不自动加入受益者的属性。
 
 `afterSelfBuff: [[BuffID, 等级, 概率]]` 在当前技能及其后续链结束后，为施放者添加 Buff；施放者已死亡则不加。普通攻击类已发动但未命中仍添加，发动概率未触发时不添加该段的效果；其他技能在执行成功后添加。配置在根技能上，表示整招结束后付出一次代价，即使中途击杀目标而停止，也会添加；配置在末段则要求末段实际发动。以下是三连击的关键字段，通用字段照常填写：
 
 ```ts
 // 一式：主技能，费用只在这里收取，结束后附加休息
-{ id: 98001, combo: 98002, damageRate: 0.4, rand: 1,
+{ id: 98001, combo: 98002, attack: { hurtP: -0.6 }, rand: 1,
   sel: { target: TargetSelectEnum.enemy }, nofback: true, nodback: true,
   cost: { mp: 10 }, afterSelfBuff: [[98004, 1, 1]] }
 // 二式：锁定同一人，不反击、不反伤、不追击
-{ id: 98002, combo: 98003, damageRate: 0.7, rand: 1,
+{ id: 98002, combo: 98003, attack: { hurtP: -0.3 }, rand: 1,
   sel: { target: TargetSelectEnum.enemy }, nofback: true, nodback: true }
 // 终式：按需开启反击、反伤，追击可另配 kill
-{ id: 98003, damageRate: 1, rand: 1,
+{ id: 98003, attack: { hurtP: 0 }, rand: 1,
   sel: { target: TargetSelectEnum.enemy }, nofback: false, nodback: false }
 ```
 
@@ -788,3 +766,11 @@ MUD出招文案支持多句轮换，按明确的兵器资料区分刀剑拳掌�
 被动表`action`用于武学表现：`display.qinggong`选择闪避轻功，`wugong`选择招架武功，`neigong`选择所有减伤/免伤内功，均为passive表ID；构造输入可省略，运行时补0。对应事件按character专属文本 → 被动action → 通用表达回退。配置仅选择文案，不自动学习被动或附加属性。实际减伤用`mitigate`消息同步并调用`unit.mitigate(amount, ctx)`；防御、格挡、弱点盾等均触发，残血截断不触发。详见[武学被动与减伤表现](document/wiki/客户端与表现.md#武学被动与减伤表现)。
 
 `fmud fightId [aside] [dside] [seed]` 中，省略的阵营使用 fight 表的 `aSide`、`dSide`；命令行传入的阵营优先。未提供且表中未配置时会报错。种子默认为 0。宿主可用 `initAllDatas(JSON目录)` 读取并注册表数据，返回表集合；全局规则仍由宿主选取并设置，组队前须调用 `initFightXls` 提供 UID 分配器和随机源。
+
+默认普攻、保护和反击通过技能表注册，由`FightGlobalData.defaultAttackSkill/defaultProtectSkill/defaultFBackSkill`配置；未注册时使用会报错。默认技能的目标、属性与子技能复用完整技能管线；对位普攻需配置`sel.target=duiwei`，无需另一套技能实现。示例表提供1098普通攻击、1097对位普攻和1099保护。
+
+1097配置`next:1095, kill:1096`，1098配置`next:1094, kill:1096`。1095连击按对位选人，1094连击普通选敌，即原技能对位时next才对位；1096在击杀后普通选敌追击。三个子技能均配置`rand:0.1`，只追加一次，不再配置自己的next或kill。
+
+属性表的next/kill/spread/fback填写相对base的增量，`initAllDatas`导入时逐字段相加，例如base.attack=100、next.attack=10得到110；{}或省略沿用base，final独立。运行时FightAttr各阶段已是完整值，直接调用resolveXlsAttr须提供已合并阶段。`attackP/defendP/hitP/dodgeP/hurtP`默认0，0.1表示+10%，各来源只相加，结算时再应用。复活使用独立`relifeP`，默认20%；吸血统一使用`final.bloodP`。`damage`以hurt协议冒出的伤害数字为准，吸血、反伤及统计使用同一数值。
+
+默认反击示例为1093，所有全局预设配置defaultFBackSkill=1093，技能rand=0.1、nofback=true，无额外费用及后续链。装配反击优先；默认和装配反击统一读取对应fback阶段属性，概率、命中和攻击加成由技能表配置，不再读取fback.rand。反击协议与使用次数保留fback类型，并使用真实技能表ID。

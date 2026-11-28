@@ -1,11 +1,12 @@
+import { setCounterChance } from '../../fixtures/default_skills';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { FightCmdEnum, PropEnum, FightMud } from '../../../src';
 import { setupChain } from '../../fixtures/skill_chain';
 
 for (const [hit, parry, damage] of [
-	[200, 50, 100],
-	[100, 200, 50],
+	[200, 0, 100],
+	[100, 1, 50],
 ]) {
 	// 招架概率上下限直接确定结果，不消耗随机数；属性按点数而非0～1比例处理。
 	test(`parry: hit=${hit} and parry=${parry} clamp the chance without drawing randomness`, () => {
@@ -31,12 +32,12 @@ function setup(magic = false, actorHp = 1000) {
 		change: (skills) => {
 			for (const skill of skills) {
 				skill.magic = magic;
-				skill.damageRate = 1;
+				skill.attack = { ...skill.attack, hurtP: 0 };
 			}
 			skills[0].combo = undefined;
 		},
 	});
-	s.target.attr.physic.base.parry = 100;
+	s.target.attr.physic.base.parry = 1;
 	return s;
 }
 
@@ -48,9 +49,9 @@ test('parry: a successful block disables crit and halves the whole calculated da
 	s.target.attr.charProp = PropEnum.木;
 	s.target.attr.physic.final.immunity = 20;
 	s.target.attr.physic.final.immunityP = 0.25;
-	s.skills[0].damageRate = 2;
+	s.skills[0].attack = { ...s.skills[0].attack, hurtP: 1 };
 	const ctx = s.cast();
-	assert.equal(s.target.getHp(), 925); // (100-20)*0.75*(2+0.5)*0.5
+	assert.equal(s.target.getHp(), 910); // (100-20)*(1+1+0.5-0.25)*0.5
 	assert.deepEqual(
 		ctx.msgs.find((msg) => msg[0] === 'block'),
 		['block', s.target.uid, s.actor.uid],
@@ -94,7 +95,7 @@ test('parry: successful probability roll does not consume a critical roll', () =
 	s.actor.attr.physic.base.hit = 90;
 	s.actor.attr.physic.base.critP = 0.5;
 	s.target.attr.physic.base.dodge = 10;
-	s.target.attr.physic.base.parry = 30;
+	s.target.attr.physic.base.parry = 0.4;
 	let draws = 0;
 	s.fight.random = () => {
 		draws++;
@@ -112,7 +113,7 @@ test('parry: failed block continues to the ordinary critical calculation', () =>
 	s.actor.attr.physic.base.hit = 90;
 	s.actor.attr.physic.base.critP = 0.5;
 	s.target.attr.physic.base.dodge = 10;
-	s.target.attr.physic.base.parry = 30;
+	s.target.attr.physic.base.parry = 0.4;
 	const values = [0.1, 0.9, 0.1];
 	let draws = 0;
 	s.fight.random = () => values[draws++];
@@ -180,7 +181,7 @@ test('parry: alwaysHit does not bypass blocking but stun prevents it', () => {
 test('parry: basic attacks share the pipeline and stack with defense', () => {
 	const s = setup();
 	s.actor.attr.physic.base.attack = 101;
-	s.target.attr.physic.fback.rand = 0;
+	setCounterChance(s.target, 0, false);
 	s.target.doDefend();
 	const ctx = s.fight.processUnit(s.actor, { cmd: FightCmdEnum.attack, target: s.target.uid });
 	assert.equal(s.target.getHp(), 975);

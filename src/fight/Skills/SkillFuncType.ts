@@ -112,28 +112,30 @@ export function skillFunc(
 
 	ctx.actionStarted = true;
 	if (!ignoreCostCD) attacker.startSkillCd(skill, ctx);
+	if (func === skillAttackFunc) return func(attacker, defender, skill, ctx);
 
-	if (skill.isMulti() && func !== skillAttackFunc) {
+	const taunt = !skill.isMulti() ? f.getTauntBuff(attacker, skill) : undefined;
+	let result: boolean;
+
+	if (skill.isMulti()) {
 		return multiFunc(attacker, skill, ctx, (actor, target, single, context, useSkill) => {
 			useSkill();
 			return func(actor, target, single, context);
 		});
 	}
 
-	const taunt = !skill.isMulti() ? f.getTauntBuff(attacker, skill) : undefined;
-	let result: boolean;
 	// 攻击和群体技能在各自管线判定；单体非攻击技能在执行效果前统一判定一次。
-	if (func !== skillAttackFunc && f.randomGreat(skill.getRand())) {
+	if (!skill.passRand(f)) {
 		ctx.msgs.push(['skillFailed', attacker.uid, defender.uid, skill.getId()]);
 		result = false;
 	} else {
-		if (func !== skillAttackFunc) attacker.recordSkillUse(skill, ctx);
+		attacker.recordSkillUse(skill, ctx);
 		result = func(attacker, defender, skill, ctx);
 	}
-	// 普通攻击类在整条反应链结束后处理自身效果；其余技能在本次执行完成后处理。
-	if (result && func !== skillAttackFunc) {
+	if (result) {
 		afterSelfBuff(attacker, skill, ctx);
 	}
+
 	if (taunt && taunt.getTauntTarget() === defender) {
 		attacker.emitContext('taunt', ctx, taunt);
 	}

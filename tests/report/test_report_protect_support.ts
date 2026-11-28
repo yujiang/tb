@@ -1,3 +1,4 @@
+import '../fixtures/default_skills';
 import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -30,15 +31,14 @@ function attributes(attack: number, speed: number, hp = 1000): FightAttr {
 	const base = (value: number, rand = 0): BaseAttack => ({
 		attack: value,
 		rand,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
+
 		hit: 100,
 		dodge: 0,
 		parry: 0,
 		defend: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
+		hurtP: 0,		critP: 0,
 		critPAnit: 0,
 		critDeep: 0,
 		critDeepAnit: 0,
@@ -52,7 +52,7 @@ function attributes(attack: number, speed: number, hp = 1000): FightAttr {
 		kill: base(0),
 		spread: base(0),
 		fback: base(0),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	attr.physic = group();
 	attr.magic = group();
@@ -76,7 +76,7 @@ test('report demo: protect and support share a real round with incremental clien
 	};
 	initSkills([
 		{ ...common, id: mainId, name: '破阵掌', nosupport: false },
-		{ ...common, id: supportId, name: '飞燕剑', damageRate: 0.4 },
+		{ ...common, id: supportId, name: '飞燕剑', attack: { hurtP: -0.6 }},
 		{ ...common, id: secondId, name: '追风拳', nosupport: false },
 	]);
 	initBuffs([

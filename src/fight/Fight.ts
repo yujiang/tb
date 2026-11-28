@@ -26,9 +26,8 @@ import { InsertActionPos } from './struct';
 import type { FightBuff } from './Buffs/FightBuff';
 import {
 	FightSkill,
-	getDefaultSkill,
-	getDefaultSkillDuiwei,
-	getDefaultSkillProtect,
+	getDefaultAttackSkill,
+	getDefaultProtectSkill,
 } from './Skills/FightSkill';
 import { FightData } from './Datas/FightDatas';
 import { FightGlobalData, getFightGlobalData } from './Datas/FightGlobalData';
@@ -53,9 +52,7 @@ export interface FightContex {
 	//crit?: boolean; // 是否暴击
 
 	damage?: number; // 伤害值
-	/** 最近一次公式的减伤前理论伤害，仅供转交受伤入口产生表现通知；每次公式重写，不改变结算。 */
-	damageBeforeReduction?: number;
-	/** 当前攻击段是否成功格挡；每段重新设置，反击判定读取主目标本段结果，不累计连招前段或副目标。 */
+
 	blocked?: boolean;
 	actionStarted?: boolean; // 根单位行动已通过目标、禁止及费用检查；用于完整行动后统一集气
 	actionEntrusted?: boolean; // 当前普通行动位已交给队友，本次托付不额外推动集气。
@@ -472,7 +469,7 @@ export class Fight {
 	}
 
 	getDefaultSkill() {
-		return this.globalData.duiwei ? getDefaultSkillDuiwei() : getDefaultSkill();
+		return getDefaultAttackSkill();
 	}
 
 	getDefaultEnemy(unit: FightUnit) {
@@ -526,7 +523,7 @@ export class Fight {
 
 		// Map 保持添加顺序，稳定排序使同优先级按 Buff 实例注册顺序处理。
 		// 全局默认对位不限制嘲讽来源；技能显式配置的对位规则仍按技能判断。
-		const targetSkill = skill === getDefaultSkillDuiwei() ? getDefaultSkill() : skill;
+		// const targetSkill = sel.target === TargetSelectEnum.duiwei ? getDefaultAttackSkill() : skill;
 		const buffs = [...unit.buffs.values()].sort(
 			(a, b) => (a.getXls().prior ?? 0) - (b.getXls().prior ?? 0),
 		);
@@ -536,7 +533,7 @@ export class Fight {
 				target &&
 				!target.isDied() &&
 				this.getUnitById(target.uid) &&
-				this.isLegalTarget(unit, target, targetSkill)
+				this.isLegalTarget(unit, target, skill)
 			) {
 				return buff;
 			}
@@ -670,7 +667,7 @@ export class Fight {
 				: equipped?.isMulti()
 					? equipped
 					: undefined) ??
-			(attack && input.target !== undefined ? getDefaultSkill() : this.getDefaultSkill());
+			(attack && input.target !== undefined ? getDefaultAttackSkill() : this.getDefaultSkill());
 		const explicit = input.target !== undefined ? this.getUnitById(input.target) : undefined;
 		if (input.target !== undefined && !explicit) {
 			unit.hintClient('目标不存在');
@@ -769,7 +766,7 @@ export class Fight {
 		}
 
 		// 普攻可以显式指定死亡敌人守尸；自动选目标仍只选存活敌人。
-		let skill = input.target !== undefined ? getDefaultSkill() : this.getDefaultSkill();
+		let skill = input.target !== undefined ? getDefaultAttackSkill() : this.getDefaultSkill();
 		let guardCorpse = input.cmd === FightCmdEnum.attack || input.cmd === FightCmdEnum.none;
 		if (input.cmd === FightCmdEnum.protect) {
 			if (
@@ -780,7 +777,7 @@ export class Fight {
 				return false;
 			}
 
-			skill = getDefaultSkillProtect();
+			skill = getDefaultProtectSkill();
 		} else if (input.cmd === FightCmdEnum.skill) {
 			skill = unit.findSkill(input.skill);
 			if (!skill) {
@@ -884,7 +881,7 @@ export class Fight {
 		const skill =
 			input.cmd === FightCmdEnum.skill
 				? unit.findSkill(input.skill)
-				: (unit.getAttackSkill() ?? getDefaultSkill());
+				: (unit.getAttackSkill() ?? getDefaultAttackSkill());
 		if (!skill || skill.canTarget(target)) {
 			return input;
 		}

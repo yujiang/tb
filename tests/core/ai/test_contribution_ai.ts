@@ -1,3 +1,4 @@
+import '../../fixtures/default_skills';
 import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import '../../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
@@ -29,15 +30,13 @@ function attributes(): FightAttr {
 	const base = (attack = 0): BaseAttack => ({
 		attack,
 		rand: 0,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
 		hit: 0,
 		dodge: 0,
 		parry: 0,
 		defend: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
+		hurtP: 0,		critP: 0,
 		critPAnit: 0,
 		critDeep: 0,
 		critDeepAnit: 0,
@@ -51,7 +50,7 @@ function attributes(): FightAttr {
 		kill: base(),
 		spread: base(),
 		fback: base(),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	a.physic = group();
 	a.magic = group();
@@ -154,8 +153,8 @@ for (const magic of [false, true]) {
 	test(`lethal skill: fixed attack preserves the matching defense pipeline with magic=${magic}`, () => {
 		const s = setup('topThreat', magic);
 		s.boss.enemyHurt.set(0, 1);
-		s.players[0].attr.physic.base.defend = 999_990;
-		s.players[0].attr.magic.base.defend = 999_980;
+		s.players[0].attr.physic.base.defend = 999_990 + s.boss.attr.physic.base.attack;
+		s.players[0].attr.magic.base.defend = 999_980 + s.boss.attr.magic.base.attack;
 		s.players[0].attr.physic.base.dodge = 1e9;
 		s.fight.random = () => {
 			throw new Error('必中且无暴击/反应时不应抽样');

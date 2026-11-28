@@ -1,3 +1,4 @@
+import '../../fixtures/default_skills';
 import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import { BuffTurnEnum } from '../../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
@@ -27,16 +28,15 @@ const buffId = 97601,
 function attributes(hp: number): FightAttr {
 	const base = (attack: number, rand = 0): BaseAttack => ({
 		rand,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
+
 		hit: 100,
 		dodge: 0,
 		parry: 0,
 		attack,
 		defend: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
+		hurtP: 0,		critP: 0,
 		critPAnit: 0,
 		critDeep: 0,
 		critDeepAnit: 0,
@@ -50,7 +50,7 @@ function attributes(hp: number): FightAttr {
 		kill: base(0),
 		spread: base(0),
 		fback: base(0),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	attr.physic = group();
 	attr.magic = group();

@@ -1,3 +1,4 @@
+import './default_skills';
 import { BuffData, FightUnit, initBuffs, initFightContex, initSkills, OverlapEnum, SkillData, TargetSelectEnum } from '../../src';
 import { setupChain } from './skill_chain';
 
@@ -17,6 +18,8 @@ export function setupTrap(
 			magic: false, combo: undefined, nosupport: true, noprotect: true, ...attack,
 		}),
 	});
+	s.target.attrOri.magic.base.attack = 0;
+	s.target.calcAttr();
 	initBuffs([
 		{
 			id: rootId, name: '缠绕', desc: '', status: ['缠绕'], tags: [],
@@ -33,7 +36,7 @@ export function setupTrap(
 	initSkills([
 		{
 			id: hitId, name: '陷阱伤害', magic: true, nomove: 1, rand: 1,
-			sel: { target: TargetSelectEnum.enemy }, attackRate: 0,
+			sel: { target: TargetSelectEnum.enemy },
 			attack: { attack: 40 }, attackLevel: { attack: 5 }, final: {},
 			cost: { mp: 999 }, cd: 9, nosupport: true, noprotect: true,
 			nofback: true, nodback: true, addBuff: root ? [[rootId, 1, 1]] : undefined,

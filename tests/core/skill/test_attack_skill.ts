@@ -1,3 +1,4 @@
+import { setCounterChance } from '../../fixtures/default_skills';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -20,16 +21,16 @@ const attackId = 99940,
 	equipId = 99943;
 function setup(change?: (data: SkillData) => void) {
 	const state = setupChain({ rootSelfBuff: false, finalReactions: false });
-	state.target.attr.physic.fback.rand = 0;
+	setCounterChance(state.target, 0, false);
 	const data: SkillData = {
 		id: attackId,
 		name: '替代普攻',
 		magic: true,
 		rand: 1,
-		attack: { attack: 10 },
+		attack: { attack: 10 , hurtP: -0.5},
 		attackLevel: { attack: 5 },
 		final: {},
-		damageRate: 0.5,
+
 		nofback: true,
 		nodback: true,
 		cost: { mp: 999 },
@@ -67,7 +68,7 @@ test('attack skill: missing or unavailable equipment falls back to the ordinary 
 		if (id !== undefined) s.actor.setAttackSkill(id);
 		const ctx = s.attack();
 		assert.ok(ctx);
-		assert.equal(ctx.msgs.find((msg) => msg[0] === 'skill')[1], 0);
+		assert.equal(ctx.msgs.find((msg) => msg[0] === 'skill')[1], 990001);
 		assert.equal(s.target.getHp(), 900);
 		assert.equal(s.actor.findSkill(99999), undefined);
 	}
@@ -164,7 +165,7 @@ test('attack skill: runtime equipment and configured combo reuse the attack pipe
 		data.combo = nextId;
 	});
 	initSkills([
-		{ ...s.data, id: nextId, name: '替代普攻后续', combo: undefined, damageRate: 0.25 },
+		{ ...s.data, id: nextId, name: '替代普攻后续', combo: undefined, attack: { hurtP: -0.75 }},
 		Object.assign(
 			{
 				...s.data,
@@ -192,7 +193,7 @@ test('attack skill: runtime equipment and configured combo reuse the attack pipe
 		ctx.msgs.filter((msg) => msg[0] === 'skill').map((msg) => msg[1]),
 		[attackId, nextId],
 	);
-	assert.equal(s.target.getHp(), 910); // 60 + 30
+	assert.equal(s.target.getHp(), 913); // 60 + 30
 });
 
 // 测试：装配公共入口可直接设置及清除 attackSkill，卸下恢复原始普攻。
@@ -206,5 +207,5 @@ test('attack skill: equipment helper and unit API support installation and remov
 	equipSkill(s.actor, s.actor.addSkill(equipId, 1), initFightContex(s.fight));
 	assert.equal(s.actor.attackSkill, 0);
 	assert.equal(s.actor.getAttackSkill(), undefined);
-	assert.equal(s.attack().msgs.find((msg) => msg[0] === 'skill')[1], 0);
+	assert.equal(s.attack().msgs.find((msg) => msg[0] === 'skill')[1], 990001);
 });

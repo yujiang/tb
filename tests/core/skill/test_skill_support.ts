@@ -1,3 +1,4 @@
+import '../../fixtures/default_skills';
 import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -100,16 +101,15 @@ function attr(): FightAttr {
 	const attr = new FightAttr();
 	const base = (attack = 100, rand = 0) => ({
 		rand,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
+
 		hit: 100,
 		dodge: 0,
 		parry: 0,
 		attack,
 		defend: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
+		hurtP: 0,		critP: 0,
 		critPAnit: 0,
 		critDeep: 0,
 		critDeepAnit: 0,
@@ -120,7 +120,7 @@ function attr(): FightAttr {
 		kill: base(),
 		spread: base(),
 		fback: base(10),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	attr.point = { hp: 1000, hpMax: 1000, mp: 100, mpMax: 100 };
 	attr.speed = 100;
@@ -156,9 +156,9 @@ function setup(
 	};
 	const skills: SkillData[] = [
 		{ ...common, id: ids.root, name: '主攻', nosupport: false },
-		{ ...common, id: ids.support, name: '协战', damageRate: 0.4 },
-		{ ...common, id: ids.next, name: '连击', damageRate: 0.2 },
-		{ ...common, id: ids.back, name: '反击', damageRate: 0.5 },
+		{ ...common, id: ids.support, name: '协战', attack: { hurtP: -0.6 }},
+		{ ...common, id: ids.next, name: '连击', attack: { hurtP: -0.8 }},
+		{ ...common, id: ids.back, name: '反击', attack: { hurtP: -0.5 }},
 	];
 	change?.(skills);
 	initSkills(skills);
@@ -499,13 +499,13 @@ test('support: probability failure and miss both consume the global turn quota',
 // 测试：协战继承技能倍率、等级与自身基础攻击，像反击一样不额外支付主动技能费用。
 test('support: equipped skill uses supporter base attributes and growth without an extra cost', () => {
 	const s = setup((skills) => {
-		skills[1].attackRate = 0.5;
+		skills[1].attack = { ...skills[1].attack, attackP: -0.5 };
 		skills[1].attackLevel = { attack: 10 };
 		skills[1].cost = { mp: 999 };
 	});
 	s.a.addSkill(ids.support, 2);
 	const ctx = s.cast();
-	assert.equal(s.c.getHp(), 872); // 100 + (100 × 0.5 + 10 × 2) × 0.4
+	assert.equal(s.c.getHp(), 876); // 100 + (100 + 10 × 2) × (1 - 0.5) × 0.4
 	assert.equal(s.a.attr.point.mp, 100);
 	assert.ok(!ctx.msgs.some((m) => m[0] === 'costMp'));
 });
@@ -568,7 +568,7 @@ test('support: a killing hit pursues another enemy without support or next', () 
 // 测试：协战子技能循环与主动作共用反应上限，超限抛错并中止结算。
 test('support: reaction limit is shared and aborts the action', () => {
 	const s = setup((skills) => {
-		skills[1].damageRate = 0;
+		skills[1].attack = { ...skills[1].attack, hurtP: (0) - 1 };
 		skills[1].next = ids.support;
 	});
 	const ctx = initFightContex(s.fight);

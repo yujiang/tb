@@ -1,3 +1,4 @@
+import '../../fixtures/default_skills';
 import { FightMud, FightMudTables, fightMsg, initSkills, TargetSelectEnum } from '../../../src';
 
 /** 展示专用协议场景，不代表一次真实引擎战斗；真实循环的同种子对照另由test_mud覆盖。 */

@@ -8,7 +8,7 @@ function setup(magic = true, extra: Partial<SkillData> = {}, targetHp = 1000) {
 		actorHp: 500, targetHp, rootSelfBuff: false, finalReactions: false,
 		change: (skills) => Object.assign(skills[0], {
 			magic, combo: undefined, nosupport: true,
-			final: { bloodP: 0.1 }, finalLevel: { bloodP: 0.05 }, ...extra,
+			final: { bloodPAnit: 0, bloodP: 0.1 }, finalLevel: { bloodP: 0.05 }, ...extra,
 		}),
 	});
 	s.actor.attr[magic ? 'magic' : 'physic'].final.bloodP = 0.2;
@@ -17,10 +17,10 @@ function setup(magic = true, extra: Partial<SkillData> = {}, targetHp = 1000) {
 }
 
 for (const magic of [false, true]) {
-	for (const [bloodP, heal] of [[1, 40], [0, 0], [0.5, 20], [1.2, 48]]) {
-		// 技能固定吸血覆盖人物及技能加成，显式0同样有效，物理和魔法共用此规则。
-		test(`skill bloodP: ${magic ? 'magic' : 'physical'} fixed ratio ${bloodP} overrides additive attributes`, () => {
-			const s = setup(magic, { bloodP });
+	for (const [bloodP, heal] of [[1, 48], [0, 8], [0.5, 28], [1.2, 56]]) {
+		// 技能final吸血与人物比例相加，显式0不增加，物理和魔法共用此规则。
+		test(`skill bloodP: ${magic ? 'magic' : 'physical'} final ratio ${bloodP} adds to unit attributes`, () => {
+			const s = setup(magic, { final: { bloodP }, finalLevel: {} });
 			const ctx = s.cast();
 			assert.equal(s.actor.getHp(), 500 + heal);
 			assert.equal(s.target.getHp(), 960);
@@ -40,7 +40,7 @@ for (const magic of [false, true]) {
 
 // 全额吸收以实际扣血为基数，过量伤害不多吸血，回血仍产生正常同步消息。
 test('skill bloodP: full drain uses actual damage rather than overkill', () => {
-	const s = setup(true, { bloodP: 1 }, 15);
+	const s = setup(true, { final: { bloodP: 0.8 }, finalLevel: {} }, 15);
 	const ctx = s.cast();
 	assert.equal(s.actor.getHp(), 515);
 	assert.equal(s.target.getHp(), 0);
@@ -49,24 +49,24 @@ test('skill bloodP: full drain uses actual damage rather than overkill', () => {
 
 // 禁止吸血仍优先于技能固定比例，不能通过bloodP绕过noblood。
 test('skill bloodP: noblood still disables a configured fixed ratio', () => {
-	const s = setup(true, { bloodP: 1, noblood: true });
+	const s = setup(true, { final: { bloodP: 0.8 }, finalLevel: {}, noblood: true });
 	s.cast();
 	assert.equal(s.actor.getHp(), 500);
 });
 
 // 主技能与溅射分别读取自身固定比例，主技能100%不传给配置0的溅射子技能。
 test('skill bloodP: splash uses its own override instead of the root skill ratio', () => {
-	const s = setup(true, { bloodP: 1, spread: chainIds.second });
-	s.skills[1].bloodP = 0;
+	const s = setup(true, { final: { bloodP: 0.8 }, finalLevel: {}, spread: chainIds.second });
+	s.skills[1].final = { bloodP: -0.2 };
 	s.cast();
 	assert.equal(s.actor.getHp(), 540);
 	assert.ok(s.other.getHp() < 1000);
 });
 
-for (const bloodP of [-0.1, NaN, Infinity]) {
+for (const bloodP of [NaN, Infinity]) {
 	// 固定吸血比例在构造阶段拒绝负数和非有限数，避免进入战斗后产生非法回血。
 	test(`skill bloodP: rejects invalid ratio ${bloodP}`, () => {
 		const s = setup();
-		assert.throws(() => new FightSkill({ ...s.skills[0], bloodP }, 1), /bloodP/);
+		assert.throws(() => new FightSkill({ ...s.skills[0], final: { bloodP } }, 1), /finite/);
 	});
 }

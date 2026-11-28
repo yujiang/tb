@@ -40,7 +40,7 @@ test('damage by use: support gains 0.05 per use including the current one', () =
 	const s = setup();
 	assert.equal(s.support(), 45);
 	assert.equal(s.support(), 50);
-	assert.equal(s.skills[0].damageRate, 0.4);
+	assert.equal(((s.skills[0].attack?.hurtP ?? 0) + 1), 0.4);
 });
 
 // 连续三次实际协战，额外倍率应为0.05、0.10、0.15，第三次伤害55，不能累计成0.30导致伤害70。
@@ -50,7 +50,7 @@ test('damage by use: three actual support attacks reach a total bonus of 0.15', 
 	for (const expectedBonus of [0.05, 0.10, 0.15]) {
 		const damage = s.support();
 		damages.push(damage);
-		const actualBonus = damage / 100 - s.skills[0].damageRate;
+		const actualBonus = damage / 100 - ((s.skills[0].attack?.hurtP ?? 0) + 1);
 		assert.ok(Math.abs(actualBonus - expectedBonus) < 1e-12);
 		console.log(`第${damages.length}次协战：额外倍率 +${actualBonus.toFixed(2)}，实际伤害 ${damage}`);
 	}

@@ -27,7 +27,7 @@ test('report: deterministic combo, pursuit, counterattack, lifesteal and reflect
 	assert.match(text, /使用\[汲血剑\]/);
 	assert.match(text, /【连击】.*使用\[连斩\]/);
 	assert.match(text, /【追击】.*使用\[收割\]/);
-	assert.match(text, /【反击】.*使用\[普通攻击\]/);
+	assert.match(text, /【反击】.*使用\[测试反击\]/);
 	assert.doesNotMatch(text, /技能 #9720[123]/);
 	for (const label of ['连击', '追击', '反击', '吸血', '反伤'])
 		assert.ok(text.includes(label), `缺少${label}说明`);

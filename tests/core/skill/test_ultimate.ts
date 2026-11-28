@@ -28,7 +28,7 @@ function setup(enabled = true) {
 		finalReactions: false,
 		change: (skills) => {
 			skills[0].combo = undefined;
-			skills[0].damageRate = 1;
+			skills[0].attack = { ...skills[0].attack, hurtP: 0 };
 			skills[0].nosupport = true;
 		},
 	});
@@ -62,7 +62,7 @@ function setup(enabled = true) {
 	s.fight.getSide(0).units.push(ally);
 	s.fight.createSide(s.fight.getSide(0), s.fight.getSide(1));
 	setFightGlobalData({ allShieldBreak: enabled });
-	setFightGlobalData({ duiwei: true });
+	setFightGlobalData({ duiwei: true, defaultAttackSkill: true ? 990003 : 990001, defaultProtectSkill: 990002 });
 	s.fight.createMap(5, 1);
 	s.actor.setPos(0);
 	ally.setPos(1);

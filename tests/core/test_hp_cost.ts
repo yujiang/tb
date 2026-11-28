@@ -98,8 +98,8 @@ test('HP cost: threshold effects take effect before the skill formula runs', () 
 			Object.assign(skills[0], {
 				cost: { hp: 600, mp: 10 },
 				combo: undefined,
-				damageRate: 1,
-			});
+
+			attack: { hurtP: 0 }});
 		},
 	});
 	const buffId = 10014010;

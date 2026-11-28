@@ -24,7 +24,7 @@ function setup() {
 		finalReactions: false,
 		change: (data) => {
 			data[0].combo = undefined;
-			data[0].damageRate = 1;
+			data[0].attack = { ...data[0].attack, hurtP: 0 };
 		},
 	});
 	s.target.addSkill(chainIds.first, 1);

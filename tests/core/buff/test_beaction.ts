@@ -5,7 +5,7 @@ import {
 	findForbidStatusByAction,
 	findForbidStatusByBeaction,
 } from '../../../src/fight/Buffs/FightStatus';
-import { FightSkill, getDefaultSkill, FightCmdEnum, initFightContex } from '../../../src';
+import { FightSkill, getDefaultAttackSkill, FightCmdEnum, initFightContex } from '../../../src';
 import { setupChain, chainIds as ids } from '../../fixtures/skill_chain';
 
 // 测试：首次查询受作用限制即可初始化，且不受主动行为表初始化顺序影响。
@@ -35,7 +35,7 @@ test('beaction: entanglement blocks movement and basic attacks but permits skill
 	assert.equal(actor.isForbid('attack'), false);
 	assert.equal(actor.isForbid('skill'), false);
 	assert.equal(actor.isForbid('action'), false);
-	assert.equal(getDefaultSkill().canTarget(actor), true);
+	assert.equal(getDefaultAttackSkill().canTarget(actor), true);
 	const attack = { cmd: FightCmdEnum.attack, target: target.uid };
 	assert.equal(fight.checkPC(actor, attack), false);
 	assert.equal(fight.processUnit(actor, attack), undefined);
@@ -89,7 +89,7 @@ test('beaction: actor restrictions and death preserve target and revival semanti
 		{ ...getBuffData(ids.rest), id: 1001131, class: undefined, status: ['封印'], lastTurn: 0 },
 	]);
 	target.addBuff(actor, 'test', 1001131, 1, initFightContex(fight));
-	const attack = getDefaultSkill();
+	const attack = getDefaultAttackSkill();
 	assert.equal(attack.canTarget(target), true);
 	target.die();
 	assert.equal(attack.canTarget(target), false);

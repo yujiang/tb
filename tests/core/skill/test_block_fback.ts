@@ -29,6 +29,7 @@ function setup(combo = false, magic = false, enabled = true) {
 		final: {},
 		sel: { target: TargetSelectEnum.enemy },
 		fbackOnBlock: enabled,
+		nofback: true,
 		nosupport: true,
 		nodback: true,
 	};

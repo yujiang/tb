@@ -25,7 +25,7 @@ function setup() {
 			rand: 1,
 			nomove: 1,
 			sel: { target: TargetSelectEnum.enemy },
-			attackRate: 0,
+
 			attack: { attack: 10 },
 			final: {},
 			nosupport: true,

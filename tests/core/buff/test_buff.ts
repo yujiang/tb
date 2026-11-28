@@ -1,3 +1,4 @@
+import '../../fixtures/default_skills';
 import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import { healFunc } from '../../../src/fight/Skills/Funcs/Heal';
 import { poisonFunc } from '../../../src/fight/Skills/Funcs/Poison';
@@ -97,21 +98,19 @@ function skillData(id: number, func: string, extra: Partial<SkillData> = {}): Sk
 		rand: 1,
 		attack: {
 			rand: 1,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
 			hit: 100,
 			dodge: 0,
 			parry: 0,
 			attack: 0,
 			defend: 0,
 			hurt: 0,
-			hurtP: 0,
-			hurtAnti: 0,
-			hurtPAnti: 0,
-			critP: 0,
+			hurtP: 0,			critP: 0,
 			critDeep: 0,
 			critPAnit: 0,
 			critDeepAnit: 0,
 		},
-		final: { dbackP: 0, bloodP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, dbackP: 0, bloodP: 0, immunity: 0, immunityP: 0 },
 		...extra,
 	};
 }

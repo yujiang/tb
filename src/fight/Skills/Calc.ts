@@ -4,6 +4,7 @@ import { FinalAttack, BaseAttack, FightAttr, FightTypeAttr } from '../FightAttr'
 import { FightStatic } from '../Passives/FightStatic';
 import { clone } from '../../public/Utilts';
 import { isDebugCrit } from '../FightDebug';
+import { FightSkill } from './FightSkill';
 
 const critBonusBase = 0.5;
 
@@ -12,17 +13,32 @@ function finite(value: number, name: string): number {
 	return value;
 }
 
-function calcFinal(a: FinalAttack, d: FinalAttack, d1: number) {
-	if (d.immunity > 0) {
-		d1 -= d.immunity;
-	}
-	if (d.immunityP && d.immunityP > 0) {
-		d1 -= d1 * d.immunityP;
-	}
-	//const damage = Math.max(Math.floor(d1),1);
-	return d1;
+export function hitTest(f: Fight, a: BaseAttack, d: BaseAttack){
+	const d2 = a.hit * (1 + a.hitP) - d.dodge * (1 + d.dodgeP);
+	return f.randomLess(d2 / 100);
 }
 
+// 因为parryskill是对面的技能，并没有merge
+export function parryTest(f: Fight, a: BaseAttack, d: BaseAttack, parryskill: FightSkill){
+	const p = parryskill?.getAttack()?.parry || 0;
+	const d2 = d.parry + p - a.parryAnit;
+	return f.randomLess(d2);
+}
+
+// 返回伤害和伤害比
+function calcFinal(a: FinalAttack, d: FinalAttack, d1: number, rate: number, ctx: FightContex) {
+	if (d.immunity > 0) {
+		d1 -= d.immunity;
+		ctx.effects.push('immunity');
+	}
+	if (d.immunityP > 0) {
+		rate -= d.immunityP;
+		ctx.effects.push('immunityP');
+	}
+	return Math.max(1, finite(d1 * (1 + rate), 'finalDamage'));
+}
+
+// 暴击+免伤
 export function calcHurt(
 	f: Fight,
 	a: BaseAttack,
@@ -30,68 +46,65 @@ export function calcHurt(
 	af: FinalAttack,
 	df: FinalAttack,
 	ctx: FightContex,
-	rate = 1,
+	rate = 0,
 	allowCrit = true,
 ) {
-	const result = calcAttackParts(f, a, d, ctx, allowCrit);
-	ctx.damageBeforeReduction = Math.max(0, result.originalDamage * (rate + result.critBonus));
-	return finite(
-		Math.max(calcFinal(af, df, result.damage), 1) * (rate + result.critBonus),
-		'damage',
-	);
+	let dhp = calcBaseAttack(a, d);
+	let crit = allowCrit ? calcCrit(f, a, d, ctx) : 0;
+	return calcFinal(af, df, dhp, rate + crit + a.hurtP, ctx);
 }
 
 export function clamp(v: number, min: number, max: number) {
 	return Math.min(Math.max(v, min), max);
 }
 
+// 毒没有暴击,也不走免伤，
+// 对于毒, attack扣血, hurt扣百分比
 export function calcPoison(
 	f: Fight,
 	a: BaseAttack,
 	d: BaseAttack,
 	hp: number,
+	rate: number,
 	ctx: FightContex,
 ): number {
 	const d1 = a.attack - d.defend;
-	const d2 = clamp(a.hurt - d.hurtAnti, 0, 0.5);
-	ctx.damageBeforeReduction = Math.max(clamp(a.hurt, 0, 0.5) * hp + a.attack, 1);
-	return finite(Math.max(d2 * hp + d1, 1), 'poison damage');
+	const d2 = clamp(a.hurt, 0, 1);
+	return finite(Math.max((d2 * hp + d1) * (1 + rate + a.hurtP), 1), 'Poison');
 }
 
-export function calcAttack(
+// 加血有暴击,没有免伤，
+export function calcHeal(
 	f: Fight,
 	a: BaseAttack,
 	d: BaseAttack,
+	rate: number,
 	ctx: FightContex,
-	rate = 1,
 ): number {
-	const result = calcAttackParts(f, a, d, ctx);
-	return finite(result.damage * (rate + result.critBonus), 'damage');
+	const result = calcBaseAttack(a, d);
+	let crit = calcCrit(f, a, d, ctx);
+	return finite(result * (1 + rate + crit + a.hurtP), 'Heal');
 }
 
 // 暴击只判定一次，返回加成，留到最终倍率阶段与技能及属性加成相加。
-function calcAttackParts(
-	f: Fight,
+// allowCrit = false when 格挡后无法crit 
+function calcCrit(f: Fight,
 	a: BaseAttack,
 	d: BaseAttack,
 	ctx: FightContex,
-	allowCrit = true,
-) {
-	let d1 = a.attack - d.defend;
-	d1 += a.hurt - d.hurtAnti;
-	d1 *= 1 + Math.max(a.hurtP - d.hurtPAnti, 0);
-
-	let critBonus = 0;
-	if (allowCrit && d1 > 1 && (isDebugCrit() || f.randomLess(a.critP - d.critPAnit))) {
-		critBonus = critBonusBase + clamp(a.critDeep - d.critDeepAnit, 0, 1);
+){
+	if ((isDebugCrit() || f.randomLess(a.critP - d.critPAnit))) {
 		ctx.effects.push('crit');
+		return critBonusBase + clamp(a.critDeep - d.critDeepAnit, 0, 1);
 	}
+	return 0;
+}
 
-	return {
-		damage: finite(Math.max(d1, 1), 'damage'),
-		critBonus,
-		originalDamage: Math.max(d1, (a.attack + a.hurt) * (1 + Math.max(a.hurtP, 0)), 1),
-	};
+function calcBaseAttack(
+	a: BaseAttack,
+	d: BaseAttack,
+) {
+	return a.attack * (1 + a.attackP) - d.defend * (1 + d.defendP) + a.hurt;
 }
 
 // _a _b的字段必须匹配！

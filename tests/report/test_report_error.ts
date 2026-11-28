@@ -11,7 +11,7 @@ test('report demo: skill errors print their stack and end the fight', async () =
 		finalReactions: false,
 		change: (data) => {
 			data[0].combo = undefined;
-			data[0].damageRate = 1;
+			data[0].attack = { ...data[0].attack, hurtP: 0 };
 		},
 	});
 	s.loop.end();

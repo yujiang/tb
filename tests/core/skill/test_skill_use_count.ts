@@ -1,3 +1,4 @@
+import { setCounterChance } from '../../fixtures/default_skills';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -153,19 +154,20 @@ test('skill use: next and kill follow-ups have separate source totals', () => {
 	next.cast();
 	assert.equal(next.actor.getSkillUseCount(ids.second), 1);
 	assert.equal(next.actor.getSkillTypeUseCount('next'), 1);
-	const kill = setup({ damageRate: 20, kill: ids.kill });
+	const kill = setup({  kill: ids.kill , attack: { hurtP: 19 }});
 	kill.cast();
 	assert.equal(kill.actor.getSkillUseCount(ids.kill), 1);
 	assert.equal(kill.actor.getSkillTypeUseCount('kill'), 1);
 });
 
-// 无技能表ID的普攻和内置反击归入ID0，出手类型仍能区分。
-test('skill use: default attacks and default counters share ID zero but keep separate source counts', () => {
+// 默认普攻和反击均按各自技能表ID计数，出手类型仍能区分。
+test('skill use: default attacks and counters use their configured table IDs', () => {
 	const s = setup();
 	s.fight.processUnit(s.actor, { cmd: FightCmdEnum.attack, target: s.target.uid });
-	s.actor.attr.physic.fback.rand = 1;
+	setCounterChance(s.actor, 1, false);
 	assert.equal(tryFBack(s.actor, s.target, initFightContex(s.fight)), true);
-	assert.equal(s.actor.getSkillUseCount(0), 2);
+	assert.equal(s.actor.getSkillUseCount(990001), 1);
+	assert.equal(s.actor.getSkillUseCount(s.actor.getFBackSkill().getId()), 1);
 	assert.equal(s.actor.getSkillTypeUseCount('normal'), 1);
 	assert.equal(s.actor.getSkillTypeUseCount('fback'), 1);
 });
@@ -238,7 +240,7 @@ test('skill use: the updated count is available for increasing the current skill
 	s.cast();
 	s.cast();
 	assert.equal(s.target.getHp(), 880);
-	assert.deepEqual(s.skills[0].attack, {});
+	assert.deepEqual(s.skills[0].attack, { hurtP: -0.6 });
 });
 
 // 本场累计次数不因回合、死亡复活或同场重新绑定而清零，绑定新战斗才重置。

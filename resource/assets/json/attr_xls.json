@@ -12,59 +12,25 @@
     "weapon": 2,
     "physic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 60,
         "defend": 22
       },
-      "kill": {
-        "hit": 100,
-        "attack": 60,
-        "defend": 22
-      },
-      "next": {
-        "hit": 100,
-        "attack": 60,
-        "defend": 22
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 60,
-        "defend": 22
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 60,
-        "defend": 22
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "magic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 25,
         "defend": 15
       },
-      "kill": {
-        "hit": 100,
-        "attack": 25,
-        "defend": 15
-      },
-      "next": {
-        "hit": 100,
-        "attack": 25,
-        "defend": 15
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 25,
-        "defend": 15
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 25,
-        "defend": 15
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "heal": {
       "hit": 100,
@@ -88,59 +54,25 @@
     "career": "法师",
     "physic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 30,
         "defend": 12
       },
-      "kill": {
-        "hit": 100,
-        "attack": 30,
-        "defend": 12
-      },
-      "next": {
-        "hit": 100,
-        "attack": 30,
-        "defend": 12
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 30,
-        "defend": 12
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 30,
-        "defend": 12
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "magic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 75,
         "defend": 25
       },
-      "kill": {
-        "hit": 100,
-        "attack": 75,
-        "defend": 25
-      },
-      "next": {
-        "hit": 100,
-        "attack": 75,
-        "defend": 25
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 75,
-        "defend": 25
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 75,
-        "defend": 25
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "heal": {
       "hit": 100,
@@ -165,59 +97,25 @@
     "weapon": 4,
     "physic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 35,
         "defend": 18
       },
-      "kill": {
-        "hit": 100,
-        "attack": 35,
-        "defend": 18
-      },
-      "next": {
-        "hit": 100,
-        "attack": 35,
-        "defend": 18
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 35,
-        "defend": 18
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 35,
-        "defend": 18
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "magic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 40,
         "defend": 22
       },
-      "kill": {
-        "hit": 100,
-        "attack": 40,
-        "defend": 22
-      },
-      "next": {
-        "hit": 100,
-        "attack": 40,
-        "defend": 22
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 40,
-        "defend": 22
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 40,
-        "defend": 22
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "heal": {
       "hit": 100,
@@ -242,59 +140,25 @@
     "weapon": 2,
     "physic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 65,
         "defend": 22
       },
-      "kill": {
-        "hit": 100,
-        "attack": 65,
-        "defend": 22
-      },
-      "next": {
-        "hit": 100,
-        "attack": 65,
-        "defend": 22
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 65,
-        "defend": 22
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 65,
-        "defend": 22
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "magic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 25,
         "defend": 15
       },
-      "kill": {
-        "hit": 100,
-        "attack": 25,
-        "defend": 15
-      },
-      "next": {
-        "hit": 100,
-        "attack": 25,
-        "defend": 15
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 25,
-        "defend": 15
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 25,
-        "defend": 15
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "heal": {
       "hit": 100,
@@ -318,59 +182,25 @@
     "career": "法师",
     "physic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 30,
         "defend": 12
       },
-      "kill": {
-        "hit": 100,
-        "attack": 30,
-        "defend": 12
-      },
-      "next": {
-        "hit": 100,
-        "attack": 30,
-        "defend": 12
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 30,
-        "defend": 12
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 30,
-        "defend": 12
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "magic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 75,
         "defend": 25
       },
-      "kill": {
-        "hit": 100,
-        "attack": 75,
-        "defend": 25
-      },
-      "next": {
-        "hit": 100,
-        "attack": 75,
-        "defend": 25
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 75,
-        "defend": 25
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 75,
-        "defend": 25
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "heal": {
       "hit": 100,
@@ -395,59 +225,25 @@
     "weapon": 4,
     "physic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 35,
         "defend": 18
       },
-      "kill": {
-        "hit": 100,
-        "attack": 35,
-        "defend": 18
-      },
-      "next": {
-        "hit": 100,
-        "attack": 35,
-        "defend": 18
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 35,
-        "defend": 18
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 35,
-        "defend": 18
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "magic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 40,
         "defend": 22
       },
-      "kill": {
-        "hit": 100,
-        "attack": 40,
-        "defend": 22
-      },
-      "next": {
-        "hit": 100,
-        "attack": 40,
-        "defend": 22
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 40,
-        "defend": 22
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 40,
-        "defend": 22
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "heal": {
       "hit": 100,
@@ -472,59 +268,25 @@
     "weapon": 2,
     "physic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 65,
         "defend": 22
       },
-      "kill": {
-        "hit": 100,
-        "attack": 65,
-        "defend": 22
-      },
-      "next": {
-        "hit": 100,
-        "attack": 65,
-        "defend": 22
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 65,
-        "defend": 22
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 65,
-        "defend": 22
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "magic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 25,
         "defend": 15
       },
-      "kill": {
-        "hit": 100,
-        "attack": 25,
-        "defend": 15
-      },
-      "next": {
-        "hit": 100,
-        "attack": 25,
-        "defend": 15
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 25,
-        "defend": 15
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 25,
-        "defend": 15
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "heal": {
       "hit": 100,
@@ -548,59 +310,25 @@
     "career": "法师",
     "physic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 30,
         "defend": 12
       },
-      "kill": {
-        "hit": 100,
-        "attack": 30,
-        "defend": 12
-      },
-      "next": {
-        "hit": 100,
-        "attack": 30,
-        "defend": 12
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 30,
-        "defend": 12
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 30,
-        "defend": 12
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "magic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 75,
         "defend": 25
       },
-      "kill": {
-        "hit": 100,
-        "attack": 75,
-        "defend": 25
-      },
-      "next": {
-        "hit": 100,
-        "attack": 75,
-        "defend": 25
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 75,
-        "defend": 25
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 75,
-        "defend": 25
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "heal": {
       "hit": 100,
@@ -625,59 +353,25 @@
     "weapon": 4,
     "physic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 35,
         "defend": 18
       },
-      "kill": {
-        "hit": 100,
-        "attack": 35,
-        "defend": 18
-      },
-      "next": {
-        "hit": 100,
-        "attack": 35,
-        "defend": 18
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 35,
-        "defend": 18
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 35,
-        "defend": 18
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "magic": {
       "base": {
-        "rand": 1,
         "hit": 100,
         "attack": 40,
         "defend": 22
       },
-      "kill": {
-        "hit": 100,
-        "attack": 40,
-        "defend": 22
-      },
-      "next": {
-        "hit": 100,
-        "attack": 40,
-        "defend": 22
-      },
-      "spread": {
-        "hit": 100,
-        "attack": 40,
-        "defend": 22
-      },
-      "fback": {
-        "hit": 100,
-        "attack": 40,
-        "defend": 22
-      }
+      "kill": {},
+      "next": {},
+      "spread": {},
+      "fback": {}
     },
     "heal": {
       "hit": 100,

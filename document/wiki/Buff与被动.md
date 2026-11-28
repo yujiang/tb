@@ -45,7 +45,7 @@ BuffData 和 PassiveData 都包含下面这些字段；“只要是状态 Buff �
 | `reflectMagicOnly` | 反射只转移魔法伤害 | 仅 reflect 使用；缺省 true，false 时也转移物理伤害；治疗转移不受影响 |
 | `damageUse` | 出手次数增伤配置 | 仅damageByUse使用；省略为协战每次+0.05伤害倍率，最多+0.5，当前这次也计入；只增强同类型攻击 |
 | `damageUse.type` | 统计并增强的出手类型 | 缺省support；可用SkillUseType中的normal/support/fback/next/combo/kill/spread/trap，其他类型不受影响 |
-| `damageUse.rate` | 每次增加的伤害倍率 | 非负有限数，缺省0.05，显式0有效；与技能damageRate相加，不是再乘1.05 |
+| `damageUse.rate` | 每次增加的伤害倍率 | 非负有限数，缺省0.05，显式0有效；与hurtP、生克、暴击等最终比例参数相加，不是再乘1.05 |
 | `damageUse.max` | 累计加成上限 | 非负有限数，缺省0.5；显式0表示无加成，不是无限 |
 | `overlap` | 同 ID 重复添加规则 | NOT=0、REPLACE=1、RELPACE_BYPOWER=2；类型必填 |
 | `turnType` | 持续时间/周期边界 | 缺省 thisTurn=0，inputTurn=1，afterTurn=2 |

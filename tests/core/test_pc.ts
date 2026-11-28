@@ -1,3 +1,4 @@
+import '../fixtures/default_skills';
 import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -29,15 +30,14 @@ function attributes(speed: number): FightAttr {
 	const base = (attack = 10, rand = 0): BaseAttack => ({
 		attack,
 		rand,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
+
 		hit: 100,
 		dodge: 0,
 		parry: 0,
 		defend: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
+		hurtP: 0,		critP: 0,
 		critPAnit: 0,
 		critDeep: 0,
 		critDeepAnit: 0,
@@ -51,7 +51,7 @@ function attributes(speed: number): FightAttr {
 		kill: base(),
 		spread: base(),
 		fback: base(),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	attr.physic = group();
 	attr.magic = group();
@@ -327,10 +327,10 @@ test('pc: a dead ally revived before its slot receives its normal input opportun
 			name: '单机复活',
 			magic: true,
 			rand: 1,
-			attack: {},
+			attack: {hurtP: -0.5},
 			final: {},
 			func: 'relife',
-			healRate: 0.5,
+
 			sel: { target: TargetSelectEnum.friend },
 		},
 	]);

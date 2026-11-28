@@ -15,20 +15,20 @@ function setup() {
 		finalReactions: false,
 		change: (skills) => {
 			skills[0].combo = undefined;
-			skills[0].damageRate = 1;
+			skills[0].attack = { ...skills[0].attack, hurtP: 0 };
 		},
 	});
 }
 
 for (const rate of [0, 0.4, 1, 2]) {
 	for (const elemental of [false, true]) {
-		// 测试：普通暴击加五十个百分点，与 damageRate 及相克加成统一相加，零倍率也使用同一规则。
-		test(`critical add: damageRate=${rate}, elemental=${elemental} uses one combined multiplier`, () => {
+		// 测试：普通暴击加五十个百分点，与 hurtP 及相克加成统一相加，零倍率也使用同一规则。
+		test(`critical add: hurtP=${rate}, elemental=${elemental} uses one combined multiplier`, () => {
 			const { actor, target, cast, skills } = setup();
 			actor.attr.magic.base.critP = 1;
 			actor.attr.weaponProp = elemental ? PropEnum.金 : PropEnum.none;
 			target.attr.charProp = PropEnum.木;
-			skills[0].damageRate = rate;
+			skills[0].attack = { ...skills[0].attack, hurtP: (rate) - 1 };
 			const ctx = cast();
 			assert.equal(
 				target.getHp(),
@@ -53,7 +53,7 @@ test('critical add: critical depth and resistance contribute a clamped additive 
 		actor.attr.magic.base.critP = 1;
 		actor.attr.magic.base.critDeep = deep;
 		target.attr.magic.base.critDeepAnit = anti;
-		skills[0].damageRate = 0.4;
+		skills[0].attack = { ...skills[0].attack, hurtP: -0.6 };
 		cast();
 		assert.equal(target.getHp(), 1000 - expected);
 	}
@@ -67,13 +67,13 @@ test('critical add: defender immunity precedes the combined final multiplier', (
 	target.attr.charProp = PropEnum.木;
 	target.attr.magic.final.immunity = 20;
 	target.attr.magic.final.immunityP = 0.25;
-	skills[0].damageRate = 2;
+	skills[0].attack = { ...skills[0].attack, hurtP: (2) - 1 };
 	cast();
-	assert.equal(target.getHp(), 820); // (100 - 20) × 0.75 × (2 + 0.5 + 0.5)
+	assert.equal(target.getHp(), 780); // (100 - 20) × (1 + 1 + 0.5 + 0.5 - 0.25)
 });
 
 for (const rate of [0, 0.4, 1, 2]) {
-	// 测试：治疗暴击同样与 healRate 和相生加成相加，生和暴击标记同时保留。
+	// 测试：治疗暴击同样与 relifeP 和相生加成相加，生和暴击标记同时保留。
 	test(`critical add: healing rate=${rate} combines critical and generating bonuses`, () => {
 		const { fight, actor, target, flush } = setup();
 		actor.attr.charProp = PropEnum.水;
@@ -88,10 +88,10 @@ for (const rate of [0, 0.4, 1, 2]) {
 				name: '暴击治疗',
 				magic: true,
 				rand: 1,
-				attack: {},
+				attack: {hurtP: (rate ?? 1) - 1},
 				final: {},
 				func: 'heal',
-				healRate: rate,
+
 				sel: { target: TargetSelectEnum.enemy },
 			},
 		]);

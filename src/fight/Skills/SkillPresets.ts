@@ -15,7 +15,6 @@ export function createLethalSkillData(id: number, magic = false): SkillData {
 		func: 'normal',
 		sel: { target: TargetSelectEnum.enemy },
 		// 不叠加单位attack，固定以99999作为攻击力；防御、免伤、保护及反应仍正常结算。
-		attackRate: 0,
 		attack: { attack: MAX_ATTACK },
 		final: {},
 		skillProp: PropEnum.none,

@@ -1,3 +1,4 @@
+import '../fixtures/default_skills';
 import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { BuffTurnEnum } from '../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
@@ -193,11 +194,11 @@ test('client: passive-granted dieNotRemove buff stays synchronized through death
 			name: '复活',
 			magic: true,
 			rand: 1,
-			func: 'relife',
+			func: 'relife', relifeP: 0.5,
 			sel: { target: TargetSelectEnum.friend },
-			attack: {},
+			attack: {hurtP: -0.5},
 			final: {},
-			healRate: 0.5,
+
 		},
 	]);
 	const { fight, loop, client, unit: healer, enemy } = setup();

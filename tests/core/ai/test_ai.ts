@@ -28,7 +28,7 @@ function setup() {
 		finalReactions: false,
 		change: (skills) => {
 			skills[0].combo = undefined;
-			for (const skill of skills) skill.damageRate = 1;
+			for (const skill of skills) skill.attack = { ...skill.attack, hurtP: 0 };
 		},
 	});
 	initSkills([

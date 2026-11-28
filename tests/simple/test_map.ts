@@ -1,5 +1,5 @@
 import { FightSkill } from '../../src/fight/Skills/FightSkill';
-import { getDefaultSkill } from '../../src/fight/Skills/FightSkill';
+import { getDefaultAttackSkill } from '../../src/fight/Skills/FightSkill';
 
 import { SelectParam, TargetSelectEnum } from '../../src/fight/struct';
 import { createFightAndSide } from './help';
@@ -13,13 +13,13 @@ function run() {
 	const param1: SelectParam = { target: TargetSelectEnum.duiwei };
 	const t0 = fight.selectMainTarget(
 		s0.units[2],
-		new FightSkill({ ...getDefaultSkill().getXls(), sel: param1 }, 1),
+		new FightSkill({ ...getDefaultAttackSkill().getXls(), sel: param1 }, 1),
 	);
 	console.log('t0', t0.dump());
 	const param2: SelectParam = { target: TargetSelectEnum.enemy };
 	const t1 = fight.selectMainTarget(
 		s1.units[2],
-		new FightSkill({ ...getDefaultSkill().getXls(), sel: param2 }, 1),
+		new FightSkill({ ...getDefaultAttackSkill().getXls(), sel: param2 }, 1),
 	);
 	console.log('t1', t1.dump());
 }

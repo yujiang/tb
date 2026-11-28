@@ -39,7 +39,7 @@ function multi(
 		return false;
 	}
 
-	if (!force && ctx.fight.randomGreat(skill.getRand())) {
+	if (!force && !skill.passRand(ctx.fight)) {
 		ctx.msgs.push(['skillFailed', attacker.uid, targets[0].uid, skill.getId()]);
 		return false;
 	}

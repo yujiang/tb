@@ -21,7 +21,7 @@ function setup(shield = 1) {
 		finalReactions: false,
 		change: (skills) => {
 			skills[0].combo = undefined;
-			skills[0].damageRate = 1;
+			skills[0].attack = { ...skills[0].attack, hurtP: 0 };
 		},
 	});
 	s.target.attrOri.shield = shield;

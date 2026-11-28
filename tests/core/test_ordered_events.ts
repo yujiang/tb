@@ -1,3 +1,4 @@
+import '../fixtures/default_skills';
 import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { BuffTurnEnum } from '../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';

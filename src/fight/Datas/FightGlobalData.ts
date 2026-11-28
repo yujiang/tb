@@ -10,6 +10,14 @@ export interface FightGlobalData {
 	waitInputSec: number;
 	/** 默认false；true时默认普攻按对位查找，需先createMap；false时随机敌方存活单位，手动目标仍优先。 */
 	duiwei: boolean;
+
+	/** 默认普攻技能表ID，宿主必须先注册；初始0未配置，使用时断言失败。装配普攻优先，否则完整复用此技能的目标、属性及子技能配置，不额外收费。 */
+	defaultAttackSkill: number;
+	/** 默认保护目标规则的技能表ID，宿主必须先注册；初始0未配置，使用时断言失败；保护效果仍由protectBuff指定。 */
+	defaultProtectSkill: number;
+	/** 默认反击技能表ID，宿主必须先注册；初始0未配置，使用时断言失败。装配反击优先，否则使用此技能的rand与属性加成，示例rand=0.1；物理/魔法读取对应fback阶段，不额外收费，必须配置nofback:true。 */
+	defaultFBackSkill: number;
+
 	/** 集气开关，默认false；关闭时跳过行动集气、addJp及JP费用，初始化不发送jp/jpMax；true启用集气结算和同步。 */
 	jiqi: boolean;
 	/** 输入校验模式，默认true调用checkOnline，允许死亡行动者提交和普攻守尸、资源延后复验；false调用checkPC严格即时预检。烟雨预设false；两种检测函数自身规则不变。 */
@@ -43,7 +51,12 @@ let gData: FightGlobalData = {
 	jpAdd: 1,
 	spHurtRate: 0,
 	spOutputRate: 0,
+
+	defaultAttackSkill:0,
+	defaultProtectSkill:0,
+	defaultFBackSkill:0,
 };
+
 /** 返回独立烟雨预设（loopType=yanyu，对位和集气为true，attackDie为false）；查询不修改共享配置。 */
 
 export function getYanyuGlobalData(): Partial<FightGlobalData> {

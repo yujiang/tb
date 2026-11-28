@@ -11,7 +11,10 @@
     "allShieldBreak": true,
     "loopType": "pc",
     "spHurtRate": 0.03,
-    "spOutputRate": 0.01
+    "spOutputRate": 0.01,
+    "defaultAttackSkill": 1098,
+    "defaultProtectSkill": 1099,
+    "defaultFBackSkill": 1093
   },
   "13002": {
     "id": 13002,
@@ -25,7 +28,10 @@
     "allShieldBreak": false,
     "loopType": "west",
     "spHurtRate": 0.03,
-    "spOutputRate": 0.01
+    "spOutputRate": 0.01,
+    "defaultAttackSkill": 1098,
+    "defaultProtectSkill": 1099,
+    "defaultFBackSkill": 1093
   },
   "13003": {
     "id": 13003,
@@ -38,6 +44,9 @@
     "protectBuff": 2003,
     "allShieldBreak": false,
     "loopType": "yanyu",
-    "jpAdd": 1
+    "jpAdd": 1,
+    "defaultAttackSkill": 1097,
+    "defaultProtectSkill": 1099,
+    "defaultFBackSkill": 1093
   }
 }

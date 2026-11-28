@@ -1,3 +1,4 @@
+import { setCounterChance } from '../../fixtures/default_skills';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { initBuffs, getBuffData, initSkills, initFightContex } from '../../../src';
@@ -17,7 +18,7 @@ for (const kind of ['ordinary', 'physic', 'magic']) {
 				rand: 0.5,
 			});
 		}
-		s.target.attr.physic.fback.rand = 0.5;
+		setCounterChance(s.target, 0.5, false);
 		let samples = 0;
 		s.fight.random = () => {
 			samples++;

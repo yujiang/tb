@@ -1,3 +1,4 @@
+import { setCounterChance } from './default_skills';
 import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { BuffTurnEnum } from '../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
@@ -27,16 +28,15 @@ export type ChainSkill = SkillData;
 function attr(hp: number): FightAttr {
 	const base = (attack = 100, rand = 0): BaseAttack => ({
 		rand,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
+
 		hit: 100,
 		dodge: 0,
 		parry: 0,
 		attack,
 		defend: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
+		hurtP: 0,		critP: 0,
 		critPAnit: 0,
 		critDeep: 0,
 		critDeepAnit: 0,
@@ -50,7 +50,7 @@ function attr(hp: number): FightAttr {
 		kill: base(),
 		spread: base(),
 		fback: base(10),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	a.physic = group();
 	a.magic = group();
@@ -110,29 +110,29 @@ export function setupChain(
 			...common,
 			id: ids.first,
 			name: '三连斩·一式',
-			damageRate: 0.4,
+
 			combo: ids.second,
 			cost: { mp: 10 },
 			afterSelfBuff: options.rootSelfBuff === false ? undefined : [[ids.rest, 1, 1]],
-		},
+		attack: { hurtP: -0.6 }},
 		{
 			...common,
 			id: ids.second,
 			name: '三连斩·二式',
-			damageRate: 0.7,
+
 			combo: ids.third,
 			sel: { target: TargetSelectEnum.enemy },
-		},
+		attack: { hurtP: -0.3 }},
 		{
 			...common,
 			id: ids.third,
 			name: '三连斩·终式',
-			damageRate: 1,
+
 			sel: { target: TargetSelectEnum.enemy },
 			nofback: !(options.finalReactions ?? true),
 			nodback: !(options.finalReactions ?? true),
 			kill: options.finalKill ? ids.kill : undefined,
-		},
+		attack: { hurtP: 0 }},
 		{ ...common, id: ids.kill, name: '终式追击', cost: { mp: 99 } },
 	];
 	options.change?.(skills);
@@ -155,9 +155,9 @@ export function setupChain(
 	actor.setPos(0);
 	const targetAttr = attr(options.targetHp ?? 1000);
 	targetAttr.magic.final.dbackP = 0.2;
-	targetAttr.physic.fback.rand = 1;
 	const target = new FightUnitMonster(1, targetAttr, { name: '卫士' });
 	target.setPos(0);
+	setCounterChance(target, 1);
 	const other = new FightUnitMonster(2, attr(options.otherHp ?? 1000), { name: '另一敌人' });
 	other.setPos(1);
 	const a = new FightSide(),

@@ -1,5 +1,5 @@
 import { Fight } from './Fight';
-import { BaseAttack, FightAttr, FinalAttack } from './FightAttr';
+import { BaseAttack, FightAttr, FinalAttack, ZeroBaseAttack, ZeroFinalAttack } from './FightAttr';
 import { FightUnit } from './Unit/FightUnit';
 import { FightUnitMonster } from './Unit/FightUnitMonster';
 import { FightSideEnum } from './struct';
@@ -25,20 +25,10 @@ export interface simpleData {
 
 function defaultBaseAttack(): BaseAttack {
 	return {
+		... ZeroBaseAttack(), 
 		rand: 0.5,
 		hit: 100,
-		dodge: 0,
-		parry: 0,
-		attack: 0,
-		defend: 0,
-		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
-		critPAnit: 0,
 		critDeep: 1,
-		critDeepAnit: 0,
 	};
 }
 
@@ -98,17 +88,7 @@ export class FightSide {
 			physic.hit = data.physic?.hit || 80 + f.random() * 10;
 			physic.dodge = data.physic?.dodge || 20 + f.random() * 10;
 
-			const fa: FinalAttack = {
-				dbackP: 0,
-				bloodP: 0,
-				immunity: 0,
-				immunityP: 0,
-
-				// dbackPAnti: 0,
-				// bloodPAnti: 0,
-				// immunityAnti: 0,
-				// immunityPAnti: 0,
-			};
+			const fa: FinalAttack = ZeroFinalAttack();
 
 			attr.physic = {
 				base: { ...physic, rand: 0.5 },

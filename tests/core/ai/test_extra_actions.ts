@@ -24,7 +24,7 @@ function setup(
 		finalReactions: false,
 		change: (data) => {
 			data[0].combo = undefined;
-			data[0].damageRate = 1;
+			data[0].attack = { ...data[0].attack, hurtP: 0 };
 		},
 	});
 	s.loop.end();
@@ -84,9 +84,9 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
 					id: revive,
 					name: '复活同伴',
 					func: 'relife',
-					healRate: 0.5,
+
 					sel: { target: TargetSelectEnum.friend },
-				},
+				attack: { hurtP: -0.5 }},
 			]);
 			s.other.addSkill(revive, 1);
 			s.other.ai = new (class extends EmptyAI {
@@ -164,9 +164,9 @@ for (const Loop of [FightLoopPC, FightLoopWest, FightLoopYanYu]) {
 				id: revive,
 				name: '迟到的复活',
 				func: 'relife',
-				healRate: 0.5,
+
 				sel: { target: TargetSelectEnum.friend },
-			},
+			attack: { hurtP: -0.5 }},
 		]);
 		s.other.addSkill(revive, 1);
 		s.other.ai = new (class extends EmptyAI {

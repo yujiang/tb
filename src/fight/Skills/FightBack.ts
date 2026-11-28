@@ -1,54 +1,9 @@
+import { strict as assert } from 'node:assert';
 import { FightContex } from '../Fight';
 import { FightUnit } from '../Unit/FightUnit';
 import { FightSkill } from './FightSkill';
-import { magicAttackFunc } from './Funcs/NomalSkill';
-import { SkillData } from '../Datas/SkillDatas';
+import { skillAttackFunc } from './Funcs/NomalSkill';
 import { canAttackSkill } from './AttackChecks';
-
-// 优先用装备的技能反击，最后采用attackBack
-
-const PhysicFBackData: SkillData = {
-	id: 0,
-	name: 'fback',
-	magic: false,
-	rand: 1,
-
-	sel: null,
-	attack: null,
-	final: null,
-};
-
-class PhysicFBackSkill extends FightSkill {
-	constructor(unit: FightUnit) {
-		super(
-			{
-				...PhysicFBackData,
-				attack: unit.attr.physic.fback,
-				final: unit.attr.physic.final,
-				rand: unit.attr.physic.fback.rand,
-			},
-			1,
-		);
-	}
-
-	// 否则没完没了
-	override canFBack() {
-		return false;
-	}
-}
-
-class MagicFBackSkill extends FightSkill {
-	// 否则没完没了
-	override canFBack() {
-		return false;
-	}
-}
-
-// 物理反击
-function attackFback(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
-	const skill = new PhysicFBackSkill(attacker);
-	return magicAttackFunc(attacker, defender, skill, ctx, 'fback');
-}
 
 export function skillFBack(
 	attacker: FightUnit,
@@ -56,32 +11,23 @@ export function skillFBack(
 	skill: FightSkill,
 	ctx: FightContex,
 ) {
-	if (!canAttackSkill(attacker, defender, skill, 'fback')) {
-		return false;
-	}
+	if (!canAttackSkill(attacker, defender, skill, 'fback')) return false;
 
-	ctx.fbackNum = (ctx.fbackNum || 0) + 1;
+	// 反击技能通过表格禁止再次触发反击，先跳过当前无法行动的单位。
+	assert(!skill.canFBack(), 'Counter skills must configure nofback: true');
 	const data = skill.getXls();
-	const guaranteed = ctx.blocked === true && data.fbackOnBlock === true;
-	const magic = new MagicFBackSkill(guaranteed ? { ...data, rand: 1 } : data, skill.level);
-
-	const ft = skill.isMagic() ? attacker.attr.magic : attacker.attr.physic;
-	magic.mergeAttack(ft.fback, ft.final);
-
-	return magicAttackFunc(attacker, defender, magic, ctx, 'fback');
+	const counter = ctx.blocked && data.fbackOnBlock
+		? new FightSkill({ ...data, rand: 1 }, skill.level)
+		: skill;
+	const used = skillAttackFunc(attacker, defender, counter, ctx, 'fback');
+	if (used) {
+		ctx.fbackNum = (ctx.fbackNum || 0) + 1;
+	}
+	return used;
 }
 
 export function tryFBack(attacker: FightUnit, defender: FightUnit, ctx: FightContex) {
-	const fback = attacker.getFBackSkill();
-	if (fback) {
-		return skillFBack(attacker, defender, fback, ctx);
-	}
-
-	if (!canAttackSkill(attacker, defender, null, 'fback')) {
-		return false;
-	}
-
-	return attackFback(attacker, defender, ctx);
+	return skillFBack(attacker, defender, attacker.getFBackSkill(), ctx);
 }
 
 // 尝试吸血
@@ -91,14 +37,17 @@ export function tryBlood(
 	defender: FightUnit,
 	magic: boolean,
 	damage: number,
-	bloodP: number | undefined,
+	bloodP: number,
 	ctx: FightContex,
 ) {
-	const p =
-		bloodP ?? (magic ? attacker.attr.magic.final.bloodP : attacker.attr.physic.final.bloodP);
+	const p = bloodP;
 	if (p > 0) {
-		damage *= p;
-		attacker.onHeal(attacker, 'blood', damage, ctx);
+		const p2 = magic ? defender.attr.magic.final.bloodPAnit : defender.attr.physic.final.bloodPAnit;
+		// p2 > p 反吸血，相当于吸了一口毒血
+		damage *= p - p2;
+		if (damage) {
+			attacker.onHeal(attacker, 'blood', damage, ctx);		    
+		}
 	}
 }
 

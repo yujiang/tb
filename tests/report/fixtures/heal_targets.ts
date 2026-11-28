@@ -1,3 +1,4 @@
+import '../../fixtures/default_skills';
 import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import { BuffTurnEnum } from '../../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
@@ -25,16 +26,14 @@ export const healIds = { main: 10011501, spread: 10011502, group: 10011503, forb
 function attributes(hp: number): FightAttr {
 	const base = (attack = 0): BaseAttack => ({
 		rand: 0,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
 		hit: 100,
 		dodge: 0,
 		parry: 0,
 		attack,
 		defend: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
+		hurtP: 0,		critP: 0,
 		critPAnit: 0,
 		critDeep: 0,
 		critDeepAnit: 0,
@@ -45,7 +44,7 @@ function attributes(hp: number): FightAttr {
 		kill: base(),
 		spread: base(),
 		fback: base(),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	const attr = new FightAttr();
 	attr.point = { hp, hpMax: 1000, mp: 100, mpMax: 100 };
@@ -76,28 +75,28 @@ export function runHealExample(
 			...common,
 			id: healIds.main,
 			name: '主疗与扩散',
-			healRate: 1,
+
 			cost: { mp: 10 },
 			sel: { target: TargetSelectEnum.friend, sortAttr: 'hp' },
 			spread: healIds.spread,
-		},
+		attack: { hurtP: 0 }},
 		// 子技能的num是额外人数，排除主目标；倍率70%，不另收子技能费用。
 		{
 			...common,
 			id: healIds.spread,
 			name: '七成扩散治疗',
-			healRate: 0.7,
+
 			cost: { mp: 99 },
 			sel: { target: TargetSelectEnum.friend, num: 2, sortAttr: 'hp' },
-		},
+		attack: { hurtP: -0.3 }},
 		{
 			...common,
 			id: healIds.group,
 			name: '三人群疗',
-			healRate: 1,
+
 			cost: { mp: 10 },
 			sel: { target: TargetSelectEnum.friend, num: 3, sortAttr: 'hp' },
-		},
+		attack: { hurtP: 0 }},
 	]);
 	initBuffs([
 		{

@@ -6,9 +6,8 @@ import {
 	TargetSelectEnum,
 	MapShapeEnum,
 	FightCmdEnum,
-	getDefaultSkill,
-	getDefaultSkillDuiwei,
-	getDefaultSkillProtect,
+	getDefaultAttackSkill,
+	getDefaultProtectSkill,
 	FightUnitMonster,
 	FightAttr,
 } from '../../src';
@@ -143,7 +142,7 @@ test('targets: revival qualification controls automatic and explicit input targe
 		rootSelfBuff: false,
 		change: (skills) => {
 			skills[0].func = 'relife';
-			skills[0].healRate = 0.3;
+			skills[0].relifeP = 0.3;
 		},
 	});
 	target.attr.point.hp = 0;
@@ -159,13 +158,12 @@ test('targets: revival qualification controls automatic and explicit input targe
 	assert.equal(actor.attr.point.mp, 90);
 });
 
-// 默认技能按敌方、对位和友方分别缓存，调用者定制配置时创建自己的技能实例。
-test('targets: cached default skills have distinct selection rules without a registry entry', () => {
-	const enemy = getDefaultSkill();
-	assert.equal(getDefaultSkill(), enemy);
+// 默认技能从已注册表格读取，返回独立实例，定制属性不会污染其他调用。
+test('targets: registered default skills provide independent instances', () => {
+	const enemy = getDefaultAttackSkill();
+	assert.notEqual(getDefaultAttackSkill(), enemy);
 	assert.equal(enemy.getSel().target, TargetSelectEnum.enemy);
-	assert.equal(getDefaultSkillDuiwei().getSel().target, TargetSelectEnum.duiwei);
-	assert.equal(getDefaultSkillProtect().getSel().target, TargetSelectEnum.friend);
+	assert.equal(getDefaultProtectSkill().getSel().target, TargetSelectEnum.friend);
 	const custom = new FightSkill(
 		{ ...enemy.getXls(), sel: { target: TargetSelectEnum.friend } },
 		0,

@@ -44,15 +44,14 @@ function attributes(): FightAttr {
 	const base = (attack = 0, rand = 0): BaseAttack => ({
 		attack,
 		rand,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
+
 		hit: 100,
 		dodge: 0,
 		parry: 0,
 		defend: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
+		hurtP: 0,		critP: 0,
 		critPAnit: 0,
 		critDeep: 0,
 		critDeepAnit: 0,
@@ -66,7 +65,7 @@ function attributes(): FightAttr {
 		kill: base(),
 		spread: base(),
 		fback: base(),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	attr.physic = group();
 	attr.magic = group();

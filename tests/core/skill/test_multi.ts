@@ -20,7 +20,7 @@ function setup(num = 99, change?: Parameters<typeof setupChain>[0]['change']) {
 		rootSelfBuff: false,
 		change: (skills) => {
 			skills[0].combo = undefined;
-			skills[0].damageRate = 1;
+			skills[0].attack = { ...skills[0].attack, hurtP: 0 };
 			skills[0].sel = { target: TargetSelectEnum.enemy, num };
 			skills[0].nosupport = true;
 			change?.(skills);
@@ -90,7 +90,7 @@ test('multi: PC input does not bind a main target', () => {
 test('multi: revival applies to all dead units of the selected side', () => {
 	const { fight, actor, target, other } = setup(99, (skills) => {
 		skills[0].func = 'relife';
-		skills[0].healRate = 0.3;
+		skills[0].relifeP = 0.3;
 	});
 	target.attr.point.hp = 0;
 	other.attr.point.hp = 0;
@@ -180,7 +180,7 @@ test('multi: next skills select a group directly', () => {
 	const { fight, actor, target, other } = setup(1, (skills) => {
 		skills[0].next = ids.second;
 		skills[1].combo = undefined;
-		skills[1].damageRate = 1;
+		skills[1].attack = { ...skills[1].attack, hurtP: 0 };
 		skills[1].sel.num = 99;
 		skills[1].nosupport = true;
 	});
@@ -197,7 +197,7 @@ test('multi: child num preserves primary and secondary attack stages', () => {
 		skills[0].spread = ids.second;
 		skills[1].sel = { ...skills[1].sel, num: 1 };
 		skills[1].combo = undefined;
-		skills[1].damageRate = 0.7;
+		skills[1].attack = { ...skills[1].attack, hurtP: -0.3 };
 	});
 	const ctx = fight.processUnit(actor, {
 		cmd: FightCmdEnum.skill,
@@ -402,7 +402,7 @@ for (const func of ['normal', 'poison']) {
 				skills[1].func = func;
 				skills[1].combo = undefined;
 				skills[1].noprotect = prohibited;
-				skills[1].poisonRate = 0.7;
+				skills[1].attack = { ...skills[1].attack, hurtP: -0.3 };
 			});
 			const protectId = 1001091;
 			initBuffs([

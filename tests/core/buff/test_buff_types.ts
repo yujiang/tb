@@ -1,3 +1,4 @@
+import '../../fixtures/default_skills';
 import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import { BuffTurnEnum } from '../../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
@@ -18,16 +19,14 @@ import { FightCmdEnum, TargetSelectEnum } from '../../../src/fight/struct';
 function attackData(attack = 0): BaseAttack {
 	return {
 		rand: 0,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
 		hit: 100,
 		dodge: 0,
 		parry: 0,
 		attack,
 		defend: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
+		hurtP: 0,		critP: 0,
 		critPAnit: 0,
 		critDeep: 0,
 		critDeepAnit: 0,
@@ -44,7 +43,7 @@ function attributes(): FightAttr {
 		kill: attackData(),
 		spread: attackData(),
 		fback: attackData(),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	attr.physic = group();
 	attr.magic = group();
@@ -152,7 +151,7 @@ test('type 3: periodic healing and poison tick each turn until expiration', () =
 			rand: 1,
 			sel: { target: func === 'heal' ? TargetSelectEnum.friend : TargetSelectEnum.enemy },
 			attack: attackData(10),
-			final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+			final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 		};
 		initSkills([skill]);
 		initBuffs([buff(buffId, { func, skill: skillId, lastTurn: 2 })]);

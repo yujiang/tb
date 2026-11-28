@@ -1,6 +1,6 @@
 import { selectSummonPos } from './SummonPos';
 import { strict as assert } from 'node:assert';
-import { BaseAttack, FightAttr, FightTypeAttr } from './FightAttr';
+import { BaseAttack, FightAttr, FightTypeAttr, ZeroBaseAttack } from './FightAttr';
 import { FightSide } from './FightSide';
 import { FightUnit } from './Unit/FightUnit';
 import { FightUnitUser, FightUnitSummon } from './Unit/FightUnitUser';
@@ -68,9 +68,7 @@ function findRow<T>(rows: Record<number, T>, id: number, name: string): T {
 
 function expandAttack(data?: Partial<BaseAttack>): BaseAttack {
 	return {
-		rand: 0, hit: 0, dodge: 0, parry: 0, attack: 0, defend: 0,
-		hurt: 0, hurtP: 0, hurtAnti: 0, hurtPAnti: 0,
-		critP: 0, critPAnit: 0, critDeep: 0, critDeepAnit: 0,
+		...ZeroBaseAttack(),
 		...data,
 	};
 }
@@ -82,7 +80,7 @@ function expandAttackGroup(data?: xlsFightTypeAttr): FightTypeAttr {
 		next: expandAttack(data?.next),
 		spread: expandAttack(data?.spread),
 		fback: expandAttack(data?.fback),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0, ...data?.final },
+		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0, bloodPAnit: 0, ...data?.final },
 	};
 }
 

@@ -50,18 +50,9 @@ export interface SkillData {
 	attackLevel?: Partial<BaseAttack>;
 	/** 每级最终属性加成：finalLevel × 技能等级；缺省无成长。 */
 	finalLevel?: Partial<FinalAttack>;
-	/** 本次技能固定吸血比例，非负有限数，1为100%、0明确不吸血，可大于1；省略才使用人物属性与技能final/finalLevel合并后的bloodP。只覆盖本次吸血，不修改人物属性或其他final字段，不随finalLevel成长；各子技能独立读取，noblood仍优先禁止。 */
-	bloodP?: number;
 
-	// rate作用与skill的最后一步
-	/** 非负有限数，缺省 1；只缩放单位 attack 数值，再叠加技能固定值和等级成长。 */
-	attackRate?: number;
-	/** 非负有限数，缺省 1；攻击伤害倍率，与相克和暴击加成相加后应用，不缩放治疗/毒伤。 */
-	damageRate?: number;
-	/** 非负有限数，缺省 1；治疗公式倍率，与相生/暴击相加；relife 则表示目标 hpMax 的恢复比例。 */
-	healRate?: number;
-	/** 非负有限数，缺省 1；毒伤公式倍率，与相克加成相加；毒伤不判暴击。 */
-	poisonRate?: number;
+	/** 复活恢复目标最大生命的比例，默认0.2；通常0～1，显式0不复活；floor(hpMax×relifeP)，不受单位属性、attackP/hurtP或等级成长影响。 */
+	relifeP?: number;
 
 	/** 溅射子技能 ID，缺省无配置溅射；副目标由该子技能的 sel.num/shape 和 canTarget 选择，使用溅射阶段属性。 */
 	spread?: number;
@@ -105,12 +96,14 @@ export interface SkillData {
 	noblood?: boolean;
 	/** true 禁止本次攻击受到普通比例反伤；缺省 false；不控制 BuffReflect 的反射。 */
 	nodback?: boolean;
-	/** true 禁止本次攻击触发目标反击；缺省 false；专用反击类仍不会互相无限反击。 */
+	/** true 禁止本次攻击触发目标反击；缺省 false；默认及装配反击技能必须配置true，反击入口会检查以防互相无限反击。 */
 	nofback?: boolean;
 	/** true 禁止本次攻击召唤队友协战；缺省 false；群攻/溅射建议填 true，仅告警不强制。 */
 	nosupport?: boolean;
 	/** true 禁止目标被保护分担本次伤害；缺省 false；群攻/溅射、大招建议填 true。 */
 	noprotect?: boolean;
+	/** true 禁止招架。 */
+	noparry?: boolean;
 }
 
 const skills = new Map<number, SkillData>();

@@ -7,14 +7,14 @@ export interface xlsFightTypeAttr {
 	/** 普通攻击/主攻击使用的基础属性。 */
 	base?: Partial<BaseAttack>;
 
-	/** 击杀追击阶段属性，不自动沿用base。 */
+	/** 击杀追击相对base的属性增量；initAllDatas导入时逐字段相加，省略或{}沿用base；直接传给resolveXlsAttr时须已合并。 */
 	kill?: Partial<BaseAttack>; // 追击
-	/** 连击/连招阶段属性，不自动沿用base。 */
+	/** 连击/连招相对base的属性增量；initAllDatas导入时逐字段相加，省略或{}沿用base，例如base.attack=100、next.attack=10得到110。 */
 	next?: Partial<BaseAttack>; // 连击
-	/** 溅射阶段属性，不自动固定减伤，倍率由配置决定。 */
+	/** 溅射相对base的属性增量；initAllDatas导入时相加，不额外固定减伤；attackP/hurtP等百分比参数也按加法合并。 */
 	spread?: Partial<BaseAttack>; // 溅射！
 
-	/** 反击阶段属性，区别于受伤规则发动的基础属性新攻击。 */
+	/** 反击相对base的属性增量；initAllDatas导入时相加；rand沿用base时也会相加，未配置默认为0。 */
 	fback?: Partial<BaseAttack>; // 反击
 
 	/** 本物理/魔法分组共用的吸血、反伤、免伤属性。 */
@@ -48,9 +48,9 @@ export interface XlsAttrData {
 	/** PropEnum武器五行；0表示无，省略为0。 */
 	weaponProp?: number;
 
-	/** 物理各阶段及最终属性，省略阶段或字段默认为0。 */
+	/** 物理基础、阶段增量及最终属性；initAllDatas把base加到next/kill/spread/fback，未提供的字段补0；final独立。 */
 	physic?: xlsFightTypeAttr;
-	/** 魔法各阶段及最终属性，省略阶段或字段默认为0。 */
+	/** 魔法基础、阶段增量及最终属性；导入规则同physic，省略整组时各字段补0。 */
 	magic?: xlsFightTypeAttr;
 	/** 治疗属性，省略字段默认为0。 */
 	heal?: Partial<BaseAttack>;

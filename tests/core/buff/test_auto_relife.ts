@@ -1,3 +1,5 @@
+import { setCounterChance } from '../../fixtures/default_skills';
+import '../../fixtures/default_skills';
 import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import { BuffTurnEnum } from '../../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
@@ -157,8 +159,8 @@ for (const field of ['next', 'combo'] as const) {
 			sel: { target: TargetSelectEnum.enemy },
 		};
 		initSkills([
-			{ ...common, id: first, name: '一段', damageRate: 0.4, [field]: second },
-			{ ...common, id: second, name: '二段', damageRate: 0.7, [field]: third },
+			{ ...common, id: first, name: '一段',  [field]: second , attack: { hurtP: -0.6 }},
+			{ ...common, id: second, name: '二段',  [field]: third , attack: { hurtP: -0.3 }},
 			{ ...common, id: third, name: '三段' },
 		]);
 		attacker.addSkill(first, 1);
@@ -386,7 +388,7 @@ test('auto relife: the attack pipeline counts full lethal damage and continues r
 		u.attrOri.physic.base.defend = 0;
 		u.attrOri.physic.base.dodge = 0;
 		u.attrOri.physic.final.dbackP = 0.2;
-		u.attrOri.physic.fback.rand = 0;
+		setCounterChance(u, 0, false);
 		a.calcAttr();
 		u.calcAttr();
 	});

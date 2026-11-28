@@ -14,6 +14,7 @@ const sel: SelectParam = {
 function baseAttack(attack: number): BaseAttack {
 	return {
 		rand: 1,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
 		hit: 100,
 		dodge: 0,
 		parry: 0,
@@ -24,13 +25,10 @@ function baseAttack(attack: number): BaseAttack {
 		critDeep: 1,
 		critDeepAnit: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-	};
+		hurtP: 0,	};
 }
 
-const finalAttack: FinalAttack = {
+const finalAttack: FinalAttack = { bloodPAnit: 0,
 	dbackP: 0,
 	bloodP: 0,
 	immunity: 0,

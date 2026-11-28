@@ -39,10 +39,10 @@
     },
     "cd": 1,
     "attack": {
-      "attack": 20
+      "attack": 20,
+      "hurtP": 0
     },
     "final": {},
-    "healRate": 1,
     "action": "$N默运{技能}，将一缕温润真气缓缓渡向$n。"
   },
   "1003": {
@@ -64,8 +64,9 @@
     "attack": {
       "attack": 12
     },
-    "final": {},
-    "bloodP": 1,
+    "final": {
+      "bloodP": 1
+    },
     "action": "$N凝神使出{技能}，目光如针，一缕阴柔劲气直逼$n。"
   },
   "1004": {
@@ -85,10 +86,10 @@
     },
     "cd": 0,
     "attack": {
-      "hurt": 0.15
+      "hurt": 0.15,
+      "hurtP": 0
     },
     "final": {},
-    "poisonRate": 1,
     "action": "$N使出{技能}，指间异气悄然游走，向$n缠去。"
   },
   "1005": {
@@ -109,7 +110,7 @@
     "cd": 3,
     "attack": {},
     "final": {},
-    "healRate": 0.3,
+    "relifeP": 0.3,
     "action": "$N凝息使出{技能}，将一线真气送向$n，试图续回生机。"
   },
   "1006": {
@@ -808,9 +809,10 @@
       "mp": 5
     },
     "cd": 0,
-    "attack": {},
+    "attack": {
+      "hurtP": 1
+    },
     "final": {},
-    "damageRate": 2,
     "afterSelfBuff": [
       [
         2012,
@@ -1308,9 +1310,10 @@
       "mp": 5
     },
     "cd": 0,
-    "attack": {},
+    "attack": {
+      "hurtP": -0.19999999999999996
+    },
     "final": {},
-    "damageRate": 0.8,
     "alwaysHit": true,
     "action": "$N目光一凝，使出{技能}，$w沿着一线空隙，径取$n的$l！"
   },
@@ -1366,5 +1369,115 @@
     "final": {},
     "skillProp": 4,
     "action": "$N运气使出{技能}，四股劲力交汇成旋，向$n疾涌而去！"
+  },
+  "1093": {
+    "id": 1093,
+    "name": "普通反击",
+    "desc": "全局默认反击；10%发动，物理反击属性，禁止再次反击，无额外费用",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 0.1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "attack": {},
+    "final": {},
+    "nofback": true
+  },
+  "1094": {
+    "id": 1094,
+    "name": "普攻连击",
+    "desc": "1098连击子技能；10%发动，普通选敌，仅追加一次",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 0.1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "attack": {},
+    "final": {}
+  },
+  "1095": {
+    "id": 1095,
+    "name": "对位普攻连击",
+    "desc": "1097连击子技能；10%发动，对位选敌，仅追加一次",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 0.1,
+    "sel": {
+      "target": 1,
+      "num": 1
+    },
+    "attack": {},
+    "final": {}
+  },
+  "1096": {
+    "id": 1096,
+    "name": "普攻追击",
+    "desc": "1097/1098击杀追击子技能；10%发动，普通选敌，仅追加一次",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 0.1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "attack": {},
+    "final": {}
+  },
+  "1097": {
+    "id": 1097,
+    "name": "对位普通攻击",
+    "desc": "默认对位普攻；10%对位连击、10%击杀追击，无额外费用",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 1,
+    "sel": {
+      "target": 1,
+      "num": 1
+    },
+    "attack": {},
+    "final": {},
+    "next": 1095,
+    "kill": 1096
+  },
+  "1098": {
+    "id": 1098,
+    "name": "普通攻击",
+    "desc": "默认普通普攻；10%普通选敌连击、10%击杀追击，无额外费用",
+    "func": "normal",
+    "magic": false,
+    "nomove": 0,
+    "rand": 1,
+    "sel": {
+      "target": 3,
+      "num": 1
+    },
+    "attack": {},
+    "final": {},
+    "next": 1094,
+    "kill": 1096
+  },
+  "1099": {
+    "id": 1099,
+    "name": "保护",
+    "desc": "全局默认技能，无额外费用",
+    "func": "nohurt",
+    "magic": false,
+    "nomove": 0,
+    "rand": 1,
+    "sel": {
+      "target": 2,
+      "num": 1
+    },
+    "attack": {},
+    "final": {}
   }
 }

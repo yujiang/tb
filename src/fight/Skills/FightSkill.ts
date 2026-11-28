@@ -1,13 +1,14 @@
 // 战斗技能
 
 import { Fight, FightContex } from '../Fight';
-import { BaseAttack, FinalAttack } from '../FightAttr';
-import { SelectParam, TargetSelectEnum } from '../struct';
+import { BaseAttack, FinalAttack, ZeroBaseAttack, ZeroFinalAttack } from '../FightAttr';
+import { TargetSelectEnum } from '../struct';
 import { FightUnit } from '../Unit/FightUnit';
-import { calcAttack, calcHurt, mergeTableLevel } from './Calc';
+import { calcHurt, hitTest, mergeTableLevel, parryTest } from './Calc';
 import { getSkillData, SkillData } from '../Datas/SkillDatas';
 import { strict as assert } from 'node:assert';
 import { isDebugHit, isDebugMiss } from '../FightDebug';
+import { getFightGlobalData } from '../Datas/FightGlobalData';
 
 export class FightSkill {
 	protected xls: SkillData; //因为很多都跟自身level有关，所以外部直接用xls多半不行
@@ -23,36 +24,10 @@ export class FightSkill {
 			Number.isSafeInteger(xls.cd ?? 0) && (xls.cd ?? 0) >= 0,
 			'cd must be a nonnegative safe integer',
 		);
-		for (const field of ['healRate', 'poisonRate'] as const) {
-			const rate = xls[field] ?? 1;
-			assert.ok(
-				Number.isFinite(rate) && rate >= 0,
-				`${field} must be finite and nonnegative`,
-			);
-		}
-		assert.ok(
-			Number.isFinite(xls.bloodP ?? 0) && (xls.bloodP ?? 0) >= 0,
-			'bloodP must be finite and nonnegative',
-		);
 		// 未与单位属性合并的技能（周期 Buff、复活、普攻）也能直接读取等级数值。
-		this.attack = this.mergeAttackData({
-			rand: 0,
-			hit: 0,
-			dodge: 0,
-			parry: 0,
-			attack: 0,
-			defend: 0,
-			hurt: 0,
-			hurtP: 0,
-			hurtAnti: 0,
-			hurtPAnti: 0,
-			critP: 0,
-			critPAnit: 0,
-			critDeep: 0,
-			critDeepAnit: 0,
-		});
+		this.attack = this.mergeAttackData(ZeroBaseAttack());
 		this.final = mergeTableLevel(
-			{ bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+			ZeroFinalAttack(),
 			xls.final,
 			xls.finalLevel,
 			level,
@@ -72,7 +47,7 @@ export class FightSkill {
 		return !this.xls.noblood;
 	}
 	getBloodP(): number {
-		return this.xls.bloodP ?? this.getFinal().bloodP;
+		return this.getFinal().bloodP;
 	}
 	canDBack() {
 		return !this.xls.nodback;
@@ -86,6 +61,16 @@ export class FightSkill {
 	canProtect() {
 		return !this.xls.noprotect;
 	}
+	canParry() {
+		return !this.xls.noparry;
+	}
+
+	// relifeP这个字段太少用了, 没法放进baseAttack!
+	// 只能直接写入skill
+	getRelifeP() {
+		return this.xls.relifeP ?? 0.2;
+	}
+
 
 	getXls() {
 		return this.xls;
@@ -98,12 +83,17 @@ export class FightSkill {
 	getRand() {
 		return this.xls.rand ?? 1;
 	}
+	passRand(f:Fight) {
+		return f.randomLess(this.getRand());
+	}
+
 	getNoMove() {
 		return this.xls.nomove ?? 0;
 	}
 	isMove() {
 		return !this.getNoMove();
 	}
+	// 武侠里，magic相当于远程（弓箭，暗器等）
 	isMagic() {
 		return this.xls.magic;
 	}
@@ -142,12 +132,7 @@ export class FightSkill {
 	getCost() {
 		return this.xls.cost;
 	}
-	getHealRate() {
-		return this.xls.healRate ?? 1;
-	}
-	getPoisonRate() {
-		return this.xls.poisonRate ?? 1;
-	}
+
 	getFunc() {
 		return this.xls.func || 'normal';
 	}
@@ -169,10 +154,6 @@ export class FightSkill {
 		}
 		if (func === 'relife') {
 			if (!target.isDied()) return '目标尚未死亡';
-
-			if (Math.floor(this.getHealRate() * target.getHpMax()) <= 0) {
-				return '目标无法复活';
-			}
 		} else {
 			if (target.isDied()) return '目标已死亡';
 		}
@@ -233,18 +214,20 @@ export class FightSkill {
 		if (this.xls.alwaysHit) return true;
 
 		// 70 = 100 - 30
-		const d2 = this.getAttack().hit - defender.attr.physic.base.dodge;
-		return f.randomLess(d2 / 100);
+		const a = this.getAttack();
+		const d = defender.attr.physic.base;
+		return hitTest(f,a,d);
 	}
-	physicParryTest(f: Fight, defender: FightUnit): boolean {
-		if (!this.isPhysic()) return false;
 
-		const parry = defender.attr.physic.base.parry ?? 0;
-		if (!(parry > 0) || defender.isForbid('parry')) {
+	physicParryTest(f: Fight, attacker:FightUnit, defender: FightUnit): boolean {
+		if (!this.isPhysic() || !this.canParry()) return false;
+
+		if (defender.isForbid('parry')) {
 			return false;
 		}
 
-		return f.randomLess(1 - (this.getAttack().hit - parry) / 100);
+		// const pskill = defender.getParrySkill();
+		return parryTest(f, this.getAttack(), defender.attr.physic.base, defender.getParrySkill())
 	}
 
 	calcHurt(
@@ -257,10 +240,10 @@ export class FightSkill {
 	) {
 		const ismagic = this.isMagic();
 		const dft = ismagic ? defender.attr.magic : defender.attr.physic;
-		const rate = (this.xls.damageRate ?? 1) + damageRateAdd;
+		const rate = damageRateAdd;
 		assert.ok(Number.isFinite(rate) && rate >= 0, 'damageRate must be finite and nonnegative');
 		const property = this.xls.skillProp ?? attacker?.attr.weaponProp;
-		const propertyBonus = defender.getHurtMul(property, attacker?.attr.weapon) - 1;
+		const propertyBonus = defender.getHurtMul(property, attacker?.attr.weapon);
 		ctx.effects = [];
 		const damage = calcHurt(
 			f,
@@ -276,11 +259,6 @@ export class FightSkill {
 		return damage;
 	}
 
-	calcAttack(f: Fight, defender: FightUnit, ctx: FightContex) {
-		const dft = defender.attr.magic;
-		return calcAttack(f, this.getAttack(), dft.base, ctx);
-	}
-
 	// 动态的才调用
 	mergeAttack(attack: BaseAttack, final: FinalAttack) {
 		// 每次由单位属性与原始配置重算，避免重复合并时累计等级成长。
@@ -289,10 +267,7 @@ export class FightSkill {
 	}
 
 	protected mergeAttackData(attack: BaseAttack): BaseAttack {
-		const rate = this.xls.attackRate ?? 1;
-		assert.ok(Number.isFinite(rate) && rate >= 0, 'attackRate must be finite and nonnegative');
-		const unitAttack = { ...attack, attack: attack.attack * rate };
-		return mergeTableLevel(unitAttack, this.xls.attack, this.xls.attackLevel, this.level);
+		return mergeTableLevel(attack, this.xls.attack, this.xls.attackLevel, this.level);
 	}
 
 	attack: BaseAttack;
@@ -310,42 +285,23 @@ export class FightSkill {
 	}
 }
 
-function createDefaultData(target: TargetSelectEnum): SkillData {
-	return {
-		id: 0,
-		name: '默认普攻',
-		magic: false,
-		rand: 1,
-		sel: { target },
-		attack: {},
-		final: {},
-	};
+
+// 现在有了表格，就是用表格，不必创建了。
+
+export function getDefaultAttackSkill(): FightSkill {
+	return getDefaultSkill(getFightGlobalData().defaultAttackSkill);
 }
 
-/** 默认普通攻击的选目标规则；按敌方、对位和友方分别缓存实例，未注册进技能表，不携带单位属性；调用者不得修改共享配置。 */
-const defaultData: SkillData = createDefaultData(TargetSelectEnum.enemy);
-let defaultSkill: FightSkill;
-export function getDefaultSkill(): FightSkill {
-	if (!defaultSkill) {
-		defaultSkill = new FightSkill(defaultData, 0);
-	}
-	return defaultSkill;
+export function getDefaultProtectSkill(): FightSkill {
+	return getDefaultSkill(getFightGlobalData().defaultProtectSkill);
 }
 
-const defaultData2: SkillData = createDefaultData(TargetSelectEnum.duiwei);
-let defaultSkill2: FightSkill;
-export function getDefaultSkillDuiwei(): FightSkill {
-	if (!defaultSkill2) {
-		defaultSkill2 = new FightSkill(defaultData2, 0);
-	}
-	return defaultSkill2;
+export function getDefaultFBackSkill(): FightSkill {
+	return getDefaultSkill(getFightGlobalData().defaultFBackSkill);
 }
 
-const defaultData3: SkillData = createDefaultData(TargetSelectEnum.friend);
-let defaultSkill3: FightSkill;
-export function getDefaultSkillProtect(): FightSkill {
-	if (!defaultSkill3) {
-		defaultSkill3 = new FightSkill(defaultData3, 0);
-	}
-	return defaultSkill3;
+function getDefaultSkill(id: number): FightSkill {
+	const xls = getSkillData(id);
+	assert(xls, `Default skill ${id} must be registered`);
+	return new FightSkill(xls, 0);
 }

@@ -19,6 +19,8 @@ export interface MonsterData extends FightDisplayInput {
 	fbackSkill?: number;
 	/** 初始协战技能ID；缺省保留被动装配，0卸下；须已注册且func为normal（省略同normal），否则断言失败；只装配不学习，未学时不参与协战。 */
 	supportSkill?: number;
+	/** 招架技能。 */
+	parrySkill?: number;
 	/** 初始破盾大招 ID；缺省保留被动装配，0 卸下，仍需全体破盾机会及独立输入。 */
 	ultimateSkill?: number;
 	/** 无 AI 和规则时的固定主动输入技能；缺省/0 使用技能首项，再无技能则普通攻击。 */

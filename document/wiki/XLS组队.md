@@ -60,12 +60,12 @@ XlsUserData移除attackSkill、fbackSkill、supportSkill、ultimateSkill四个�
 | career | 职业字符串，AI精确匹配 |
 | weapon | WeaponEnum数值，0无兵器 |
 | charProp / weaponProp | PropEnum人物/武器五行，0无五行 |
-| physic / magic | 物理/魔法属性分组；分别配置base、kill、next、spread、fback及final，省略分组、阶段或数值默认0，各阶段独立 |
+| physic / magic | 物理/魔法属性分组；base填写基础值，kill/next/spread/fback填写增量，initAllDatas导入时与base相加；{}或省略沿用base，final独立 |
 | heal / poison | 治疗和毒伤的BaseAttack对象；省略或未配置的数值默认0 |
 | spMax / jpMax | 非负资源上限点数，省略为0，初始sp/jp均0 |
 | damageLimit | 非负单次输出伤害上限点数，省略或0不限 |
 
-属性组中的非零值必须明确配置，例如命中`hit:100`和基础阶段的`rand:1`；显式0有效，省略不表示继承其他阶段。展开时为各阶段创建独立对象，不修改表配置。mp、speed、weapon、charProp和weaponProp省略时也为0。公共资源增长属性使用全局配置。未配置的等级/难度组合报错，不猜测、插值或借用其他type。
+非零基础值明确填写，例如hit:100；默认普攻发动概率放在技能表rand中。阶段增量显式0表示不增加，负数表示减少；导入时各阶段得到独立的base+增量对象。直接调用resolveXlsAttr不再叠加base，需要传已合并的数据。mp、speed、weapon、charProp和weaponProp省略时也为0。公共资源增长属性使用全局配置。未配置的等级/难度组合报错，不猜测、插值或借用其他type。
 
 ## FightXlsTables
 

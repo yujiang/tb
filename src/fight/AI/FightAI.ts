@@ -3,7 +3,7 @@ import { FightCmdEnum, type FightInput } from '../struct';
 import type { FightUnit } from '../Unit/FightUnit';
 import { FightBehavior } from '../FightBehavior';
 import type { AIData } from '../Datas/AIDatas';
-import { getDefaultSkill, type FightSkill } from '../Skills/FightSkill';
+import { getDefaultAttackSkill, type FightSkill } from '../Skills/FightSkill';
 import { strict as assert } from 'node:assert';
 
 // AI与Rule同级，共用FightBehavior的绑定和生命周期；一个怪物只绑定一个AI，负责普通行动决策。

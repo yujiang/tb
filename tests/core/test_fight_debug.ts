@@ -1,3 +1,4 @@
+import { setCounterChance } from '../fixtures/default_skills';
 import { strict as assert } from 'node:assert';
 import { test, TestContext } from 'node:test';
 import * as tb from '../../src';
@@ -25,7 +26,7 @@ function setup(
 	setFightDebug({ ...flags(), ...debug });
 	t.after(() => setFightDebug(undefined));
 	const s = setupChain({ rootSelfBuff: false, finalReactions: false, ...options });
-	s.target.attr.physic.fback.rand = 0;
+	setCounterChance(s.target, 0, false);
 	return s;
 }
 
@@ -95,7 +96,7 @@ test('fight debug: crit also uses the shared healing formula', (t) => {
 		{
 			targetHp: 500,
 			change: (skills) => {
-				Object.assign(skills[0], { func: 'heal', combo: undefined });
+				Object.assign(skills[0], { func: 'heal', combo: undefined, attack: {} });
 			},
 		},
 	);
@@ -177,14 +178,14 @@ for (const group of [false, true]) {
 					Object.assign(skills[0], {
 						combo: undefined,
 						next: chainIds.second,
-						damageRate: 1,
-					});
+
+					attack: { hurtP: 0 }});
 					Object.assign(skills[1], {
 						combo: undefined,
 						rand: 0,
-						damageRate: 1,
+
 						sel: { ...skills[1].sel, sortAttr: 'hp', num: group ? 99 : 1 },
-					});
+					attack: { hurtP: 0 }});
 				},
 			},
 		);
@@ -199,8 +200,11 @@ for (const group of [false, true]) {
 }
 
 // 测试：普通攻击属性中的零概率连击可强制发动，但仍只追加一段。
-test('fight debug: next forces one built-in normal attack followup', (t) => {
+test('fight debug: next forces the configured normal attack followup', (t) => {
 	const s = setup(t, { next: true });
+	s.actor.setAttackSkill(chainIds.first);
+	Object.assign(s.skills[0], { combo: undefined, next: chainIds.second, attack: {} });
+	Object.assign(s.skills[1], { combo: undefined, rand: 0, attack: {} });
 	s.fight.random = () => 0;
 	const ctx = s.fight.processUnit(s.actor, { cmd: FightCmdEnum.attack, target: s.target.uid });
 	assert.ok(ctx);
@@ -219,9 +223,9 @@ test('fight debug: spread forces an existing zero-probability spread skill', (t)
 				Object.assign(skills[0], {
 					combo: undefined,
 					spread: chainIds.second,
-					damageRate: 1,
-				});
-				Object.assign(skills[1], { combo: undefined, rand: 0, damageRate: 1 });
+
+				attack: { hurtP: 0 }});
+				Object.assign(skills[1], { combo: undefined, rand: 0, attack: { hurtP: 0 }});
 			},
 		},
 	);
@@ -241,9 +245,9 @@ test('fight debug: kill forces a configured pursuit after a real kill', (t) => {
 				Object.assign(skills[0], {
 					combo: undefined,
 					kill: chainIds.second,
-					damageRate: 1,
-				});
-				Object.assign(skills[1], { combo: undefined, rand: 0, damageRate: 1 });
+
+				attack: { hurtP: 0 }});
+				Object.assign(skills[1], { combo: undefined, rand: 0, attack: { hurtP: 0 }});
 			},
 		},
 	);
@@ -274,9 +278,9 @@ test('fight debug: support forces zero probability while preserving its round qu
 			id: supportId,
 			rand: 0,
 			combo: undefined,
-			damageRate: 1,
+
 			nosupport: true,
-		},
+		attack: { hurtP: 0 }},
 	]);
 	const attr = Object.assign(new FightAttr(), structuredClone(s.actor.attrOri));
 	const supporter = new FightUnitUser(10014002, attr, { name: '协战调试' });

@@ -1,3 +1,4 @@
+import { setCounterChance } from '../../fixtures/default_skills';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -40,12 +41,12 @@ test('properties: attack multiplier follows the traditional five-element cycle o
 		for (const d of props) {
 			assert.equal(
 				getAttackMul(a, d),
-				attacks.some((pair) => pair[0] === a && pair[1] === d) ? 1.5 : 1,
+				attacks.some((pair) => pair[0] === a && pair[1] === d) ? 0.5 : 0,
 				`${a}->${d}`,
 			);
 		}
-	assert.equal(getAttackMul(undefined, undefined), 1);
-	assert.equal(getAttackMul(999 as P, P.金), 1);
+	assert.equal(getAttackMul(undefined, undefined), 0);
+	assert.equal(getAttackMul(999 as P, P.金), 0);
 });
 
 // 测试：相生严格按金水木火土环生加成，不把相同属性、反方向或未填属性当成相生。
@@ -54,12 +55,12 @@ test('properties: healing multiplier follows the generating cycle only', () => {
 		for (const d of props) {
 			assert.equal(
 				getHealMul(a, d),
-				heals.some((pair) => pair[0] === a && pair[1] === d) ? 1.5 : 1,
+				heals.some((pair) => pair[0] === a && pair[1] === d) ? 0.5 : 0,
 				`${a}->${d}`,
 			);
 		}
-	assert.equal(getHealMul(undefined, undefined), 1);
-	assert.equal(getHealMul(999 as P, P.金), 1);
+	assert.equal(getHealMul(undefined, undefined), 0);
+	assert.equal(getHealMul(999 as P, P.金), 0);
 });
 
 function setup() {
@@ -68,7 +69,7 @@ function setup() {
 		finalReactions: false,
 		change: (skills) => {
 			skills[0].combo = undefined;
-			skills[0].damageRate = 1;
+			skills[0].attack = { ...skills[0].attack, hurtP: 0 };
 			skills[0].nofback = true;
 			skills[0].nodback = true;
 		},
@@ -100,7 +101,7 @@ for (const [weakProp, weakWeapon, prop, weapon, amount] of [
 	});
 }
 
-// 测试：弱点加成替代人物相克并与 damageRate 相加，技能属性优先且不修改弱点配置。
+// 测试：弱点加成替代人物相克并与 hurtP 相加，技能属性优先且不修改弱点配置。
 test('properties: NPC weakness replaces character countering and adds to the damage rate', () => {
 	const { actor, target, cast, skills } = setup();
 	actor.attr.weaponProp = P.水;
@@ -108,7 +109,7 @@ test('properties: NPC weakness replaces character countering and adds to the dam
 	target.attr.charProp = P.水;
 	target.attr.magic.final.immunity = 20;
 	skills[0].skillProp = P.金;
-	skills[0].damageRate = 0.4;
+	skills[0].attack = { ...skills[0].attack, hurtP: -0.6 };
 	const before = structuredClone(targetAttr.weakProp);
 	cast();
 	assert.equal(target.getHp(), 928); // (100 - 20) × (0.4 + 0.5)
@@ -133,7 +134,7 @@ test('properties: normal attacks use weapon weaknesses after attribute recalcula
 	target.attrOri.weakWeapon = [W.刀];
 	actor.calcAttr();
 	target.calcAttr();
-	target.attr.physic.fback.rand = 0;
+	setCounterChance(target, 0, false);
 	const ctx = fight.processUnit(actor, { cmd: FightCmdEnum.attack, target: target.uid });
 	flush(ctx);
 	assert.equal(target.getHp(), 850);
@@ -216,7 +217,7 @@ test('properties: normal attacks use weapon against character without extra rand
 	const { fight, actor, target, flush } = setup();
 	actor.attr.weaponProp = P.金;
 	target.attr.charProp = P.木;
-	target.attr.physic.fback.rand = 0;
+	setCounterChance(target, 0, false);
 	let draws = 0;
 	fight.random = () => {
 		draws++;
@@ -229,13 +230,13 @@ test('properties: normal attacks use weapon against character without extra rand
 	assert.equal(draws, 0);
 });
 
-// 测试：相克加成与 damageRate 加法合并，在目标免伤后应用，原始技能配置不被修改。
-test('properties: element bonus adds to damageRate after damage calculation', () => {
+// 测试：相克加成与 hurtP 加法合并，在目标免伤后应用，原始技能配置不被修改。
+test('properties: element bonus adds to hurtP after damage calculation', () => {
 	const { actor, target, cast, skills } = setup();
 	actor.attr.weaponProp = P.金;
 	target.attr.charProp = P.木;
 	target.attr.magic.final.immunity = 20;
-	skills[0].damageRate = 0.4;
+	skills[0].attack = { ...skills[0].attack, hurtP: -0.6 };
 	const before = structuredClone(skills);
 	cast();
 	assert.equal(target.getHp(), 928); // (100 - 20) × (0.4 + 0.5) = 72
@@ -249,11 +250,11 @@ for (const [rate, expected] of [
 	[2, 250],
 ] as const) {
 	// 测试：相克固定增加五十个百分点，低倍率、高倍率和零倍率均按同一加法规则计算。
-	test(`properties: damageRate=${rate} plus counter bonus deals ${expected}`, () => {
+	test(`properties: hurtP=${rate} plus counter bonus deals ${expected}`, () => {
 		const { actor, target, cast, skills } = setup();
 		actor.attr.weaponProp = P.金;
 		target.attr.charProp = P.木;
-		skills[0].damageRate = rate;
+		skills[0].attack = { ...skills[0].attack, hurtP: (rate) - 1 };
 		cast();
 		assert.equal(target.getHp(), 1000 - expected);
 	});
@@ -318,9 +319,9 @@ test('properties: periodic healing uses its caster while revival keeps its fixed
 			name: '周期治疗',
 			magic: true,
 			rand: 1,
-			attack: { attack: 100 },
+			attack: { attack: 100 , hurtP: -0.5},
 			final: {},
-			healRate: 0.5,
+
 			sel: { target: TargetSelectEnum.friend },
 		},
 	]);
@@ -351,11 +352,11 @@ test('properties: periodic healing uses its caster while revival keeps its fixed
 			name: '复活',
 			magic: true,
 			rand: 1,
-			attack: {},
+			attack: {hurtP: -0.7},
 			final: {},
-			func: 'relife',
+			func: 'relife', relifeP: 0.3,
 			skillProp: P.水,
-			healRate: 0.3,
+
 			sel: { target: TargetSelectEnum.enemy },
 		},
 	]);
@@ -392,11 +393,11 @@ for (const func of ['heal', 'poison'] as const) {
 					name: '效果加法',
 					magic: true,
 					rand: 1,
-					attack: {},
+					attack: {hurtP: (rate ?? 1) - 1},
 					final: {},
 					func,
-					healRate: rate,
-					poisonRate: rate,
+
+
 					sel: { target: TargetSelectEnum.enemy },
 				},
 			]);
@@ -489,10 +490,10 @@ test('properties: elemental effects belong to each heal or hurt rather than the 
 	};
 	const ctx = initFightContex(fight);
 	ctx.effects = ['crit'];
-	heal(actor, target, new AttrSkill(data, 1, 'heal'), 'buff', ctx);
-	heal(actor, other, new AttrSkill(data, 1, 'heal'), 'buff', ctx);
-	poison(actor, target, new AttrSkill(data, 1, 'poison'), 'buff', ctx);
-	poison(actor, other, new AttrSkill(data, 1, 'poison'), 'buff', ctx);
+	heal(actor, target, new AttrSkill(data, 1, actor, 'heal'), 'buff', ctx);
+	heal(actor, other, new AttrSkill(data, 1, actor, 'heal'), 'buff', ctx);
+	poison(actor, target, new AttrSkill(data, 1, actor, 'poison'), 'buff', ctx);
+	poison(actor, other, new AttrSkill(data, 1, actor, 'poison'), 'buff', ctx);
 	flush(ctx);
 	assert.deepEqual(
 		ctx.msgs.filter((msg) => msg[0] === 'heal' || msg[0] === 'hurt').map((msg) => msg[6]),

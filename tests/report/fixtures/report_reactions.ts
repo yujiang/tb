@@ -1,3 +1,4 @@
+import { setCounterChance } from '../../fixtures/default_skills';
 import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import {
 	Fight,
@@ -20,16 +21,15 @@ const mainId = 97201,
 function base(attack: number, rand = 0): BaseAttack {
 	return {
 		rand,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
+
 		hit: 100,
 		dodge: 0,
 		parry: 0,
 		attack,
 		defend: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
+		hurtP: 0,		critP: 0,
 		critPAnit: 0,
 		critDeep: 0,
 		critDeepAnit: 0,
@@ -46,7 +46,7 @@ function attr(hp: number, attack: number, speed: number): FightAttr {
 		kill: base(100),
 		spread: base(0),
 		fback: base(0),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	a.physic = group();
 	a.magic = group();
@@ -93,6 +93,7 @@ export async function runReactionReport(
 	heroAttr.physic.fback = base(8, 1);
 	heroAttr.magic.final.bloodP = 0.5;
 	const hero = new FightUnitMonster(0, heroAttr, { name: '剑客' });
+	setCounterChance(hero, 1);
 	hero.addSkill(mainId, 1);
 	hero.inputSkill = mainId;
 	const guardAttr = attr(60, 12, 100);

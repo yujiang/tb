@@ -56,7 +56,7 @@ function setupAttack(combo: boolean) {
 		rootSelfBuff: false,
 		finalReactions: false,
 		change: (skills) => {
-			skills[0].damageRate = 1;
+			skills[0].attack = { ...skills[0].attack, hurtP: 0 };
 			if (!combo) skills[0].combo = undefined;
 
 			for (const skill of skills) {

@@ -1,3 +1,4 @@
+import { setCounterChance } from '../../fixtures/default_skills';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
@@ -95,7 +96,7 @@ for (const nomove of [0, 1]) {
 		const { fight, actor, target, root } = setup(nomove);
 		root();
 		actor.setFBackSkill(ids.first);
-		actor.attr.magic.fback.rand = 1;
+		setCounterChance(actor, 1, true);
 		const ctx = initFightContex(fight);
 		assert.equal(tryFBack(actor, target, ctx), nomove === 1);
 		assert.equal(ctx.fbackNum, nomove === 1 ? 1 : undefined);

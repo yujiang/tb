@@ -1,3 +1,4 @@
+import './default_skills';
 import { FightCmdEnum } from '../../src';
 import { setupTrap, placeId } from './trap';
 

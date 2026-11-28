@@ -1,3 +1,4 @@
+import '../fixtures/default_skills';
 import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { Fight } from '../../src/fight/Fight';
 import { FightSide } from '../../src/fight/FightSide';

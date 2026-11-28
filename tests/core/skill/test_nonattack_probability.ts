@@ -26,12 +26,12 @@ for (const func of ['heal', 'poison', 'relife', 'nohurt']) {
 							cd: 2,
 							combo: undefined,
 							sel: { ...skills[0].sel, num },
-							healRate: 0.1,
+
 							addBuff: [[buffId, 1, 1]],
 							afterSelfBuff: [[buffId, 1, 1]],
 							nosupport: true,
 							noprotect: true,
-						});
+						relifeP: 0.1, attack: { hurtP: -0.5 }});
 					},
 				});
 				initBuffs([
@@ -75,7 +75,7 @@ for (const func of ['heal', 'poison', 'relife', 'nohurt']) {
 						assert.equal(target.isDied(), !success);
 						assert.equal(target.getHp(), success ? 100 : 0);
 					} else {
-						const amount = func === 'heal' ? 10 : -100;
+						const amount = func === 'heal' ? 50 : -50;
 						assert.equal(target.getHp(), 500 + (success ? amount : 0));
 					}
 				}

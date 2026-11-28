@@ -44,10 +44,10 @@ test('debug hurt limit: skill reactions and rage use capped actual damage', (t) 
 		change: (skills) => {
 			Object.assign(skills[0], {
 				combo: undefined,
-				damageRate: 1,
-				final: { bloodP: 0.5 },
+
+				final: { bloodPAnit: 0, bloodP: 0.5 },
 				nodback: false,
-			});
+			attack: { hurtP: 0 }});
 		},
 	});
 	s.actor.attr.spOutputRate = 0.1;

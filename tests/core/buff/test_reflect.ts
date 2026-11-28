@@ -1,3 +1,5 @@
+import { setCounterChance } from '../../fixtures/default_skills';
+import '../../fixtures/default_skills';
 import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import { BuffTurnEnum } from '../../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
@@ -32,16 +34,15 @@ const magicId = 97910,
 function attr(hp: number): FightAttr {
 	const base = (attack = 30, rand = 0): BaseAttack => ({
 		rand,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
+
 		hit: 100,
 		dodge: 0,
 		parry: 0,
 		attack,
 		defend: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
+		hurtP: 0,		critP: 0,
 		critPAnit: 0,
 		critDeep: 0,
 		critDeepAnit: 0,
@@ -55,7 +56,7 @@ function attr(hp: number): FightAttr {
 		kill: base(),
 		spread: base(),
 		fback: base(),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	a.physic = group();
 	a.magic = group();
@@ -283,7 +284,7 @@ for (const damage of [0, 1, 2]) {
 	// 测试：反射后零伤害及实际一点伤害不触发反击，实际两点伤害仍正常反击。
 	test(`reflect: counterattack requires actual damage greater than one (${damage})`, () => {
 		const { caster, holder, cast } = setup({}, (holder) => {
-			holder.attrOri.physic.fback.rand = 1;
+			setCounterChance(holder, 1, false);
 			holder.calcAttr();
 			if (damage > 0) {
 				holder.onContex('beforeHurt', (_unit, _ctx, _attacker, pending) => {

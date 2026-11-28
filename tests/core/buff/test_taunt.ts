@@ -1,5 +1,6 @@
+import '../../fixtures/default_skills';
 import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
-import { FightSkill, getDefaultSkill } from '../../../src/fight/Skills/FightSkill';
+import { FightSkill, getDefaultAttackSkill } from '../../../src/fight/Skills/FightSkill';
 import { BuffTurnEnum } from '../../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -33,16 +34,15 @@ const attackId = 97810,
 function attr(hp = 1000): FightAttr {
 	const base = (rand = 0): BaseAttack => ({
 		rand,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
+
 		hit: 100,
 		dodge: 0,
 		parry: 0,
 		attack: 10,
 		defend: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
+		hurtP: 0,		critP: 0,
 		critPAnit: 0,
 		critDeep: 0,
 		critDeepAnit: 0,
@@ -56,7 +56,7 @@ function attr(hp = 1000): FightAttr {
 		kill: base(),
 		spread: base(),
 		fback: base(),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	a.physic = group();
 	a.magic = group();
@@ -155,7 +155,7 @@ test('taunt: bearer attacks source ID zero instead of random or lowest-HP enemy'
 			actor,
 			new FightSkill(
 				{
-					...getDefaultSkill().getXls(),
+					...getDefaultAttackSkill().getXls(),
 					sel: { target: TargetSelectEnum.enemy, sortAttr: 'hp' },
 				},
 				1,
@@ -262,7 +262,7 @@ test('taunt: priorities and registration order select the first valid source', (
 	assert.equal(
 		fight.selectMainTarget(
 			actor,
-			new FightSkill({ ...getDefaultSkill().getXls(), sel: sel }, 1),
+			new FightSkill({ ...getDefaultAttackSkill().getXls(), sel: sel }, 1),
 		),
 		source,
 	);
@@ -270,7 +270,7 @@ test('taunt: priorities and registration order select the first valid source', (
 	assert.equal(
 		fight.selectMainTarget(
 			actor,
-			new FightSkill({ ...getDefaultSkill().getXls(), sel: sel }, 1),
+			new FightSkill({ ...getDefaultAttackSkill().getXls(), sel: sel }, 1),
 		),
 		second,
 	);
@@ -279,7 +279,7 @@ test('taunt: priorities and registration order select the first valid source', (
 	assert.equal(
 		fight.selectMainTarget(
 			actor,
-			new FightSkill({ ...getDefaultSkill().getXls(), sel: sel }, 1),
+			new FightSkill({ ...getDefaultAttackSkill().getXls(), sel: sel }, 1),
 		),
 		second,
 	);
@@ -288,7 +288,7 @@ test('taunt: priorities and registration order select the first valid source', (
 	assert.equal(
 		fight.selectMainTarget(
 			actor,
-			new FightSkill({ ...getDefaultSkill().getXls(), sel: sel }, 1),
+			new FightSkill({ ...getDefaultAttackSkill().getXls(), sel: sel }, 1),
 		),
 		source,
 	);
@@ -296,7 +296,7 @@ test('taunt: priorities and registration order select the first valid source', (
 	assert.equal(
 		fight.selectMainTarget(
 			actor,
-			new FightSkill({ ...getDefaultSkill().getXls(), sel: sel }, 1),
+			new FightSkill({ ...getDefaultAttackSkill().getXls(), sel: sel }, 1),
 		),
 		second,
 	);
@@ -319,7 +319,7 @@ test('taunt: dead, departed, friendly and death-filter-ineligible sources are ig
 	assert.equal(
 		fight.selectMainTarget(
 			actor,
-			new FightSkill({ ...getDefaultSkill().getXls(), func: 'relife' }, 1),
+			new FightSkill({ ...getDefaultAttackSkill().getXls(), func: 'relife' }, 1),
 		),
 		other,
 	);
@@ -391,7 +391,7 @@ test('taunt: ordinary classification tags do not impose targeting behavior', () 
 			actor,
 			new FightSkill(
 				{
-					...getDefaultSkill().getXls(),
+					...getDefaultAttackSkill().getXls(),
 					sel: { target: TargetSelectEnum.enemy, sortAttr: 'hp' },
 				},
 				1,

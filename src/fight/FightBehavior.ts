@@ -3,7 +3,7 @@ import type { FightContex } from './Fight';
 import type { FightAttr } from './FightAttr';
 import type { FightUnit, UnitContextEventFunc } from './Unit/FightUnit';
 import type { FightUnitContextEvent } from './Datas/BuffDatas';
-import { getDefaultSkill } from './Skills/FightSkill';
+import { getDefaultAttackSkill } from './Skills/FightSkill';
 import { EnemySide, FightCmdEnum, FightInput } from './struct';
 
 // AI与Rule共用的配置、绑定、监听和生命周期；每个实例只能绑定一个单位。
@@ -23,7 +23,7 @@ export class FightBehavior<T extends { type: string; skill?: number }> {
 	getSkillInput(unit: FightUnit) {
 		const id = this.getSkillId();
 		// AI明确指定目标，不受全局默认普攻的对位选人限制。
-		return id !== undefined ? unit.findSkill(id) : (unit.getAttackSkill() ?? getDefaultSkill());
+		return id !== undefined ? unit.findSkill(id) : (unit.getAttackSkill() ?? getDefaultAttackSkill());
 	}
 
 	getSkillCmd(unit: FightUnit, target: FightUnit) {

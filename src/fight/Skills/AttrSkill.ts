@@ -2,7 +2,7 @@
 
 import { Fight, FightContex } from '../Fight';
 import { FightUnit } from '../Unit/FightUnit';
-import { calcAttack, calcPoison } from './Calc';
+import { calcHeal, calcPoison } from './Calc';
 import { FightSkill } from './FightSkill';
 import { getSkillData, SkillData } from '../Datas/SkillDatas';
 import { getHealMul } from '../FightAttr';
@@ -17,22 +17,23 @@ export type AttrFunc = (
 
 export class AttrSkill extends FightSkill {
 	attr: string;
-	constructor(xls: SkillData, level: number, attr: string) {
+	// 周期效果传undefined，仅使用表格与成长；主动技能传施放者，合并当前属性。
+	constructor(xls: SkillData, level: number, unit: FightUnit | undefined, attr: string) {
 		super(xls, level);
 		this.attr = attr;
+		if (unit) this.mergeAttr(unit);
 	}
 
 	getAttrSpreadSkill(attacker: FightUnit) {
 		return this.createSpreadSkill(this.getSpread(), attacker);
 	}
 
-	createSpreadSkill(id: number, attacker: FightUnit) {
+	private createSpreadSkill(id: number, attacker: FightUnit) {
 		const data = getSkillData(id);
 		if (!data) return;
 
-		const skill = new AttrSkill(data, this.level, this.attr);
-		skill.mergeAttr(attacker);
-		return skill;
+		return new AttrSkill(data, this.level, attacker, this.attr);
+		// skill.mergeAttr(attacker);
 	}
 
 	mergeAttr(attacker: FightUnit) {
@@ -42,14 +43,15 @@ export class AttrSkill extends FightSkill {
 
 	calcHeal(f: Fight, defender: FightUnit, ctx: FightContex, attacker: FightUnit = ctx.attack) {
 		const property = this.getXls().skillProp ?? attacker?.attr.charProp;
-		const propertyBonus = getHealMul(property, defender.attr.charProp) - 1;
+		// 相生，不用弱点
+		const propertyBonus = getHealMul(property, defender.attr.charProp);
 		ctx.effects = [];
-		const amount = calcAttack(
+		const amount = calcHeal(
 			f,
 			this.getAttack(),
 			this.getAttr(defender),
+			propertyBonus,
 			ctx,
-			this.getHealRate() + propertyBonus,
 		);
 		if (propertyBonus > 0) ctx.effects.push('生');
 		return amount;
@@ -57,18 +59,18 @@ export class AttrSkill extends FightSkill {
 
 	calcPoison(f: Fight, defender: FightUnit, ctx: FightContex, attacker: FightUnit = ctx.attack) {
 		const property = this.getXls().skillProp ?? attacker?.attr.weaponProp;
-		const propertyBonus = defender.getHurtMul(property, attacker?.attr.weapon) - 1;
+		const propertyBonus = defender.getHurtMul(property, attacker?.attr.weapon);
 		ctx.effects = [];
 		const damage = calcPoison(
 			f,
 			this.getAttack(),
 			this.getAttr(defender),
 			defender.getHp(),
+			propertyBonus,
 			ctx,
 		);
 		if (propertyBonus > 0) ctx.effects.push('克');
-		ctx.damageBeforeReduction *= this.getPoisonRate() + propertyBonus;
-		return damage * (this.getPoisonRate() + propertyBonus);
+		return damage;
 	}
 
 	getAttr(u: FightUnit) {
@@ -84,8 +86,8 @@ export function attrFunc(
 	skill: FightSkill,
 	ctx: FightContex,
 ) {
-	const magic = new AttrSkill(skill.getXls(), skill.level, attr);
-	magic.mergeAttr(attacker);
+	const magic = new AttrSkill(skill.getXls(), skill.level, attacker, attr);
+	// magic.mergeAttr(attacker);
 
 	func(attacker, defender, magic, 'heal', ctx);
 	const spread = magic.getAttrSpreadSkill(attacker);

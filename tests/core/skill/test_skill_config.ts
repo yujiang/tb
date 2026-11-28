@@ -1,3 +1,4 @@
+import '../../fixtures/default_skills';
 import { strict as assert } from 'node:assert';
 import { test, TestContext } from 'node:test';
 import { initSkills, getSkillData, SkillData, TargetSelectEnum } from '../../../src';

@@ -39,8 +39,8 @@ function setup(group = false) {
 			name: '原招',
 			func: 'normal',
 			combo: undefined,
-			damageRate: 1,
-			attack: { attack: 10 },
+
+			attack: { attack: 10 , hurtP: 0},
 			attackLevel: { attack: 5 },
 			cost: { mp: 80 },
 			cd: 3,

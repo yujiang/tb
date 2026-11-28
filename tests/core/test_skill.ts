@@ -1,3 +1,4 @@
+import '../fixtures/default_skills';
 import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -6,7 +7,6 @@ import { BaseAttack, FinalAttack, FightAttr, FightTypeAttr } from '../../src/fig
 import { FightSide } from '../../src/fight/FightSide';
 import { FightStatic } from '../../src/fight/Passives/FightStatic';
 import {
-	calcAttack,
 	calcAttr,
 	calcHurt,
 	calcPoison,
@@ -24,6 +24,7 @@ import { FightUnit } from '../../src/fight/Unit/FightUnit';
 function baseAttack(overrides: Partial<BaseAttack> = {}): BaseAttack {
 	return {
 		rand: 1,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
 		hit: 100,
 		dodge: 0,
 		parry: 0,
@@ -34,10 +35,7 @@ function baseAttack(overrides: Partial<BaseAttack> = {}): BaseAttack {
 		critPAnit: 0,
 		critDeepAnit: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		...overrides,
+		hurtP: 0,		...overrides,
 	};
 }
 
@@ -67,7 +65,7 @@ test('simple monsters: default critical chances are fractional and do not force 
 		for (const sample of [0.1, 0.9]) {
 			fight.random = () => sample;
 			const ctx = contextFor(fight, unit, unit);
-			calcAttack(fight, group.base, baseAttack({ defend: 0 }), ctx);
+			calcHurt(fight, group.base, baseAttack({ defend: 0 }), finalAttack(), finalAttack(), ctx, 0);
 			assert.equal(ctx.effects.includes('crit'), sample < expected);
 		}
 	}
@@ -104,6 +102,7 @@ test('simple monsters: explicit zero critical chances stay zero', () => {
 
 function finalAttack(overrides: Partial<FinalAttack> = {}): FinalAttack {
 	return {
+		bloodPAnit: 0,
 		dbackP: 0,
 		bloodP: 0,
 		immunity: 0,
@@ -240,8 +239,8 @@ test('damage calculation applies critical hits and defender damage reduction', (
 		ctx,
 	);
 
-	assert.equal(damage, 30); // (24 - 4防御 - 4免伤) × 0.75 × (1 + 0.5 + 1暴击增伤)
-	assert.deepEqual(ctx.effects, ['crit']);
+	assert.equal(damage, 36); // (24 - 4 - 4) × (1 + 0.5 + 1 - 0.25)
+	assert.deepEqual(ctx.effects, ['crit', 'immunity', 'immunityP']);
 });
 
 // 测试：攻击伤害计算结果最低为一点。
@@ -368,7 +367,7 @@ test('simple monsters have finite attributes for skill damage, healing, and pois
 	assert.ok(defender.attr.point.hp > 50);
 	assert.ok(
 		Number.isFinite(
-			calcPoison(fight, attacker.attr.poison, defender.attr.poison, defender.getHp(), ctx),
+			calcPoison(fight, attacker.attr.poison, defender.attr.poison, defender.getHp(), 0, ctx),
 		),
 	);
 });
@@ -379,8 +378,8 @@ test('damage and attribute calculations assert when their result is non-finite',
 	const ctx = contextFor(fight, attacker, defender);
 
 	assert.throws(
-		() => calcAttack(fight, baseAttack({ hurt: Number.NaN }), baseAttack(), ctx),
-		/damage must be finite/,
+		() => calcHurt(fight, baseAttack({ hurt: Number.NaN }), baseAttack(), finalAttack(), finalAttack(), ctx, 0),
+		/finalDamage must be finite/,
 	);
 	assert.throws(
 		() => mergeTable({ attack: 10 }, { attack: Number.NaN }),

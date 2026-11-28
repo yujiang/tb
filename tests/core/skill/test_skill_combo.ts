@@ -128,7 +128,7 @@ test('skill chain: configured cycles share the existing reaction limit', () => {
 		rootSelfBuff: false,
 		finalReactions: false,
 		change: (data) => {
-			data[0].damageRate = 0;
+			data[0].attack = { ...data[0].attack, hurtP: (0) - 1 };
 			data[0].combo = ids.first;
 		},
 	});
@@ -154,7 +154,7 @@ test('skill chain: configuration can add a fourth step without a fixed combo cou
 		finalReactions: false,
 		change: (skills) => {
 			skills[2].combo = ids.kill;
-			skills[3].damageRate = 0.5;
+			skills[3].attack = { ...skills[3].attack, hurtP: -0.5 };
 		},
 	});
 	const ctx = cast();

@@ -1,3 +1,4 @@
+import '../fixtures/default_skills';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { FightReport, FightMud, fightMsg, initSkills, TargetSelectEnum } from '../../src';

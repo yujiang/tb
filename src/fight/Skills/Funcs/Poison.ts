@@ -23,7 +23,6 @@ export function poison(
 	}
 
 	defender.onHurt(attacker, name, damage, ctx, {
-		originalDamage: ctx.damageBeforeReduction,
 		magic: skill.isMagic(),
 		source: name === 'buff' ? 'buff' : 'skill',
 		noprotect: !skill.canProtect(),

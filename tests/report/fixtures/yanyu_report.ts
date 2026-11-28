@@ -1,3 +1,4 @@
+import '../../fixtures/default_skills';
 import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import { setImmediate } from 'node:timers/promises';
 import { strict as assert } from 'node:assert';
@@ -25,15 +26,14 @@ function attributes(hp: number, physic: number, magic: number, speed: number): F
 	const base = (attack: number, rand = 0): BaseAttack => ({
 		attack,
 		rand,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
+
 		hit: 100,
 		dodge: 0,
 		parry: 0,
 		defend: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
+		hurtP: 0,		critP: 0,
 		critPAnit: 0,
 		critDeep: 0,
 		critDeepAnit: 0,
@@ -47,7 +47,7 @@ function attributes(hp: number, physic: number, magic: number, speed: number): F
 		kill: base(0),
 		spread: base(0),
 		fback: base(0),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	attr.physic = group(physic);
 	attr.magic = group(magic);
@@ -96,7 +96,7 @@ export async function runYanYuReport(
 		allShieldBreak: false,
 		maxTurn: 5,
 		waitInputSec: 1,
-		duiwei: true,
+		duiwei: true, defaultAttackSkill: true ? 990003 : 990001, defaultProtectSkill: 990002,
 	});
 	const fight = new Fight(
 		99970,

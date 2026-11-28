@@ -1,3 +1,4 @@
+import '../fixtures/default_skills';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import path from 'node:path';

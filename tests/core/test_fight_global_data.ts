@@ -16,6 +16,9 @@ test('fight global data: complete defaults are separate from table rows', () => 
 		jpAdd: 1,
 		spHurtRate: 0,
 		spOutputRate: 0,
+		defaultAttackSkill: 0,
+		defaultProtectSkill: 0,
+		defaultFBackSkill: 0,
 	});
 	const fight = new Fight(10013301, {
 		id: 1, runaway: false,
@@ -115,6 +118,9 @@ test('fight global data: partial updates preserve omissions and accept explicit 
 			jpAdd: 1,
 			spHurtRate: 0,
 			spOutputRate: 0,
+		defaultAttackSkill: 0,
+		defaultProtectSkill: 0,
+		defaultFBackSkill: 0,
 		});
 	} finally {
 		setFightGlobalData(original);

@@ -1,3 +1,4 @@
+import { setCounterChance } from '../../fixtures/default_skills';
 import { setFightGlobalData } from '../../../src/fight/Datas/FightGlobalData';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
@@ -23,7 +24,7 @@ function setup() {
 		finalReactions: false,
 		change: (skills) => {
 			skills[0].combo = undefined;
-			skills[0].damageRate = 1;
+			skills[0].attack = { ...skills[0].attack, hurtP: 0 };
 			skills[0].noblood = false;
 			skills[0].nodback = false;
 		},
@@ -102,7 +103,7 @@ test('protect: normal attack remains protectable', () => {
 // 测试：同一连招各段独立读取 protect，只有允许保护的段分担伤害。
 test('protect: combo segments use their own protection flags', () => {
 	const { fight, protector, victim, enemy, protect, flush, skills } = setup();
-	Object.assign(skills[0], { noprotect: false, damageRate: 0.4, combo: ids.second });
+	Object.assign(skills[0], { noprotect: false,  combo: ids.second , attack: { hurtP: -0.6 }});
 	Object.assign(skills[1], { noprotect: true });
 	Object.assign(skills[2], { noprotect: false });
 	protect();
@@ -143,7 +144,7 @@ test('protect: shared damage cannot reflect or trigger ordinary hurt reactions',
 		hurtCalls++;
 	});
 	protector.attrOri.magic.final.dbackP = 1;
-	protector.attrOri.physic.fback.rand = 1;
+	setCounterChance(protector, 1, false);
 	protector.calcAttr();
 	protect();
 	const ctx = fight.processUnit(enemy, {
@@ -453,7 +454,7 @@ test('protect: actual periodic Buff damage and reflected damage are marked at th
 test("protect: combo reflection accumulates only the protected target's half", () => {
 	const { fight, protector, victim, enemy, protect, flush, skills } = setup();
 	skills[0].combo = ids.second;
-	skills[0].damageRate = 0.4;
+	skills[0].attack = { ...skills[0].attack, hurtP: -0.6 };
 	skills[2].nodback = false;
 	victim.attrOri.magic.final.dbackP = 0.2;
 	victim.calcAttr();

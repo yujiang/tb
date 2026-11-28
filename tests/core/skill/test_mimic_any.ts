@@ -35,9 +35,9 @@ function setup() {
 			id: first,
 			name: '甲招',
 			combo: undefined,
-			damageRate: 1,
+
 			cd: 0,
-			attack: { attack: 10 },
+			attack: { attack: 10 , hurtP: 0},
 			attackLevel: { attack: 5 },
 			nosupport: true,
 		},
@@ -46,9 +46,9 @@ function setup() {
 			id: second,
 			name: '乙招',
 			combo: undefined,
-			damageRate: 1,
+
 			cd: 0,
-			attack: { attack: 80 },
+			attack: { attack: 80 , hurtP: 0},
 			nosupport: true,
 		},
 		{
@@ -72,7 +72,7 @@ function setup() {
 			nomove: 1,
 			rand: 1,
 			sel: { target: TargetSelectEnum.self },
-			attackRate: 0,
+
 			attack: { attack: 50 },
 			final: {},
 			cost: { mp: 70 },

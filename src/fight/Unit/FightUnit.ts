@@ -12,7 +12,7 @@ import {
 	SpeedSkill,
 	SkillUseType,
 } from '../struct';
-import { FightSkill } from '../Skills/FightSkill';
+import { FightSkill, getDefaultAttackSkill, getDefaultFBackSkill } from '../Skills/FightSkill';
 import { getSkillData } from '../Datas/SkillDatas';
 import { createBuff, FightBuff } from '../Buffs/FightBuff';
 import { findForbidStatusByAction, findForbidStatusByBeaction } from '../Buffs/FightStatus';
@@ -23,7 +23,7 @@ import type {
 	FightUnitPlainEvent,
 } from '../Datas/BuffDatas';
 import { createPassiveSkills, PassiveSkill } from '../Passives/PassiveSkill';
-import { calcAttr } from '../Skills/Calc';
+import { calcAttr, clamp } from '../Skills/Calc';
 import EventEmitter from 'node:events';
 import { OrderedEventEmitter } from '../../public/OrderedEventEmitter';
 import { getDebugHurtHpLimit } from '../FightDebug';
@@ -102,6 +102,10 @@ export abstract class FightUnit {
 
 		return this._attr;
 	}
+	refreshAttr() {
+	    if (this.attrDirty) this.calcAttr();
+	}
+
 	attrOri: FightAttr;
 	display: FightDisplay;
 
@@ -343,6 +347,11 @@ export abstract class FightUnit {
 		return actual;
 	}
 
+	// 用于吸血吸了毒血
+	justHurt(){
+
+	}
+
 	private reportMitigation(
 		attacker: FightUnit,
 		originalDamage: number,
@@ -387,10 +396,12 @@ export abstract class FightUnit {
 		const point = this.attr.point;
 		ctx.msgs.push(['heal', why, this.uid, attacker.uid, hp, point.hp, effects]);
 		const previousHp = point.hp;
-		point.hp = Math.min(point.hp + hp, point.hpMax);
-		attacker.addSp((point.hp - previousHp) * attacker.attr.spOutputRate, ctx);
-		this.addFriend(attacker, point.hp - previousHp);
-		ctx.fight.Sides?.[attacker.side]?.recordHeal(attacker.uid, point.hp - previousHp);
+		point.hp = clamp(point.hp + hp, 1, point.hpMax);
+		if (hp > 0){
+			attacker.addSp((point.hp - previousHp) * attacker.attr.spOutputRate, ctx);
+			this.addFriend(attacker, point.hp - previousHp);
+			ctx.fight.Sides?.[attacker.side]?.recordHeal(attacker.uid, point.hp - previousHp);
+		}
 		if (point.hp !== previousHp) this.emitContext('hp', ctx, attacker, previousHp, point.hp);
 		this.emitContext('heal', ctx, attacker, why, hp);
 	}
@@ -574,11 +585,9 @@ export abstract class FightUnit {
 	getHurtMul(property: PropEnum, weapon: WeaponEnum = WeaponEnum.none): number {
 		const { weakProp, weakWeapon } = this.attr;
 		if (this.isMonster() && (weakProp !== undefined || weakWeapon !== undefined)) {
-			if (this.hasShield()) return 1;
-
-			return this.isWeakPoint(property, weapon) ? 1.5 : 1;
+			if (this.hasShield()) return 0;
+			return this.isWeakPoint(property, weapon) ? 0.5 : 0;
 		}
-
 		return getAttackMul(property, this.attr.charProp);
 	}
 	// 死亡单位也要收指令：本轮轮到它之前可能被其他单位复活。
@@ -707,6 +716,7 @@ export abstract class FightUnit {
 
 	// 装配替代普攻的攻击技能；0 表示使用原有普通攻击。
 	attackSkill = 0;
+	// 使用的时候会new MagicSkill
 	getAttackSkill() {
 		return this.findSkill(this.attackSkill);
 	}
@@ -714,7 +724,12 @@ export abstract class FightUnit {
 		this.attackSkill = id;
 	}
 
+	getAttackSkillOrDefault(){
+		return this.findSkill(this.attackSkill) || getDefaultAttackSkill();
+	}
+
 	ultimateSkill = 0;
+	// 这个也不会直接用
 	getUltimateSkill() {
 		return this.findSkill(this.ultimateSkill);
 	}
@@ -722,19 +737,28 @@ export abstract class FightUnit {
 		this.ultimateSkill = id;
 	}
 
-	// 装配反击技能
 	fbackSkill = 0;
+	// 优先使用装配的反击技能，否则读取全局默认反击。
 	getFBackSkill() {
-		return this.findSkill(this.fbackSkill);
+		return this.findSkill(this.fbackSkill) || getDefaultFBackSkill();
 	}
 	setFBackSkill(id: number) {
 		this.fbackSkill = id;
 	}
 
+	// 装配近战物理招架技能
+	parrySkill = 0;
+	getParrySkill() {
+		return this.findSkill(this.parrySkill);
+	}
+	setParrySkill(id: number) {
+		this.parrySkill = id;
+	}
+
 	private readonly skillUseCounts = new Map<number, number>();
 	private readonly skillTypeUseCounts = new Map<SkillUseType, number>();
 
-	/** 本场指定技能ID实际发动次数；未使用返回0，默认普攻及内置反击等无表ID技能统一使用0。 */
+	/** 本场指定技能ID实际发动次数；未使用返回0，默认普攻与反击均使用配置的真实技能表ID。 */
 	getSkillUseCount(id: number): number {
 		return this.skillUseCounts.get(id) ?? 0;
 	}
@@ -944,6 +968,9 @@ export abstract class FightUnit {
 		if (oldspeed != attr.speed) {
 			this.emit('speed', attr.speed);
 		}
+
+		//所有skills也要重新merge?
+
 	}
 
 	protected modifyAttr(attr: FightAttr) {}

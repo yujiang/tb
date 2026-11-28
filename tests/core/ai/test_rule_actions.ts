@@ -25,7 +25,7 @@ test('rules: two turn axes both insert actions without replacing normal input', 
 		finalReactions: false,
 		change: (data) => {
 			data[0].combo = undefined;
-			data[0].damageRate = 1;
+			data[0].attack = { ...data[0].attack, hurtP: 0 };
 		},
 	});
 	const ids = [1001401, 1001402];
@@ -67,7 +67,7 @@ function setup() {
 		finalReactions: false,
 		change: (data) => {
 			data[0].combo = undefined;
-			data[0].damageRate = 1;
+			data[0].attack = { ...data[0].attack, hurtP: 0 };
 		},
 	});
 	s.target.addSkill(chainIds.first, 1);

@@ -12,7 +12,7 @@ function setup(combo = false) {
 			if (!combo) skills[0].combo = undefined;
 			for (const skill of skills) {
 				skill.magic = false;
-				skill.damageRate = 1;
+				skill.attack = { ...skill.attack, hurtP: 0 };
 			}
 		},
 	});

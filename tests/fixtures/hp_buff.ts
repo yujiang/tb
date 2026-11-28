@@ -1,3 +1,4 @@
+import './default_skills';
 import { initBuffs, OverlapEnum, type IdLevel } from '../../src';
 
 // 自动测试使用固定魔法攻击加成验证阶段替换；比例参数仅用于迁移旧测试的数值，不是血轴配置字段。

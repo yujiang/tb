@@ -10,6 +10,9 @@ const names = ['skill', 'buff', 'passive', 'ai', 'rule', 'attr', 'monster', 'use
 const readTables = folder => Object.fromEntries(names.map(name => [name, JSON.parse(fs.readFileSync(path.join(folder, `${name}_xls.json`), 'utf8'))]));
 
 function register(data) {
+	tb.setFightGlobalData({ defaultAttackSkill: data.fight_global[13001].defaultAttackSkill,
+		defaultProtectSkill: data.fight_global[13001].defaultProtectSkill,
+		defaultFBackSkill: data.fight_global[13001].defaultFBackSkill });
 	tb.initSkills(Object.values(data.skill));
 	tb.initBuffs(Object.values(data.buff));
 	tb.initPassives(Object.values(data.passive));
@@ -219,6 +222,9 @@ test('xls data: every configured skill executes with its prerequisites', async (
 			}
 
 			let target = row.sel.target === 0 ? actor : row.sel.target === 2 ? allies[1] : enemies[0];
+			if (row.sel.target === tb.TargetSelectEnum.duiwei) {
+				target = fight.selectMainTarget(actor, actor.findSkill(row.id));
+			}
 			const ctx = tb.initFightContex(fight);
 			if (row.func === 'mimic') {
 				const source = row.sel.target === tb.TargetSelectEnum.any ? enemies[1] : allies[1];

@@ -1,3 +1,4 @@
+import { setCounterChance } from '../fixtures/default_skills';
 import { setFightGlobalData } from '../../src/fight/Datas/FightGlobalData';
 import { BuffTurnEnum } from '../../src/fight/Datas/BuffDatas';
 import { strict as assert } from 'node:assert';
@@ -9,7 +10,7 @@ import { FightLoopWest } from '../../src/fight/Loop/FightLoopWest';
 import { FightUnitMonster } from '../../src/fight/Unit/FightUnitMonster';
 import { FightUnitSummon, FightUnitUser } from '../../src/fight/Unit/FightUnitUser';
 import { BuffData, initBuffs, OverlapEnum } from '../../src/fight/Datas/BuffDatas';
-import { FightSkill, getDefaultSkill } from '../../src/fight/Skills/FightSkill';
+import { FightSkill, getDefaultAttackSkill } from '../../src/fight/Skills/FightSkill';
 import { FightContex, initFightContex } from '../../src/fight/Fight';
 import { attackFunc } from '../../src/fight/Skills/Funcs/NormalAttack';
 import { tryBlood, tryDBack } from '../../src/fight/Skills/FightBack';
@@ -53,16 +54,14 @@ test('regression: failed primary skill activation reports why the actor did noth
 function base(extra: Partial<BaseAttack> = {}): BaseAttack {
 	return {
 		rand: 0,
+		hitP: 0, dodgeP: 0, parryAnit: 0, attackP: 0, defendP: 0,
 		hit: 100,
 		dodge: 0,
 		parry: 0,
 		attack: 20,
 		defend: 0,
 		hurt: 0,
-		hurtP: 0,
-		hurtAnti: 0,
-		hurtPAnti: 0,
-		critP: 0,
+		hurtP: 0,		critP: 0,
 		critPAnit: 0,
 		critDeep: 0,
 		critDeepAnit: 0,
@@ -80,7 +79,7 @@ function attr(): FightAttr {
 		kill: base(),
 		spread: base(),
 		fback: base(),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 	});
 	a.physic = group();
 	a.magic = group();
@@ -133,7 +132,7 @@ function skill(id: number, extra: Partial<SkillData> = {}): SkillData {
 		rand: 1,
 		sel: { target: TargetSelectEnum.enemy },
 		attack: base({ attack: 0, hit: 0 }),
-		final: { bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
+		final: { bloodPAnit: 0, bloodP: 0, dbackP: 0, immunity: 0, immunityP: 0 },
 		...extra,
 	};
 }
@@ -162,7 +161,7 @@ function buff(id: number): BuffData {
 // 测试：技能反击只触发一次，并使用反击属性计算伤害。
 test('regression: skill counterattacks stop after one reaction and use fback attributes', () => {
 	const { f, u, v } = pair();
-	initSkills([skill(8001, { nofback: false })]);
+	initSkills([skill(8001, { nofback: true })]);
 	for (const unit of [u, v]) {
 		unit.attr.point.hp = 1000000;
 		unit.attr.point.hpMax = 1000000;
@@ -192,7 +191,7 @@ test('regression: lifesteal and reflection respect fractional ratios and source'
 	u.attr.point.hp = 50;
 	u.attr.physic.final.bloodP = 0.2;
 	v.attr.physic.final.dbackP = 0.2;
-	tryBlood(u, v, false, 10, undefined, c);
+	tryBlood(u, v, false, 10, u.attr.physic.final.bloodP, c);
 	assert.equal(u.getHp(), 52);
 	tryDBack(u, v, false, 10, c);
 	assert.equal(u.getHp(), 50);
@@ -208,7 +207,7 @@ test('regression: death clears attribute buffs and revival restores valid HP', (
 	v.onHurt(u, 'test', 250, c);
 	assert.equal(v.attr.physic.base.attack, 20);
 	assert.equal(v.getHp(), 0);
-	relifeFunc(u, v, new FightSkill(skill(8011, { healRate: 0.5 }), 1), c);
+	relifeFunc(u, v, new FightSkill(skill(8011, { relifeP: 0.5}), 1), c);
 	assert.equal(v.isDied(), false);
 	assert.equal(v.getHp(), 50);
 });
@@ -224,8 +223,8 @@ test('regression: revival healing scales with target maximum HP rather than cast
 		const revive = new FightSkill(
 			skill(98110, {
 				func: 'relife',
-				healRate: 0.3,
-				attack: { attack: 999 },
+
+				relifeP: 0.3, attack: { attack: 999 },
 				attackLevel: { attack: 5 },
 			}),
 			2,
@@ -278,7 +277,7 @@ test('regression: skill qualification selects living attack targets and dead rev
 	const { f, u, v } = pair(false, true);
 	v.die();
 	f.random = () => 0;
-	assert.equal(f.selectMainTarget(u, getDefaultSkill()).uid, 3);
+	assert.equal(f.selectMainTarget(u, getDefaultAttackSkill()).uid, 3);
 	assert.equal(f.selectMainTarget(u, new FightSkill(skill(8031, { func: 'relife' }), 1)), v);
 });
 
@@ -288,7 +287,7 @@ test('regression: rectangular maps find enemies across the full width', () => {
 	f.createMap(5, 2);
 	u.setPos(4);
 	v.setPos(4);
-	assert.equal(f.map.findDuiwei(u, getDefaultSkill()), v);
+	assert.equal(f.map.findDuiwei(u, getDefaultAttackSkill()), v);
 });
 
 // 测试：网游驱动初始化乱敏，宿主显式重排时使用新速度且不依赖速度事件参数。
@@ -524,6 +523,7 @@ test('skill reaction fields control actual healing reflection and counterattacks
 			u.attr.magic.final.bloodP = 0.2;
 			v.attr.magic.final.dbackP = 0.2;
 			v.attr.physic.fback = { ...v.attr.physic.fback, attack: 7, rand: 1 };
+			setCounterChance(v, 1);
 			initSkills([
 				{
 					...skill(9701),
@@ -569,7 +569,7 @@ test('regression: a dead player acts on the submitted command after an earlier a
 	loop.start();
 	const healer = addAlly(f);
 	initSkills([
-		skill(8050, { func: 'relife', healRate: 0.5, sel: { target: TargetSelectEnum.friend } }),
+		skill(8050, { func: 'relife',  sel: { target: TargetSelectEnum.friend } , relifeP: 0.5}),
 	]);
 	healer.addSkill(8050, 1);
 	u.attr.point.hp = 0;
@@ -610,7 +610,7 @@ test('regression: corpse guarding locks a dead enemy and attacks it if revived b
 	assert.equal(u.input?.target, v.uid);
 	const healer = f.getUnitById(3);
 	initSkills([
-		skill(8051, { func: 'relife', healRate: 0.5, sel: { target: TargetSelectEnum.friend } }),
+		skill(8051, { func: 'relife',  sel: { target: TargetSelectEnum.friend } , relifeP: 0.5}),
 	]);
 	healer.addSkill(8051, 1);
 	healer.input = { cmd: FightCmdEnum.skill, skill: 8051, target: v.uid };
